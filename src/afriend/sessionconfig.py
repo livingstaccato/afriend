@@ -21,12 +21,16 @@ from .reviewprofiles import (
     validate_safe_setting,
 )
 
-CONFIG_VERSION = 2
-_LEGACY_CONFIG_VERSION = 1
+CONFIG_VERSION = 3
+_LEGACY_CONFIG_VERSIONS = frozenset({1, 2})
 DEFAULT_PROFILE = "quick"
 MAX_SESSION_CONFIG_BYTES = 256 * 1024
-_TOP_LEVEL_KEYS = frozenset({"version", "default_profile", "profiles"})
-_LEGACY_TOP_LEVEL_KEYS = frozenset({"version", "default_profile"})
+REVIEW_CONTEXT_SOURCES = frozenset({"current-task", "recent-session"})
+REVIEW_CONTEXT_AMBIGUITIES = frozenset({"ask", "newest", "refuse"})
+_TOP_LEVEL_KEYS = frozenset({"version", "default_profile", "profiles", "review_context"})
+_V2_TOP_LEVEL_KEYS = frozenset({"version", "default_profile", "profiles"})
+_V1_TOP_LEVEL_KEYS = frozenset({"version", "default_profile"})
+_REVIEW_CONTEXT_KEYS = frozenset({"enabled", "sources", "automatic_combine", "ambiguity"})
 _NO_VALUE = object()
 
 
@@ -36,9 +40,20 @@ def _empty_profiles() -> Mapping[str, Mapping[str, object]]:
 
 
 @dataclass(frozen=True)
+class ReviewContextConfig:
+    """Safe host-only policy for combining explicit review evidence."""
+
+    enabled: bool = True
+    sources: str = "current-task"
+    automatic_combine: bool = True
+    ambiguity: str = "ask"
+
+
+@dataclass(frozen=True)
 class SessionConfig:
     default_profile: str = DEFAULT_PROFILE
     profiles: Mapping[str, Mapping[str, object]] = dataclass_field(default_factory=_empty_profiles)
+    review_context: ReviewContextConfig = dataclass_field(default_factory=ReviewContextConfig)
 
 
 def config_path(env: Mapping[str, str] | None = None) -> Path:
@@ -88,6 +103,46 @@ def _validate_profile_name(path: Path, name: object) -> str:
     ):
         raise _invalid(path, "profiles", f"invalid profile name {name!r}")
     return name
+
+
+def _validate_review_context(path: Path, value: object) -> ReviewContextConfig:
+    if not isinstance(value, dict):
+        raise _invalid(path, "review_context", "must be an object", got=value)
+    if set(value) != _REVIEW_CONTEXT_KEYS:
+        raise _invalid(
+            path,
+            "review_context keys",
+            f"must be exactly {sorted(_REVIEW_CONTEXT_KEYS)}",
+            got=sorted(value),
+        )
+    enabled = value["enabled"]
+    if type(enabled) is not bool:
+        raise _invalid(path, "review_context.enabled", "must be a boolean", got=enabled)
+    sources = value["sources"]
+    if not isinstance(sources, str) or sources not in REVIEW_CONTEXT_SOURCES:
+        raise _invalid(
+            path,
+            "review_context.sources",
+            f"must be one of {sorted(REVIEW_CONTEXT_SOURCES)}",
+            got=sources,
+        )
+    automatic_combine = value["automatic_combine"]
+    if type(automatic_combine) is not bool:
+        raise _invalid(
+            path,
+            "review_context.automatic_combine",
+            "must be a boolean",
+            got=automatic_combine,
+        )
+    ambiguity = value["ambiguity"]
+    if not isinstance(ambiguity, str) or ambiguity not in REVIEW_CONTEXT_AMBIGUITIES:
+        raise _invalid(
+            path,
+            "review_context.ambiguity",
+            f"must be one of {sorted(REVIEW_CONTEXT_AMBIGUITIES)}",
+            got=ambiguity,
+        )
+    return ReviewContextConfig(enabled, sources, automatic_combine, ambiguity)
 
 
 def _validated_profiles(path: Path, value: object) -> Mapping[str, Mapping[str, object]]:
@@ -170,7 +225,19 @@ def load(
     version = data.get("version")
     if isinstance(version, bool) or not isinstance(version, int):
         raise _invalid(path, "version", "must be an integer", got=version)
-    expected_keys = _LEGACY_TOP_LEVEL_KEYS if version == _LEGACY_CONFIG_VERSION else _TOP_LEVEL_KEYS
+    expected_keys_by_version = {
+        1: _V1_TOP_LEVEL_KEYS,
+        2: _V2_TOP_LEVEL_KEYS,
+        CONFIG_VERSION: _TOP_LEVEL_KEYS,
+    }
+    if version not in expected_keys_by_version:
+        raise _invalid(
+            path,
+            "version",
+            f"must be one of {sorted(expected_keys_by_version)}",
+            got=version,
+        )
+    expected_keys = expected_keys_by_version[version]
     if set(data) != expected_keys:
         raise _invalid(
             path,
@@ -178,17 +245,16 @@ def load(
             f"must be exactly {sorted(expected_keys)}",
             got=sorted(data),
         )
-    if version not in (_LEGACY_CONFIG_VERSION, CONFIG_VERSION):
-        raise _invalid(
-            path, "version", f"must be {_LEGACY_CONFIG_VERSION} or {CONFIG_VERSION}", got=version
-        )
-    profiles = (
-        MappingProxyType({})
-        if version == _LEGACY_CONFIG_VERSION
-        else _validated_profiles(path, data["profiles"])
+    profiles = MappingProxyType({}) if version == 1 else _validated_profiles(path, data["profiles"])
+    review_context = (
+        ReviewContextConfig()
+        if version in _LEGACY_CONFIG_VERSIONS
+        else _validate_review_context(path, data["review_context"])
     )
     all_names = known_names | set(profiles)
-    return SessionConfig(_validate_profile(path, data["default_profile"], all_names), profiles)
+    return SessionConfig(
+        _validate_profile(path, data["default_profile"], all_names), profiles, review_context
+    )
 
 
 def _payload(config: SessionConfig) -> dict[str, object]:
@@ -196,6 +262,12 @@ def _payload(config: SessionConfig) -> dict[str, object]:
         "version": CONFIG_VERSION,
         "default_profile": config.default_profile,
         "profiles": {name: dict(profile) for name, profile in config.profiles.items()},
+        "review_context": {
+            "enabled": config.review_context.enabled,
+            "sources": config.review_context.sources,
+            "automatic_combine": config.review_context.automatic_combine,
+            "ambiguity": config.review_context.ambiguity,
+        },
     }
 
 
@@ -276,7 +348,55 @@ def set_default(
     with _update_lock(env):
         config = load(known, env)
         validated = _validate_profile(path, profile, _known_names(known) | set(config.profiles))
-        _write_locked(SessionConfig(default_profile=validated, profiles=config.profiles), env)
+        _write_locked(
+            SessionConfig(
+                default_profile=validated,
+                profiles=config.profiles,
+                review_context=config.review_context,
+            ),
+            env,
+        )
+
+
+def set_review_context(
+    *,
+    enabled: bool | None = None,
+    sources: str | None = None,
+    automatic_combine: bool | None = None,
+    ambiguity: str | None = None,
+    env: Mapping[str, str] | None = None,
+) -> None:
+    """Persist only explicitly supplied review-context policy settings."""
+    changes = {
+        name: value
+        for name, value in {
+            "enabled": enabled,
+            "sources": sources,
+            "automatic_combine": automatic_combine,
+            "ambiguity": ambiguity,
+        }.items()
+        if value is not None
+    }
+    if not changes:
+        raise UsageError("at least one review-context setting is required")
+    with _update_lock(env):
+        config = load(env=env)
+        prospective = {
+            "enabled": config.review_context.enabled,
+            "sources": config.review_context.sources,
+            "automatic_combine": config.review_context.automatic_combine,
+            "ambiguity": config.review_context.ambiguity,
+            **changes,
+        }
+        review_context = _validate_review_context(config_path(env), prospective)
+        _write_locked(
+            SessionConfig(
+                default_profile=config.default_profile,
+                profiles=config.profiles,
+                review_context=review_context,
+            ),
+            env,
+        )
 
 
 def _update_profiles(
@@ -296,7 +416,11 @@ def _update_profiles(
         default = _validate_profile(
             path, config.default_profile, set(builtin_profile_names()) | set(checked)
         )
-        updated = SessionConfig(default_profile=default, profiles=checked)
+        updated = SessionConfig(
+            default_profile=default,
+            profiles=checked,
+            review_context=config.review_context,
+        )
         _write_locked(updated, env)
         return updated
 

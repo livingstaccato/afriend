@@ -328,6 +328,52 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="NAME",
         help="set the default built-in review profile in guided setup",
     )
+    review_context_enabled = init_p.add_mutually_exclusive_group()
+    review_context_enabled.add_argument(
+        "--enable-review-context",
+        action="store_const",
+        const=True,
+        default=None,
+        dest="review_context_enabled",
+        help="enable review-context resolution in guided setup",
+    )
+    review_context_enabled.add_argument(
+        "--disable-review-context",
+        action="store_const",
+        const=False,
+        default=None,
+        dest="review_context_enabled",
+        help="disable review-context resolution in guided setup",
+    )
+    init_p.add_argument(
+        "--review-context-sources",
+        default=None,
+        metavar="SOURCES",
+        help="set review-context source window in guided setup",
+    )
+    automatic_combine = init_p.add_mutually_exclusive_group()
+    automatic_combine.add_argument(
+        "--review-context-automatic-combine",
+        action="store_const",
+        const=True,
+        default=None,
+        dest="review_context_automatic_combine",
+        help="enable automatic review-context combining in guided setup",
+    )
+    automatic_combine.add_argument(
+        "--no-review-context-automatic-combine",
+        action="store_const",
+        const=False,
+        default=None,
+        dest="review_context_automatic_combine",
+        help="disable automatic review-context combining in guided setup",
+    )
+    init_p.add_argument(
+        "--review-context-ambiguity",
+        default=None,
+        metavar="POLICY",
+        help="set review-context ambiguity policy in guided setup",
+    )
     init_p.add_argument(
         "--enable-provider",
         action="append",

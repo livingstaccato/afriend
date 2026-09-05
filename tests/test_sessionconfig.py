@@ -10,7 +10,15 @@ from afriend.errors import UsageError
 def test_missing_session_config_defaults_to_quick(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
 
-    assert sessionconfig.load(reviewprofiles.names()).default_profile == "quick"
+    config = sessionconfig.load(reviewprofiles.names())
+
+    assert config.default_profile == "quick"
+    assert config.review_context == sessionconfig.ReviewContextConfig(
+        enabled=True,
+        sources="current-task",
+        automatic_combine=True,
+        ambiguity="ask",
+    )
     assert not sessionconfig.config_path().exists()
 
 
@@ -23,9 +31,104 @@ def test_set_default_round_trips_with_atomic_json_contract(tmp_path, monkeypatch
     assert json.loads(sessionconfig.config_path().read_text(encoding="utf-8")) == {
         "default_profile": "balanced",
         "profiles": {},
-        "version": 2,
+        "review_context": {
+            "ambiguity": "ask",
+            "automatic_combine": True,
+            "enabled": True,
+            "sources": "current-task",
+        },
+        "version": 3,
     }
     assert list(sessionconfig.config_path().parent.glob("*.tmp")) == []
+
+
+def test_review_context_partial_update_round_trips_and_preserves_session_settings(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    sessionconfig.create_profile("ci", "quick", {"timeout": 60})
+    sessionconfig.set_default("ci")
+
+    sessionconfig.set_review_context(sources="recent-session", ambiguity="newest")
+
+    config = sessionconfig.load()
+    assert config.default_profile == "ci"
+    assert config.profiles == {"ci": {"base": "quick", "timeout": 60}}
+    assert config.review_context == sessionconfig.ReviewContextConfig(
+        enabled=True,
+        sources="recent-session",
+        automatic_combine=True,
+        ambiguity="newest",
+    )
+    assert json.loads(sessionconfig.config_path().read_text(encoding="utf-8"))[
+        "review_context"
+    ] == {
+        "enabled": True,
+        "sources": "recent-session",
+        "automatic_combine": True,
+        "ambiguity": "newest",
+    }
+
+
+@pytest.mark.parametrize(
+    ("contents", "field"),
+    [
+        (
+            '{"version": 3, "default_profile": "quick", "profiles": {}, '
+            '"review_context": {"enabled": true, "sources": "current-task", '
+            '"automatic_combine": true, "ambiguity": "ask", "extra": true}}',
+            "review_context.*keys",
+        ),
+        (
+            '{"version": 3, "default_profile": "quick", "profiles": {}, '
+            '"review_context": {"enabled": 1, "sources": "current-task", '
+            '"automatic_combine": true, "ambiguity": "ask"}}',
+            "review_context.enabled.*boolean",
+        ),
+        (
+            '{"version": 3, "default_profile": "quick", "profiles": {}, '
+            '"review_context": {"enabled": true, "sources": "current-task", '
+            '"automatic_combine": 1, "ambiguity": "ask"}}',
+            "review_context.automatic_combine.*boolean",
+        ),
+        (
+            '{"version": 3, "default_profile": "quick", "profiles": {}, '
+            '"review_context": {"enabled": true, "sources": "all-history", '
+            '"automatic_combine": true, "ambiguity": "ask"}}',
+            "review_context.sources.*one of",
+        ),
+        (
+            '{"version": 3, "default_profile": "quick", "profiles": {}, '
+            '"review_context": {"enabled": true, "sources": "current-task", '
+            '"automatic_combine": false, "ambiguity": "silent"}}',
+            "review_context.ambiguity.*one of",
+        ),
+    ],
+)
+def test_review_context_schema_is_strict(tmp_path, monkeypatch, contents, field):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    path = sessionconfig.config_path()
+    path.parent.mkdir(parents=True)
+    path.write_text(contents, encoding="utf-8")
+
+    with pytest.raises(UsageError, match=field):
+        sessionconfig.load()
+
+
+@pytest.mark.parametrize(
+    "contents",
+    [
+        '{"version": 1, "default_profile": "balanced"}',
+        '{"version": 2, "default_profile": "quick", "profiles": {}}',
+    ],
+)
+def test_pre_review_context_session_schemas_load_with_safe_policy(tmp_path, monkeypatch, contents):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    path = sessionconfig.config_path()
+    path.parent.mkdir(parents=True)
+    path.write_text(contents, encoding="utf-8")
+
+    assert sessionconfig.load().review_context == sessionconfig.ReviewContextConfig()
 
 
 def test_set_default_refuses_an_unknown_profile(tmp_path, monkeypatch):
