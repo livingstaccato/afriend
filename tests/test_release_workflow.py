@@ -178,6 +178,8 @@ def test_github_release_uses_published_artifact_and_changelog():
     assert "CHANGELOG.md" in release
     assert "gh release create" in release
     assert "dist/*" in release
+    assert release.count('--title "${GITHUB_REF_NAME}"') == 2
+    assert 'title "afriend ${version}"' not in release
 
 
 def test_every_action_is_pinned_to_a_full_commit_sha():

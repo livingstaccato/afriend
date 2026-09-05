@@ -186,15 +186,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
           if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
             gh release edit "${GITHUB_REF_NAME}" \
-              --title "afriend ${version}" \
+              --title "${GITHUB_REF_NAME}" \
               --notes-file release-notes.md
             gh release upload "${GITHUB_REF_NAME}" dist/* --clobber
           else
             gh release create "${GITHUB_REF_NAME}" dist/* \
               --verify-tag \
-              --title "afriend ${version}" \
+              --title "${GITHUB_REF_NAME}" \
               --notes-file release-notes.md
           fi
