@@ -108,9 +108,9 @@ def _render_roster(
             "name": f"{cli}-{lens}",
             "cli": cli,
             "lens": lens,
-            # Same rule the discovery path uses: a CLI with no read-only mode
-            # of its own only ever sees the artifact.
-            "scope": "repo" if adapter.readonly_argv else "doc",
+            # Same rule the discovery path uses: a CLI with no verified
+            # read-only control only ever sees the artifact.
+            "scope": "repo" if adapter.is_readonly else "doc",
         }
         if assessed.model is not None:
             entry["model"] = assessed.model
@@ -124,7 +124,7 @@ def _render_roster(
                 "so this entry will not run until you name one. It has no "
                 "filesystem access of any kind, so it needs no confinement."
             )
-        if not adapter.readonly_argv and adapter.transport != "http":
+        if not adapter.is_readonly and adapter.transport != "http":
             # Only an adapter that SPAWNS something can be confined. An HTTP
             # friend is a bare model behind an endpoint with no subprocess and
             # no filesystem access at all -- telling the operator it runs

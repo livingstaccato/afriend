@@ -14,6 +14,7 @@ credential the operator has, which is worse than the gap it closes. agy is
 left out deliberately; provoking its re-authentication has cost a login before.
 """
 
+from dataclasses import replace
 from pathlib import Path
 
 from afriend.adapters import load_adapters
@@ -40,6 +41,60 @@ def test_codex_confined_startup_reads_only_its_state_and_global_skill_root():
     assert "~/.agents/skills" in codex.sandbox_read
     assert all(path != "~/.agents" for path in codex.sandbox_read)
     assert all(path != "~" for path in codex.sandbox_read)
+
+
+def test_codex_uses_outer_readonly_confinement_not_a_nested_sandbox():
+    codex = _registry()["codex"]
+
+    assert codex.is_readonly is True
+    assert codex.is_self_confining is False
+    assert codex.sandbox_readonly_workdir is True
+    assert codex.readonly_argv == ["--sandbox", "danger-full-access"]
+
+
+def test_codex_denial_argv_disables_builtin_remote_tools_too():
+    codex = _registry()["codex"]
+
+    for feature in (
+        "apps",
+        "plugins",
+        "browser_use",
+        "browser_use_external",
+        "computer_use",
+        "in_app_browser",
+        "standalone_web_search",
+    ):
+        assert ("--disable", feature) in zip(
+            codex.deny_external_tools_argv,
+            codex.deny_external_tools_argv[1:],
+            strict=False,
+        )
+
+
+def test_codex_dispatch_makes_the_outer_workdir_readonly(monkeypatch, tmp_path):
+    from afriend import dispatch, sandbox
+    from afriend.adapters import FriendSpec
+
+    captured = []
+    codex = replace(_registry()["codex"], binary="true", base_argv=[], schema_flag="")
+    spec = FriendSpec("codex-ops-0", "codex", "ops", None, None, "repo", 5)
+    prompt = tmp_path / "prompt.md"
+    prompt.write_text("probe")
+
+    monkeypatch.setattr(sandbox, "detect", lambda: sandbox.BWRAP)
+
+    def capture_wrap(argv, _mechanism, policy, _profile):
+        captured.append(policy)
+        return argv
+
+    monkeypatch.setattr(sandbox, "wrap", capture_wrap)
+    _spec, capability, outcome, _policy = dispatch._dispatch(
+        spec, tmp_path, {"codex": codex}, None, prompt, tmp_path / "schema.json"
+    )
+
+    assert captured and captured[0].workdir_writable is False
+    assert capability.readonly is True
+    assert outcome.os_confined is True
 
 
 def test_codex_declares_its_measured_sandbox_access_failure_marker():

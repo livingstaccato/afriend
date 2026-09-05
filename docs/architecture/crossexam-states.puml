@@ -51,7 +51,7 @@ C --> UP : below quorum
 C --> IN : below quorum: a\nrequired judge is missing
 
 UP --> C : a judge changed its mind
-UP --> DIS : same verdict set\ntwo rounds running
+UP --> DIS : same verdict set from\nworking judges, two rounds running
 IN --> C : the missing judge reported
 
 SUP --> [*] : successor **c-NNNN@2**\nenters the next round as *contested*
@@ -74,6 +74,10 @@ note right of UP
   downgraded to unproven first (§6.5),
   so nobody settles a claim by not
   having looked.
+
+  A sandbox access failure instead
+  leaves the claim incomplete: it was
+  not assessed, and cannot discard it.
 end note
 
 @enduml

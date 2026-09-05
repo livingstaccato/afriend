@@ -43,7 +43,7 @@ def confinement_downgrades(
         for s in specs
         if s.cli in registry and registry[s.cli].transport != "http" and s.cli != "fake"
     ]
-    unconfined = [s for s in execs if not registry[s.cli].readonly_argv]
+    unconfined = [s for s in execs if not registry[s.cli].is_readonly]
     env_withheld: list[str] = []
     if execs:
         # Per friend, from the same inputs dispatch uses. A name counts as

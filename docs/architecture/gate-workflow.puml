@@ -41,11 +41,12 @@ endif
 :exit 1 — names each blocking claim;<<#FFCDD2>>
 
 note right
-  Only settled-refuted, superseded
-  and discarded clear on their own.
-  settled-upheld does not: the judges
-  agreeing a defect is real is the
-  opposite of a pass.
+  Only settled-refuted clears on its
+  own. superseded is exempt because its
+  successor carries the question.
+  discarded and incomplete both need a
+  Resolution: no working assessment is
+  not a pass.
 end note
 
 repeat

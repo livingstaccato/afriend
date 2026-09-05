@@ -243,15 +243,14 @@ def _dispatch(
 ) -> _DispatchResult:
     """Build argv for one friend and return its exact adapter-local policy.
 
-    Capability is always the value build_argv computed and returned for
-    THIS call -- never re-derived from the finished argv or from
-    spec.scope. Re-deriving it (e.g. `readonly = spec.scope == "repo"`)
-    would silently drift from reality for an adapter like opencode, whose
-    readonly_argv is empty: even with scope="repo" requested, build_argv
-    never emits a readonly flag for it, so its real capability.readonly is
-    False. See adapters.build_argv's docstring for why the prompt itself
-    (untrusted document text) must never be allowed to influence this
-    value either -- another reason to trust only what build_argv reports.
+    Capability is always the adapter-declared, enforced control for THIS
+    call -- never re-derived from the finished argv or requested scope.
+    Re-deriving it (e.g. `readonly = spec.scope == "repo"`) would silently
+    drift from reality for an adapter like opencode, which has no read-only
+    control at all. Codex is the measured inverse: its outer read-only OS
+    policy is the enforcement even though its inner command argv is not a
+    read-only sandbox. The prompt itself is untrusted document text and must
+    never influence this value.
 
     `abort_event`, if given, is passed straight through to
     spawn.run_process so a signal handler in commands.run.cmd_run can stop
@@ -337,7 +336,14 @@ def _dispatch(
         argv, stdin_text, capability = build_argv(
             adapter, spec, prompt_file, schema_file, provider_policy
         )
-        check_denied_values(argv)
+        check_denied_values(
+            argv,
+            allow_outer_readonly=(
+                adapter.sandbox_readonly_workdir
+                and adapter.sandbox_confine
+                and not adapter.is_self_confining
+            ),
+        )
         envelope = adapter.envelope
         structured_output = adapter.structured_output
         # A friend whose binary is not installed is not sandboxed. Wrapping
@@ -368,7 +374,7 @@ def _dispatch(
         # confinement anyway, once someone has verified that CLI actually
         # runs under it -- see the field's comment for why this is per
         # adapter and not blanket.
-        self_confines = bool(adapter.readonly_argv)
+        self_confines = adapter.is_self_confining
         if binary_present and (not self_confines or adapter.sandbox_confine):
             # §12.2. Two ways in, and they carry different consequences.
             #
@@ -434,6 +440,7 @@ def _dispatch(
                     adapter.binary,
                     adapter.sandbox_read + inputs,
                     (*adapter.sandbox_write, str(private_root)),
+                    workdir_writable=not adapter.sandbox_readonly_workdir,
                 )
                 argv = sandbox.wrap(argv, mechanism, policy, prompt_file.with_suffix(".sandbox"))
                 os_confined = True
@@ -480,7 +487,7 @@ def _dispatch(
         # access `check_denied_values` exists to refuse. The escape hatch is
         # for "I need one more option", never for "run with no guardrails",
         # which is the line its own docstring already draws.
-        check_denied_values(argv)
+        check_denied_values(extra_args)
         capability = dataclasses.replace(capability, readonly=False)
     outcome = run_process(
         argv,

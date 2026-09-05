@@ -28,6 +28,16 @@ def test_denied_values_are_refused_when_they_arrive_via_extra_args():
         trust.check_denied_values(["codex", "exec", "--sandbox=workspace-write"])
 
 
+def test_outer_readonly_exception_is_limited_to_codex_danger_mode():
+    trust.check_denied_values(
+        ["codex", "exec", "--sandbox", "danger-full-access"], allow_outer_readonly=True
+    )
+    with pytest.raises(UsageError, match="grants write access"):
+        trust.check_denied_values(
+            ["codex", "exec", "--sandbox", "workspace-write"], allow_outer_readonly=True
+        )
+
+
 def test_an_ordinary_extra_arg_is_still_allowed():
     """The hatch must keep working: `codex -c`, `claude --settings` and
     `--add-dir` are exactly what it exists for."""

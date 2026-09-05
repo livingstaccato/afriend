@@ -2,7 +2,14 @@ name = "codex"
 binary = "codex"
 base_argv = ["exec", "--json"]
 prompt_mode = "stdin"
-readonly_argv = ["--sandbox", "read-only"]
+# Codex's own macOS command sandbox cannot nest inside afriend's Seatbelt
+# profile: a local shell read then fails with `sandbox_apply: Operation not
+# permitted`. The outer profile therefore supplies the read-only checkout;
+# Codex runs its command tool without an inner sandbox, but is refused when
+# the outer mechanism is unavailable.
+readonly = true
+self_confines = false
+readonly_argv = ["--sandbox", "danger-full-access"]
 schema_flag = "--output-schema"
 model_flag = "--model"
 internal_timeout_flag = ""
@@ -10,13 +17,45 @@ effort_kind = "native"
 # Authority evidence captured from installed codex-cli 0.150.1 on 2026-08-30:
 # `codex exec --help` documents `--ignore-user-config` and repeatable
 # `--disable <FEATURE>`; the exact option-position invocation
-# `codex exec --ignore-user-config --disable apps --disable plugins --help`
-# parses successfully. These options are emitted before any prompt.
+# `codex exec --ignore-user-config --disable apps --disable plugins --disable
+# browser_use --disable browser_use_external --disable computer_use --disable
+# in_app_browser --disable standalone_web_search --help` parses successfully.
+# These options are emitted before any prompt. The browser/computer/search
+# features are built-in remote tools, not plugin-provided integrations: a
+# confined probe that disabled only apps/plugins used web search and reported
+# the public release's VERSION instead of the checkout's. They must be denied
+# under the same external-tool contract.
 external_tools = "deny-argv"
-deny_external_tools_argv = ["--ignore-user-config", "--disable", "apps", "--disable", "plugins"]
-deny_external_tools_probe_argv = ["exec", "--ignore-user-config", "--disable", "apps", "--disable", "plugins", "--help"]
+deny_external_tools_argv = [
+  "--ignore-user-config",
+  "--disable", "apps",
+  "--disable", "plugins",
+  "--disable", "browser_use",
+  "--disable", "browser_use_external",
+  "--disable", "computer_use",
+  "--disable", "in_app_browser",
+  "--disable", "standalone_web_search",
+]
+deny_external_tools_probe_argv = [
+  "exec",
+  "--ignore-user-config",
+  "--disable", "apps",
+  "--disable", "plugins",
+  "--disable", "browser_use",
+  "--disable", "browser_use_external",
+  "--disable", "computer_use",
+  "--disable", "in_app_browser",
+  "--disable", "standalone_web_search",
+  "--help",
+]
 deny_external_tools_probe_markers = ["--ignore-user-config", "--disable"]
-external_tool_sources = ["user config", "apps", "plugins", "MCP servers"]
+external_tool_sources = [
+  "user config",
+  "apps",
+  "plugins",
+  "MCP servers",
+  "built-in browser, computer, and web search tools",
+]
 # --json emits an NDJSON event stream, not a single object. Captured from
 # codex 0.149.0 on 2026-08-23: thread.started, turn.started, item.completed,
 # turn.completed -- with the model's answer in the item.completed event whose
@@ -108,6 +147,7 @@ remediation = "run `codex login`, or set CODEX_HOME to a directory holding valid
 # one login.
 [sandbox]
 os_confine = true
+readonly_workdir = true
 # Codex 0.150.1 scans this global root during an actual turn even with
 # --ignore-user-config. This narrow, read-only allowance is the measured
 # startup dependency for a confined repository review; it does not grant the

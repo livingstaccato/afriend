@@ -245,6 +245,12 @@ class SandboxPolicy:
     workdir: Path
     read_paths: tuple[Path, ...] = ()
     write_paths: tuple[Path, ...] = field(default=())
+    # Most confined providers retain their private isolation directory as a
+    # writable scratch space. Codex is the measured exception: its inner
+    # macOS command sandbox cannot nest under Seatbelt, so this outer policy
+    # makes the review directory itself read-only and private state lives in
+    # a separately granted sibling directory.
+    workdir_writable: bool = True
 
 
 def detect(
@@ -292,8 +298,10 @@ def darwin_profile(policy: SandboxPolicy) -> str:
         *(f"(subpath {_sbpl_string(p)})" for p in _DARWIN_SYSTEM_READ if p != "/"),
         *(f"(subpath {_sbpl_string(p)})" for p in policy.read_paths),
     ]
+    if not policy.workdir_writable:
+        reads.append(f"(subpath {_sbpl_string(policy.workdir)})")
     writes = [
-        f"(subpath {_sbpl_string(policy.workdir)})",
+        *([f"(subpath {_sbpl_string(policy.workdir)})"] if policy.workdir_writable else []),
         *(f"(subpath {_sbpl_string(p)})" for p in policy.write_paths),
     ]
     lines = [
@@ -325,7 +333,7 @@ def darwin_profile(policy: SandboxPolicy) -> str:
         "; Read-only: system paths, plus this CLI's own config and binary.",
         "(allow file-read* " + " ".join(reads) + ")",
         "",
-        "; Read-write: this friend's isolation directory and nothing else.",
+        "; Read-write: only explicitly declared private state paths.",
         "(allow file-read* file-write* " + " ".join(writes) + ")",
         "",
         "; Scratch space every runtime expects.",
@@ -364,7 +372,8 @@ def linux_argv(policy: SandboxPolicy, root: Path = Path("/")) -> list[str]:
     argv.extend(_resolver_binds(root))
     for read_path in policy.read_paths:
         argv += ["--ro-bind-try", str(read_path), str(read_path)]
-    argv += ["--bind", str(policy.workdir), str(policy.workdir)]
+    workdir_bind = "--bind" if policy.workdir_writable else "--ro-bind"
+    argv += [workdir_bind, str(policy.workdir), str(policy.workdir)]
     for write_path in policy.write_paths:
         argv += ["--bind-try", str(write_path), str(write_path)]
     argv.append("--")
@@ -419,6 +428,7 @@ def policy_for(
     binary: str | None,
     adapter_read: tuple[str, ...],
     adapter_write: tuple[str, ...] = (),
+    workdir_writable: bool = True,
 ) -> SandboxPolicy:
     """Build a policy for one friend.
 
@@ -491,4 +501,9 @@ def policy_for(
     # working directory. This was the one path the module exempted from its
     # own rule, and a crossexam of this file said so before it was hit.
     workdir = Path(workdir).resolve()
-    return SandboxPolicy(workdir=workdir, read_paths=tuple(reads), write_paths=tuple(writes))
+    return SandboxPolicy(
+        workdir=workdir,
+        read_paths=tuple(reads),
+        write_paths=tuple(writes),
+        workdir_writable=workdir_writable,
+    )

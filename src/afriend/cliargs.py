@@ -485,13 +485,13 @@ def _specs_from_flags(
                 raise UsageError(f"invalid model {model!r}: must match {MODEL_RE.pattern!r}")
             if adapter.transport == "http":
                 # An HTTP friend is a bare model behind an endpoint: no
-                # filesystem access to constrain, so no readonly flag exists
-                # to emit and repo scope would be a claim about enforcement
-                # that never happened. Doc scope always -- containment comes
+                # filesystem access to constrain, so no verified readonly
+                # control exists and repo scope would be a claim about
+                # enforcement that never happened. Doc scope always -- containment comes
                 # from handing it only the artifact text.
                 scope = "doc"
             else:
-                scope = "repo" if adapter.readonly_argv else "doc"
+                scope = "repo" if adapter.is_readonly else "doc"
         name = f"{cli}-{lens}-{index}"
         validate_friend_name(name)
         specs.append(

@@ -89,8 +89,8 @@ partition "Dispatch — parallel, one thread per friend" {
   end note
   :re-enforce this provider's authority at dispatch;
   :build argv and filtered child environment;
-  :separately apply adapter read-only flags\nand, where required, OS filesystem\nconfinement as secondary controls; Linux\nbwrap exposes a safe resolver target\nread-only when /etc/resolv.conf resolves outside /etc;
-  :capability = what was actually emitted,\nnever re-derived from requested scope;
+  :apply adapter read-only controls and,\nwhere declared, an outer read-only OS\npolicy; Codex uses the outer policy because\nmacOS command sandboxes cannot nest; Linux\nbwrap exposes a safe resolver target\nread-only when /etc/resolv.conf resolves outside /etc;
+  :capability = the declared, enforced\ncontrols — never re-derived from scope;
   :spawn in its own process group\ndeadline = ""--timeout"" + 60s grace;
   if (timed out / aborted?) then (yes)
     :SIGTERM the group, then SIGKILL;<<#FFCDD2>>

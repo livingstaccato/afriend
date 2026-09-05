@@ -84,10 +84,9 @@ amenders.
 | `incomplete` | Below quorum because a required judge never reported, including a sandbox access failure | no |
 | `discarded` | `unproven` twice running with an unchanged verdict set from working judges | yes |
 
-A raw, adapter-declared sandbox denial means **not assessed — judge access
-failure**. It leaves the affected claim `incomplete`, blocks a gate, and says
-nothing about the claim's merit. `discarded` is only possible after working
-judges repeatedly had access to the evidence.
+A raw, adapter-declared sandbox denial means **not assessed — judge access failure**.
+It leaves the affected claim `incomplete`, blocks a gate, and says
+nothing about the claim's merit. `discarded` is only possible after working judges repeatedly had access to the evidence.
 
 ### Ceilings
 
@@ -367,7 +366,8 @@ exits `3` if no provider is ready.
 
 External tools are denied by default. The denial is distinct from local
 read-only/OS confinement and covers provider-managed tools, plugins, apps,
-and MCP servers. A provider that cannot enforce denial is `policy-blocked`
+MCP servers, and built-in browser, computer, and web-search tools. A provider
+that cannot enforce denial is `policy-blocked`
 unless the operator explicitly passes the repeatable, required-value
 `--allow-external-tools=PROVIDER` for that run. Use
 `--allow-external-tools=*` only for an explicit global grant. Unknown,

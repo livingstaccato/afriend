@@ -23,8 +23,9 @@ set-model ollama MODEL` or name it in an explicit `--friend` value.
 ## A provider is policy-blocked for external tools
 
 External tools are denied by default, independently of the local sandbox. An
-adapter must neutralize inherited provider tools, plugins, apps, and MCP
-servers; when its installed CLI cannot enforce that strategy, readiness is
+adapter must neutralize inherited provider tools, plugins, apps, MCP servers,
+and built-in browser, computer, and web-search tools; when its installed CLI
+cannot enforce that strategy, readiness is
 `policy-blocked` and the process is not launched. `afriend doctor` names the
 denial limitation.
 
@@ -195,7 +196,20 @@ sandbox problem.
 
 The exact policy each friend ran under is written next to its prompt as
 `round-N/<friend>.sandbox`, so you can see precisely what it was allowed.
-Add the missing path to that adapter's `[sandbox] read` list.
+For a built-in adapter, report the exact denied path and diagnostic rather
+than broadly relaxing the policy. The Codex adapter deliberately allows its
+measured `~/.agents/skills` startup root read-only during a confined review:
+recent Codex CLIs scan that root even with user configuration ignored. Apps,
+plugins, and Codex's built-in browser, computer, and web-search features
+remain disabled, and the rest of `~/.agents` remains unavailable.
+Codex's macOS command sandbox cannot nest inside afriend's outer Seatbelt
+profile, so the adapter uses that outer profile to make the isolated review
+directory read-only. It is refused if that OS profile is unavailable; its
+`danger-full-access` command mode never grants write access outside the
+outer policy.
+If that startup access still fails, afriend records the affected claims as
+**not assessed — judge access failure** and leaves the review incomplete; it
+never treats that failure as evidence against the claims.
 
 **What the sandbox does not protect against** (§12.3): a friend needs network
 access to reach its model and its own credentials to authenticate, so both

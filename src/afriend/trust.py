@@ -71,7 +71,14 @@ def validate_roster_entry(entry: dict[str, Any]) -> dict[str, Any]:
     return entry
 
 
-def check_denied_values(argv: list[str]) -> None:
+def check_denied_values(argv: list[str], *, allow_outer_readonly: bool = False) -> None:
+    """Reject argv values that weaken confinement.
+
+    `allow_outer_readonly` is an adapter-only exception for Codex: its nested
+    command sandbox cannot run inside afriend's read-only OS policy, so the
+    adapter emits `danger-full-access` only while that outer policy binds the
+    review workdir read-only. It is never used to inspect operator extra args.
+    """
     for index, token in enumerate(argv):
         # A real CLI (e.g. codex, built on clap) accepts both `--flag value`
         # and `--flag=value`. Partitioning once up front and checking the
@@ -83,7 +90,9 @@ def check_denied_values(argv: list[str]) -> None:
             raise UsageError(f"refusing to run: {flag} disables the sandbox this tool relies on")
         if flag in ("-s", "--sandbox"):
             value = inline_value or (argv[index + 1] if index + 1 < len(argv) else "")
-            if value in DENIED_SANDBOX_VALUES:
+            if value in DENIED_SANDBOX_VALUES and not (
+                allow_outer_readonly and value == "danger-full-access"
+            ):
                 raise UsageError(f"refusing to run: sandbox mode {value!r} grants write access")
         if flag == "--permission-mode":
             value = inline_value or (argv[index + 1] if index + 1 < len(argv) else "")

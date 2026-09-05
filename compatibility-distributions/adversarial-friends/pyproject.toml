@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "adversarial-friends"
-version = "0.6.1"
+version = "0.6.2"
 description = "Compatibility package for afriend"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
-dependencies = ["afriend==0.6.1"]
+dependencies = ["afriend==0.6.2"]
 
 [tool.setuptools]
 packages = []

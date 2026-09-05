@@ -84,6 +84,23 @@ def test_the_workdir_is_the_only_writable_place(policy):
     assert str(policy.workdir) in write_line
 
 
+def test_a_readonly_workdir_is_readable_but_not_listed_as_writable(tmp_path):
+    workdir = tmp_path / "iso"
+    policy = sandbox.SandboxPolicy(workdir=workdir, workdir_writable=False)
+    profile = sandbox.darwin_profile(policy)
+    read_line = next(ln for ln in profile.splitlines() if ln.startswith("(allow file-read* "))
+
+    assert str(workdir) in read_line
+    assert str(workdir) not in "\n".join(ln for ln in profile.splitlines() if "file-write*" in ln)
+
+
+def test_bwrap_can_bind_a_workdir_readonly(policy):
+    argv = sandbox.linux_argv(sandbox.SandboxPolicy(workdir=policy.workdir, workdir_writable=False))
+    index = argv.index(str(policy.workdir))
+
+    assert argv[index - 1] == "--ro-bind"
+
+
 def test_network_is_allowed(policy):
     """§12.3: a friend that cannot reach its model is not a friend. The limit
     is stated rather than solved."""

@@ -168,8 +168,8 @@ def test_prompt_text_cannot_forge_a_capability(registry, tmp_path):
     assert cap.readonly is False
 
 
-def test_doc_scope_still_engages_the_cli_readonly_mode(registry, files):
-    """Doc scope must NOT drop readonly_argv.
+def test_doc_scope_keeps_codex_readonly_under_the_outer_policy(registry, files):
+    """Codex relies on the outer read-only policy in every scope.
 
     This asserted the opposite until doc scope was actually exercised. The
     reasoning for omitting it -- "doc scope has no repo to protect" -- skips
@@ -177,10 +177,10 @@ def test_doc_scope_still_engages_the_cli_readonly_mode(registry, files):
     readonly-capable CLI gets no OS confinement either. Omitting it left the
     friend restrained by nothing.
 
-    Measured, not inferred: real codex in a bare directory with no --sandbox
-    flag, asked to write outside its working directory, did it on the first
-    attempt. With the flag it refuses -- "the filesystem sandbox is read-only
-    and the target is outside the permitted workspace".
+    Codex's inner macOS sandbox cannot nest under afriend's OS policy, so its
+    command tool receives `danger-full-access` while the outer policy binds
+    the isolation directory read-only. That outer policy applies to doc and
+    repo scope alike, and dispatch refuses Codex when it is unavailable.
     """
     prompt, schema = files
     argv, _, cap = _build_argv(
@@ -189,7 +189,7 @@ def test_doc_scope_still_engages_the_cli_readonly_mode(registry, files):
         prompt_file=prompt,
         schema_file=schema,
     )
-    assert argv_contains_sequence(argv, ["--sandbox", "read-only"])
+    assert argv_contains_sequence(argv, ["--sandbox", "danger-full-access"])
     assert cap.readonly is True
 
 
@@ -291,6 +291,22 @@ def test_missing_adapter_directory_raises(tmp_path):
 def test_adapter_missing_name_raises(tmp_path):
     (tmp_path / "broken.toml").write_text('binary = "x"\n')
     with pytest.raises(UsageError):
+        adapters.load_adapters(tmp_path)
+
+
+def test_outer_readonly_workdir_requires_outer_confinement(tmp_path):
+    """The nested-sandbox exception cannot be declared without its guard."""
+    (tmp_path / "unsafe.toml").write_text(
+        'name = "unsafe"\n'
+        'binary = "unsafe"\n'
+        "readonly = true\n"
+        "self_confines = true\n"
+        "[sandbox]\n"
+        "os_confine = true\n"
+        "readonly_workdir = true\n"
+    )
+
+    with pytest.raises(UsageError, match="readonly_workdir"):
         adapters.load_adapters(tmp_path)
 
 

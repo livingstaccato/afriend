@@ -10,7 +10,7 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 [![Dependencies](https://img.shields.io/badge/runtime%20deps-none-brightgreen)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-2202-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2211-brightgreen)](tests/)
 
 It automates a workflow you may already do by hand: run a review, paste the
 findings into a different model, ask whether they hold up, carry the argument
@@ -254,8 +254,8 @@ Every friend gets its **own** prompt built from its **own** lens, runs in its
 |---|---|
 | 🔍 **Resolve** | Discover agent CLIs on `PATH`, round-robin a lens to each |
 | ✍️ **Prompt** | Build a per-friend prompt: shared contract header + that friend's lens prose + the artifact |
-| 🔒 **Isolate** | Each friend's effective scope selects its isolation directory: repo scope gets a private `git worktree` from one shared snapshot, while doc scope gets an artifact-only directory. Adapter read-only flags and, where required, OS confinement (`sandbox-exec` / `bwrap`) are then applied separately as a second line of defense — or the friend is refused |
-| 🛂 **Deny remote authority** | External tools are denied by default. An adapter that cannot neutralize provider-managed tools, plugins, apps, or MCP servers is `policy-blocked` unless `--allow-external-tools=PROVIDER` explicitly opts that provider in for this run |
+| 🔒 **Isolate** | Each friend's effective scope selects its isolation directory: repo scope gets a private `git worktree` from one shared snapshot, while doc scope gets an artifact-only directory. Adapter read-only controls and, where required, OS confinement (`sandbox-exec` / `bwrap`) are then applied separately — or the friend is refused. Codex uses the outer OS policy as its read-only control because macOS cannot nest its command sandbox inside that policy |
+| 🛂 **Deny remote authority** | External tools are denied by default. An adapter that cannot neutralize provider-managed tools, plugins, apps, MCP servers, or built-in browser/computer/web-search tools is `policy-blocked` unless `--allow-external-tools=PROVIDER` explicitly opts that provider in for this run |
 | 🧰 **Stage harnesses** | Adapter-owned workspace assets are copied into each isolated run workspace. Antigravity receives the controlled `afriend-reviewer` agent selected with `--agent`, `--disable-slash-commands`, `--mode plan`, and `--sandbox` |
 | ⚡ **Dispatch** | Parallel, one thread per friend, each in its own process group with a kill deadline of `--timeout + 60s` |
 | 🧩 **Normalize** | Unwrap the CLI's own JSON envelope, strip ANSI, recover the payload, validate against the claim schema |

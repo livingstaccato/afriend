@@ -136,7 +136,7 @@ def resolve(
                 # UsageError directly instead of going through this branch
                 # at all, for exactly this reason.
                 raise NoFriendsError(f"unknown cli in roster: {entry['cli']!r}")
-            default_scope = "repo" if adapter.readonly_argv else NO_READONLY_DEFAULT_SCOPE
+            default_scope = "repo" if adapter.is_readonly else NO_READONLY_DEFAULT_SCOPE
             override_specs.append(
                 FriendSpec(
                     name=name,
@@ -204,7 +204,7 @@ def resolve(
     specs = []
     for index, cli in enumerate(available):
         adapter = registry[cli]
-        scope = "repo" if adapter.readonly_argv else NO_READONLY_DEFAULT_SCOPE
+        scope = "repo" if adapter.is_readonly else NO_READONLY_DEFAULT_SCOPE
         specs.append(
             FriendSpec(
                 name=f"{cli}-{lenses[index % len(lenses)]}",

@@ -642,12 +642,12 @@ def test_live_docs_describe_scope_based_isolation_and_exec_environment_filtering
 
     assert "each friend's effective scope selects its isolation directory" in readme
     assert "doc scope gets an artifact-only directory" in readme
-    assert "adapter read-only flags and, where required, os confinement" in readme
+    assert "adapter read-only controls and, where required, os confinement" in readme
     assert "every executable friend process" in modes
     assert "effective friend scope is repo?" in diagram
     assert "artifact-only directory" in diagram
-    assert "separately apply adapter read-only flags" in diagram
-    assert "os filesystem confinement as secondary controls" in diagram
+    assert "apply adapter read-only controls" in diagram
+    assert "outer read-only os policy" in diagram
     assert "adapter has a real read-only mode?" not in diagram
 
 

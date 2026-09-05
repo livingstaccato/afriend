@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.6.2
+
+A repository-review access correction for confined Codex friends.
+
+- Allows only Codex's measured `~/.agents/skills` startup dependency as a
+  read-only sandbox path; user configuration stays ignored, and apps and
+  plugins plus built-in browser, computer, and web-search features stay
+  disabled.
+- Uses the outer read-only OS policy for Codex's review directory because its
+  macOS command sandbox cannot nest inside that policy. Codex is refused when
+  the outer policy is unavailable; this does not grant it a writable review
+  checkout.
+- Classifies a declared raw sandbox access diagnostic as **not assessed —
+  judge access failure**. Affected claims remain incomplete and gate-blocking;
+  they cannot become discarded merely because the judge could not read the
+  review context.
+- Aligns the current skill guidance and claim-state/gate diagrams with that
+  contract.
+
 ## 0.6.1
 
 `afriend` is the canonical project identity on GitHub and PyPI.

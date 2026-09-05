@@ -113,6 +113,13 @@ class Adapter:
     # when redirection has failed.
     sandbox_write: tuple[str, ...] = ()
     sandbox_access_failure_stderr: tuple[str, ...] = ()
+    # A provider can rely on the outer OS policy for read-only enforcement
+    # when its own command sandbox cannot nest inside that policy. `None`
+    # retains the established declaration-by-argv behavior for adapters and
+    # test fixtures that predate this explicit split.
+    readonly: bool | None = None
+    self_confines: bool | None = None
+    sandbox_readonly_workdir: bool = False
     # Opt in to OS confinement even though this CLI has a read-only mode of
     # its own. A read-only flag stops a friend WRITING; it does nothing about
     # what it can read, so a self-confining CLI can still open ~/.ssh. The
@@ -150,6 +157,16 @@ class Adapter:
     deny_external_tools_probe_markers: tuple[str, ...] = ()
     workspace_assets: tuple[WorkspaceAsset, ...] = ()
 
+    @property
+    def is_readonly(self) -> bool:
+        """Whether the adapter's complete dispatch policy prevents writes."""
+        return bool(self.readonly_argv) if self.readonly is None else self.readonly
+
+    @property
+    def is_self_confining(self) -> bool:
+        """Whether the provider's own argv provides the write restriction."""
+        return bool(self.readonly_argv) if self.self_confines is None else self.self_confines
+
 
 @dataclass(frozen=True)
 class Capability:
@@ -185,7 +202,7 @@ def capability_from_authority(adapter: Adapter, authority: AuthorityDecision) ->
     """Project adapter declarations and an enforced decision into audit capability."""
     return Capability(
         schema=bool(adapter.schema_flag),
-        readonly=bool(adapter.readonly_argv),
+        readonly=adapter.is_readonly,
         effort=adapter.effort_kind,
         external_tools=authority.status,
         external_tool_sources=authority.sources,
@@ -235,7 +252,10 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
         tool_sources = data.get("external_tool_sources", [])
         probe_argv = data.get("deny_external_tools_probe_argv", [])
         probe_markers = data.get("deny_external_tools_probe_markers", [])
-        access_failure_stderr = data.get("sandbox", {}).get("access_failure_stderr", [])
+        sandbox_data = data.get("sandbox", {})
+        if not isinstance(sandbox_data, dict):
+            raise UsageError(f"{path}: sandbox must be a table")
+        access_failure_stderr = sandbox_data.get("access_failure_stderr", [])
         transport = data.get("transport", "exec")
         workspace_assets = parse_workspace_assets(
             data.get("workspace_assets", []), transport=transport
@@ -268,6 +288,29 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
             for value in access_failure_stderr
         ):
             raise UsageError(f"{path}: sandbox access failure markers must be nonempty strings")
+        readonly = data.get("readonly")
+        self_confines = data.get("self_confines")
+        sandbox_confine = sandbox_data.get("os_confine", False)
+        readonly_workdir = sandbox_data.get("readonly_workdir", False)
+        if readonly is not None and not isinstance(readonly, bool):
+            raise UsageError(f"{path}: readonly must be a boolean")
+        if self_confines is not None and not isinstance(self_confines, bool):
+            raise UsageError(f"{path}: self_confines must be a boolean")
+        if not isinstance(sandbox_confine, bool):
+            raise UsageError(f"{path}: sandbox.os_confine must be a boolean")
+        if not isinstance(readonly_workdir, bool):
+            raise UsageError(f"{path}: sandbox.readonly_workdir must be a boolean")
+        # This is the sole route that permits an adapter's otherwise-denied
+        # `--sandbox danger-full-access`: the workdir is protected by the
+        # outer OS policy instead. Require every leg explicitly so a custom
+        # adapter cannot claim the exception while skipping that policy.
+        if readonly_workdir and not (
+            sandbox_confine and readonly is True and self_confines is False
+        ):
+            raise UsageError(
+                f"{path}: sandbox.readonly_workdir requires os_confine=true, "
+                "readonly=true, and self_confines=false"
+            )
         if external_tools == "deny-argv" and not deny_argv:
             raise UsageError(
                 f"{path}: external_tools='deny-argv' requires deny_external_tools_argv"
@@ -301,10 +344,13 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
             effort={k: list(v) for k, v in data.get("effort", {}).items()},
             transport=transport,
             endpoint=data.get("endpoint", ""),
-            sandbox_read=tuple(data.get("sandbox", {}).get("read", [])),
-            sandbox_write=tuple(data.get("sandbox", {}).get("write", [])),
+            sandbox_read=tuple(sandbox_data.get("read", [])),
+            sandbox_write=tuple(sandbox_data.get("write", [])),
             sandbox_access_failure_stderr=tuple(access_failure_stderr),
-            sandbox_confine=bool(data.get("sandbox", {}).get("os_confine", False)),
+            sandbox_confine=sandbox_confine,
+            readonly=readonly,
+            self_confines=self_confines,
+            sandbox_readonly_workdir=readonly_workdir,
             auth=parse_auth(data.get("auth")),
             env_pass=tuple(data.get("env", {}).get("pass", [])),
             doc_argv=tuple(data.get("doc_argv", [])),

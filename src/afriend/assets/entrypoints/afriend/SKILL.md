@@ -187,7 +187,8 @@ model), `unavailable`, `disabled`, `host-excluded`, and `policy-blocked`.
 
 External tools are denied by default, separately from filesystem/process
 confinement. Adapters must neutralize provider-managed tools, plugins, apps,
-and MCP servers or become `policy-blocked`. The required-value flag is
+MCP servers, and built-in browser, computer, and web-search tools or become
+`policy-blocked`. The required-value flag is
 repeatable: use `--allow-external-tools=PROVIDER` for a provider or the
 explicit global grant `--allow-external-tools=*`. Unknown, duplicate, or
 mixed `*` plus provider grants are invalid, as is the old valueless form.
@@ -353,10 +354,12 @@ claim was noise.** It is worth one line in your summary, not silence — a
 finding that two independent models rejected is still information about where
 the document reads as alarming.
 
-**`unproven` and `discarded` usually mean the evidence could not be found.**
-Often that is a claim citing a path or line that does not exist. Check the
-claim's `evidence` field before treating it as a real defect that nobody
-could confirm.
+**`unproven` and `discarded` describe an evidence result from working
+judges.** Often that is a claim citing a path or line that does not exist.
+Check the claim's `evidence` field before treating it as a real defect that
+nobody could confirm. A raw sandbox access failure is different: the affected
+claim is **not assessed — judge access failure**, remains `incomplete`, and
+does not speak to the claim's merit.
 
 **A claim with no judges is not a passed claim.** If every friend co-authored
 it, nobody independent was left to judge, and it lands `unproven`. The
