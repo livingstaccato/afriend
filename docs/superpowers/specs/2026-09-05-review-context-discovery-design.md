@@ -65,6 +65,42 @@ Every roster, warning, and troubleshooting message must use this conditional
 language. A provider-scoped external-tool grant authorizes that uncertainty
 for only the named run; it does not change provider defaults.
 
+## Repository review-access contract
+
+A repository-scoped review is a promise that every admitted repository-scoped
+friend can inspect the frozen checkout it is asked to judge. Launching a
+provider successfully is not evidence that this promise was kept.
+
+Before dispatch, afriend must validate the effective review boundary for each
+selected friend: its own unavoidable startup reads, its private isolation
+directory, and the repository snapshot must all be readable under the
+combined outer OS confinement and provider sandbox. The check must use the
+same executable, environment allowlist, confinement mechanism, and working
+directory that the review would use. A probe that merely parses `--help` is
+not sufficient when the provider performs additional startup work for an
+actual turn.
+
+The validation is fail-closed for crossexam, gate, and loop: a friend that
+cannot start and read the frozen checkout is not admitted as a judge, and a
+run that then lacks the required independent judges refuses before semantic
+review dispatch. `report` may continue with the usable roster, but must state
+the omitted friend and access reason prominently.
+
+Runtime failures remain possible after preflight. If an otherwise admitted
+friend reports or demonstrates a sandbox/permission access failure while
+reviewing, the affected claims are **not assessed — judge access failure**.
+They are incomplete, block a gate, and are never transformed into `unproven`
+or terminal `discarded`. `discarded` is reserved for repeated, unchanged
+attempts by eligible judges that had working access to the evidence; it says
+neither that a claim lacks merit nor that a tool failure settled it.
+
+For Codex on macOS, the compatibility allowance must be derived from an
+identified, unavoidable startup path rather than granting a broad home or
+agents directory. The recorded sandbox profile remains auditable, and the
+provider still receives its inner `--sandbox read-only` mode and disabled
+apps/plugins. Any necessary path grant is read-only and scoped to the
+provider's actual startup dependency.
+
 ## Verification
 
 Tests will prove that:
@@ -80,6 +116,14 @@ Tests will prove that:
   implementation with its plan;
 - uncontrolled-provider prose says integrations may remain available and
   never claims they are enabled.
+- a repository-scoped friend that cannot complete its real startup or read its
+  isolated snapshot is rejected before a crossexam/gate/loop spends review
+  calls;
+- an access failure discovered during judging leaves its claims explicitly
+  incomplete and "not assessed", never discarded;
+- the macOS Codex confinement policy admits only the measured startup path
+  required for a real review, while still denying unrelated home-directory
+  reads and preserving Codex's own read-only mode.
 
 The existing plugin-sync, documentation, diagram, and distribution checks
 remain required after updating the canonical skill assets and their projection.
