@@ -108,7 +108,11 @@ remediation = "run `codex login`, or set CODEX_HOME to a directory holding valid
 # one login.
 [sandbox]
 os_confine = true
-read = ["~/.codex"]
+# Codex 0.150.1 scans this global root during an actual turn even with
+# --ignore-user-config. This narrow, read-only allowance is the measured
+# startup dependency for a confined repository review; it does not grant the
+# rest of ~/.agents. Apps and plugins remain disabled by argv above.
+read = ["~/.codex", "~/.agents/skills"]
 # codex writes session state, logs and its own sqlite files under CODEX_HOME
 # on every run, and exits if it cannot.
 write = ["~/.codex"]

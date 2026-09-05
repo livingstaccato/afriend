@@ -33,6 +33,15 @@ def test_codex_opts_in_and_declares_what_it_needs():
     assert any("codex" in p for p in codex.sandbox_write)
 
 
+def test_codex_confined_startup_reads_only_its_state_and_global_skill_root():
+    codex = _registry()["codex"]
+
+    assert "~/.codex" in codex.sandbox_read
+    assert "~/.agents/skills" in codex.sandbox_read
+    assert all(path != "~/.agents" for path in codex.sandbox_read)
+    assert all(path != "~" for path in codex.sandbox_read)
+
+
 def test_claude_does_not_opt_in():
     """Not an oversight. Confining claude requires granting the Keychain,
     which is a worse outcome than the gap -- see this module's docstring."""
