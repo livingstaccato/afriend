@@ -42,6 +42,14 @@ def test_codex_confined_startup_reads_only_its_state_and_global_skill_root():
     assert all(path != "~" for path in codex.sandbox_read)
 
 
+def test_codex_declares_its_measured_sandbox_access_failure_marker():
+    codex = _registry()["codex"]
+
+    assert codex.sandbox_access_failure_stderr == (
+        "codex_skills_extension::loader::host: failed to scan skill path",
+    )
+
+
 def test_claude_does_not_opt_in():
     """Not an oversight. Confining claude requires granting the Keychain,
     which is a worse outcome than the gap -- see this module's docstring."""

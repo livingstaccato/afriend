@@ -493,5 +493,11 @@ def _dispatch(
         contract=contract,
         env=child_env,
     )
+    if os_confined:
+        marker = sandbox.access_failure(outcome.stderr, adapter.sandbox_access_failure_stderr)
+        if marker is not None:
+            outcome = dataclasses.replace(
+                outcome, failure_reason=f"review access failure: {marker}"
+            )
     outcome.os_confined = os_confined
     return spec, capability, outcome, provider_policy

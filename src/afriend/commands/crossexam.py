@@ -515,6 +515,12 @@ def run_rounds(
                 # the RUN incomplete, regardless of per-claim states.
                 any_failed = any_failed or spec.independent
                 _never_reported(missing, spec, pending_for[spec.name])
+                if result.failure_reason.startswith("review access failure:"):
+                    for claim in pending_for[spec.name]:
+                        outcome.downgrades.append(
+                            f"round {round_no}: {claim.id} was not assessed — "
+                            f"{spec.name} had {result.failure_reason}."
+                        )
                 continue
             cast = _parse_verdicts(result.result.payload or {}, friend_key(spec), round_no)
             # §6.5's rewrite, applied before anything counts the verdict: an

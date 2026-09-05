@@ -50,6 +50,13 @@ def test_a_missing_mechanism_is_none():
     assert sandbox.detect(which=lambda _n: None, platform="linux") is None
 
 
+def test_access_failure_requires_an_adapter_declared_raw_marker():
+    stderr = "provider loader: denied review checkout"
+
+    assert sandbox.access_failure(stderr, ("provider loader: denied review checkout",)) == stderr
+    assert sandbox.access_failure(stderr, ("unrelated marker",)) is None
+
+
 def test_an_unsupported_platform_has_no_mechanism():
     assert sandbox.detect(which=lambda _n: "/anything", platform="win32") is None
 

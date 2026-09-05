@@ -112,6 +112,7 @@ class Adapter:
     # lives beats punching a hole in the boundary, so reach for this only
     # when redirection has failed.
     sandbox_write: tuple[str, ...] = ()
+    sandbox_access_failure_stderr: tuple[str, ...] = ()
     # Opt in to OS confinement even though this CLI has a read-only mode of
     # its own. A read-only flag stops a friend WRITING; it does nothing about
     # what it can read, so a self-confining CLI can still open ~/.ssh. The
@@ -234,6 +235,7 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
         tool_sources = data.get("external_tool_sources", [])
         probe_argv = data.get("deny_external_tools_probe_argv", [])
         probe_markers = data.get("deny_external_tools_probe_markers", [])
+        access_failure_stderr = data.get("sandbox", {}).get("access_failure_stderr", [])
         transport = data.get("transport", "exec")
         workspace_assets = parse_workspace_assets(
             data.get("workspace_assets", []), transport=transport
@@ -261,6 +263,11 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
             isinstance(value, str) and value for value in probe_markers
         ):
             raise UsageError(f"{path}: deny_external_tools_probe_markers must be a list of strings")
+        if not isinstance(access_failure_stderr, list) or not all(
+            isinstance(value, str) and value and "\n" not in value and "\r" not in value
+            for value in access_failure_stderr
+        ):
+            raise UsageError(f"{path}: sandbox access failure markers must be nonempty strings")
         if external_tools == "deny-argv" and not deny_argv:
             raise UsageError(
                 f"{path}: external_tools='deny-argv' requires deny_external_tools_argv"
@@ -296,6 +303,7 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
             endpoint=data.get("endpoint", ""),
             sandbox_read=tuple(data.get("sandbox", {}).get("read", [])),
             sandbox_write=tuple(data.get("sandbox", {}).get("write", [])),
+            sandbox_access_failure_stderr=tuple(access_failure_stderr),
             sandbox_confine=bool(data.get("sandbox", {}).get("os_confine", False)),
             auth=parse_auth(data.get("auth")),
             env_pass=tuple(data.get("env", {}).get("pass", [])),

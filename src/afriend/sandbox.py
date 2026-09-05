@@ -90,6 +90,12 @@ from .secureio import secure_write_text
 SANDBOX_EXEC = "sandbox-exec"
 BWRAP = "bwrap"
 
+
+def access_failure(stderr: str, markers: tuple[str, ...]) -> str | None:
+    """Return adapter-declared raw evidence of a confined review access failure."""
+    return next((marker for marker in markers if marker in stderr), None)
+
+
 # Read-only paths every process needs before it can execute anything at all.
 # Verified empirically on darwin: dropping any one of these produces a
 # process that aborts during startup with no usable error.

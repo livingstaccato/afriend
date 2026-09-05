@@ -81,8 +81,13 @@ amenders.
 | `contested` | Judges disagreed; rounds remain | no |
 | `deadlocked` | Still contested at `--max-rounds` | yes |
 | `unproven` | Below quorum, or no judge could verify it | no |
-| `incomplete` | Below quorum because a required judge never reported | no |
-| `discarded` | `unproven` twice running with an unchanged verdict set | yes |
+| `incomplete` | Below quorum because a required judge never reported, including a sandbox access failure | no |
+| `discarded` | `unproven` twice running with an unchanged verdict set from working judges | yes |
+
+A raw, adapter-declared sandbox denial means **not assessed — judge access
+failure**. It leaves the affected claim `incomplete`, blocks a gate, and says
+nothing about the claim's merit. `discarded` is only possible after working
+judges repeatedly had access to the evidence.
 
 ### Ceilings
 
