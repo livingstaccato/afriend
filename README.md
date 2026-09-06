@@ -10,7 +10,7 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 [![Dependencies](https://img.shields.io/badge/runtime%20deps-none-brightgreen)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-2221-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2267-brightgreen)](tests/)
 
 It automates a workflow you may already do by hand: run a review, paste the
 findings into a different model, ask whether they hold up, carry the argument
@@ -133,6 +133,53 @@ The built-in profiles are `quick` (one `report` fan-out), `balanced`
 (`crossexam`), and `thorough` (`loop`). `quick` is the default. Use
 `--profile NAME` for one run; an explicit `--mode` wins over the profile's
 mode and other explicit safe run flags win over profile values.
+
+### Context-aware host reviews
+
+An explicit supplied artifact is authoritative: a direct `afriend run
+<artifact>` remains a standalone review. For a host-assisted chain review,
+the host-session resolver considers only host-visible explicit evidence within
+its configured session window. It never invents a path, reads CLI session
+history, or combines unrelated repositories.
+
+Inspect or change the bounded, user-owned policy with explicit settings:
+
+```bash
+afriend context show
+afriend context set --sources current-task --automatic-combine --ambiguity ask
+```
+
+`current-task` considers explicit evidence in the current host task;
+`recent-session` permits the configured host session window. Review context is
+enabled and automatic combining is enabled by default. The default ambiguity
+policy is `ask`, which presents candidate sources for selection. `newest`
+considers same-repository candidates only and announces its selection;
+`refuse` requires an explicit source choice. `--enabled`/`--disabled` and
+`--automatic-combine`/`--no-automatic-combine` change only this host policy.
+The policy does not grant repository, provider, external-tool, or write
+authority.
+
+When a plan and/or review plus one repository's change set are unambiguous,
+the host supplies the exact evidence to the CLI composer, then preflights the
+result before it dispatches friends:
+
+```bash
+afriend context compose --repo <root> --out <composite> \
+  --plan <plan> --review <review> --worktree-diff --range <base..head>
+afriend run <composite> --repo <root>
+```
+
+The preflight names the intent, every selected plan, review, and change member,
+repository, profile/mode, friends, and any downgrade. Before dispatch, you can
+cancel, choose changes only, review only, or plan only, or change the profile
+or mode. The composer accepts only explicit paths and change flags; it does
+not discover evidence or dispatch a review.
+
+The composite begins with the review-context marker and has a sidecar manifest
+bound to its exact content. Unmarked artifacts ignore adjacent JSON; marked
+composites require a valid bound manifest. A normal run freezes the composite
+and records the manifest evidence, so resume verifies that same immutable
+review context rather than discovering current session material.
 
 The host is the orchestrator. In Codex, Codex remains the orchestrator and is
 included as a friend by default. The report labels it

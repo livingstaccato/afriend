@@ -402,6 +402,31 @@ def test_current_docs_explain_profiles_guided_setup_events_and_run_status():
         assert phrase in readme, phrase
 
 
+def test_current_docs_explain_bounded_review_context_composition_and_protocol():
+    readme = " ".join(REPO.joinpath("README.md").read_text().lower().split())
+    docs = " ".join((REPO / "docs" / "README.md").read_text().lower().split())
+    architecture = " ".join(
+        (REPO / "docs" / "architecture" / "README.md").read_text().lower().split()
+    )
+
+    for phrase in (
+        "afriend context show",
+        "afriend context set",
+        "--sources current-task",
+        "--automatic-combine",
+        "--ambiguity ask",
+        "host-visible explicit evidence",
+        "explicit supplied artifact is authoritative",
+        "unmarked artifacts ignore adjacent json",
+        "marked composites require a valid bound manifest",
+        "does not grant repository, provider, external-tool, or write authority",
+    ):
+        assert phrase in readme, phrase
+    assert "host-session resolver" in docs
+    assert "immutable composite" in docs
+    assert "normal run snapshot/resume" in architecture
+
+
 def test_skill_routing_diagram_labels_all_skills_and_commands():
     source = (REPO / "docs" / "architecture" / "skill-routing.puml").read_text()
     visible = _svg_visible_text(REPO / "docs" / "architecture" / "skill-routing.svg")
@@ -419,6 +444,19 @@ def test_skill_routing_diagram_includes_preflight_events_and_read_only_status():
     source = (REPO / "docs" / "architecture" / "skill-routing.puml").read_text()
     visible = _svg_visible_text(REPO / "docs" / "architecture" / "skill-routing.svg")
     for label in ("session preflight", "events.jsonl", "afriend status"):
+        assert label in source
+        assert label in visible
+
+
+def test_skill_routing_diagram_shows_review_context_composition_path():
+    source = (REPO / "docs" / "architecture" / "skill-routing.puml").read_text().lower()
+    visible = _svg_visible_text(REPO / "docs" / "architecture" / "skill-routing.svg").lower()
+    for label in (
+        "host-session resolver",
+        "cli composer",
+        "immutable composite + manifest",
+        "normal run snapshot / resume",
+    ):
         assert label in source
         assert label in visible
 
