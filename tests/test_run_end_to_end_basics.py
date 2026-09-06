@@ -7,6 +7,7 @@ test_run_end_to_end_lenses.py) share.
 """
 
 from dataclasses import replace
+import hashlib
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import subprocess
@@ -26,6 +27,7 @@ from afriend.commands import (
     status,
 )
 from afriend.paths import ADAPTER_DIR
+from afriend.reviewcontext import compose
 
 
 class _OllamaStub(BaseHTTPRequestHandler):
@@ -96,6 +98,173 @@ def test_report_run_produces_ledger_and_report(tmp_path):
     assert ledger, "ledger should not be empty"
     assert json.loads(ledger[0])["type"] == "claim"
     assert "# Adversarial review" in (runs[0] / "report.md").read_text()
+    assert "review_context" not in json.loads((runs[0] / "run.json").read_text())
+    assert not (runs[0] / "review-context.json").exists()
+
+
+def test_run_freezes_a_valid_composer_manifest_without_changing_explicit_repo_scope(tmp_path):
+    """A composed chain carries its receipt into the run; ``--repo`` remains
+    the sole repository-snapshot selector even when the composite lives elsewhere.
+    """
+    repo = _git_repo(tmp_path / "repo")
+    implementation = repo / "implementation.py"
+    implementation.write_text("value = 1\n", encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True, capture_output=True, env=_env())
+    _git_commit(repo, "base")
+    base = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+        env=_env(),
+    ).stdout.strip()
+    implementation.write_text("value = 2\n", encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True, capture_output=True, env=_env())
+    _git_commit(repo, "change")
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+        env=_env(),
+    ).stdout.strip()
+    implementation.write_text("value = 3\n", encoding="utf-8")
+
+    plan = tmp_path / "plan.md"
+    review = tmp_path / "review.md"
+    composite = tmp_path / "composite.md"
+    plan.write_text("# Plan\nMake the value correct.\n", encoding="utf-8")
+    review.write_text("# Review\nCheck the value update.\n", encoding="utf-8")
+    manifest = compose(
+        repo=repo,
+        out=composite,
+        plan=plan,
+        review=review,
+        worktree_diff=True,
+        ranges=(f"{base}..{head}", f"{head}^..{head}"),
+    )
+    sidecar = composite.with_suffix(".md.json")
+    sidecar_bytes = sidecar.read_bytes()
+
+    result = run_af(
+        tmp_path,
+        composite,
+        "--repo",
+        str(repo),
+        "--friend",
+        "fake:good:repo",
+        "--merge",
+        "orchestrator",
+    )
+
+    assert result.returncode == 10, result.stderr
+    run_dir = next((tmp_path / "runs").iterdir())
+    frozen_composite = (run_dir / "artifact" / composite.name).read_bytes()
+    halted_meta = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+    assert halted_meta["review_context"] == {
+        "intent": manifest.intent.value,
+        "manifest_digest": "sha256:" + hashlib.sha256(sidecar_bytes).hexdigest(),
+        "manifest_path": "review-context.json",
+    }
+    request = run_dir / "round-1" / "REQUEST.json"
+    response = json.loads(request.read_text(encoding="utf-8"))
+    (request.parent / "RESPONSE.json").write_text(json.dumps(response), encoding="utf-8")
+    composite.write_text("# altered after the halt\n", encoding="utf-8")
+    sidecar.write_text('{"untrusted": "live replacement"}', encoding="utf-8")
+    resumed = subprocess.run(
+        [
+            sys.executable,
+            str(AF),
+            "run",
+            "--resume",
+            run_dir.name,
+            "--out",
+            str(tmp_path / "runs"),
+        ],
+        capture_output=True,
+        text=True,
+        env=_env(),
+    )
+
+    assert resumed.returncode == 0, resumed.stderr
+    meta = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+    prompt = next((run_dir / "round-1").glob("*.prompt")).read_text(encoding="utf-8")
+    assert (run_dir / "artifact" / composite.name).read_bytes() == frozen_composite
+    frozen_text = frozen_composite.decode("utf-8")
+    assert "Review intent: validate-chain" in frozen_text
+    assert "### Change 1: Working tree diff" in frozen_text
+    assert "### Change 2: Commit range" in frozen_text
+    assert "### Change 3: Commit range" in frozen_text
+    assert "Review intent: validate-chain" in prompt
+    assert "### Change 1: Working tree diff" in prompt
+    assert "### Change 2: Commit range" in prompt
+    assert "### Change 3: Commit range" in prompt
+    assert meta["review_context"] == halted_meta["review_context"]
+    assert (run_dir / meta["review_context"]["manifest_path"]).read_bytes() == sidecar_bytes
+    assert meta["snapshot"]["repo_root"] == str(repo.resolve())
+    assert meta["repository_scope_mode"] == "explicit"
+
+
+@pytest.mark.parametrize("sidecar_kind", ["malformed", "symlink"])
+def test_run_rejects_an_untrusted_adjacent_context_sidecar_before_creating_a_run(
+    tmp_path, sidecar_kind
+):
+    artifact = tmp_path / "ordinary.md"
+    artifact.write_text("# ordinary markdown\n", encoding="utf-8")
+    sidecar = artifact.with_suffix(".md.json")
+    if sidecar_kind == "malformed":
+        sidecar.write_text('{"not": "a composer manifest"}', encoding="utf-8")
+    else:
+        target = tmp_path / "elsewhere.json"
+        target.write_text("{}", encoding="utf-8")
+        sidecar.symlink_to(target)
+
+    result = run_af(tmp_path, artifact, "--friend", "fake:good")
+
+    assert result.returncode == 2
+    assert "review context manifest" in result.stderr
+    assert not (tmp_path / "runs").exists()
+
+
+def test_composite_without_a_repository_snapshot_reports_validation_not_assessed(tmp_path):
+    repo = _git_repo(tmp_path / "repo")
+    source = repo / "implementation.py"
+    source.write_text("value = 1\n", encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True, capture_output=True, env=_env())
+    _git_commit(repo, "base")
+    base = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+        env=_env(),
+    ).stdout.strip()
+    source.write_text("value = 2\n", encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True, capture_output=True, env=_env())
+    _git_commit(repo, "change")
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+        env=_env(),
+    ).stdout.strip()
+    plan = tmp_path / "plan.md"
+    composite = tmp_path / "composite.md"
+    plan.write_text("# Plan\nValidate implementation.\n", encoding="utf-8")
+    compose(repo=repo, out=composite, plan=plan, ranges=(f"{base}..{head}",))
+
+    result = run_af(tmp_path, composite, "--friend", "fake:good")
+
+    assert result.returncode == 0, result.stderr
+    report = next((tmp_path / "runs").iterdir()) / "report.md"
+    text = report.read_text(encoding="utf-8").lower()
+    assert "implementation validation was not assessed" in text
+    assert "implementation validation succeeded" not in text
 
 
 def test_report_run_writes_ordered_safe_lifecycle_events(tmp_path):

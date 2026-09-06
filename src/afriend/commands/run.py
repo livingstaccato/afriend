@@ -7,6 +7,7 @@ Split out of cli.py.
 import argparse
 import concurrent.futures
 from datetime import UTC, datetime
+import hashlib
 from pathlib import Path
 import shutil
 import signal
@@ -26,11 +27,13 @@ from ..claimschema import schema_path
 from ..dispatch import failure_summary
 from ..errors import AfError, UsageError
 from ..failures import RepeatTracker
+from ..jsonio import MAX_JSON_FILE_BYTES, decode_json_object, read_bounded_bytes
 from ..ledger import Claim
 from ..orchestrator import (
     NeedsOrchestrator,
     write_request,
 )
+from ..reviewcontext import ContextManifest
 from ..reviewstate import ReviewState
 from ..rounds import partition_dispatchable
 from ..runstore import RunStore, default_root
@@ -68,6 +71,97 @@ def _read_artifact_text(path: Path) -> str:
         raise UsageError(f"cannot read artifact {path}: {exc}") from exc
 
 
+_REVIEW_CONTEXT_MANIFEST_PATH = "review-context.json"
+
+
+def _sha256(payload: bytes) -> str:
+    return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def _capture_review_context(
+    artifact: Path, artifact_text: str
+) -> tuple[dict[str, str], bytes] | None:
+    """Capture the one composer receipt that can accompany an artifact.
+
+    The exact sibling spelling is intentional: normal Markdown has no
+    provenance metadata, and a run never searches for or infers context from
+    arbitrary files.  Reading and validating this receipt happens before
+    RunStore construction, so malformed or symlinked adjacent JSON cannot
+    leave a misleading resumable directory behind.
+    """
+    sidecar = artifact.with_suffix(artifact.suffix + ".json")
+    try:
+        sidecar.lstat()
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise UsageError(f"cannot inspect review context manifest {sidecar}: {exc}") from exc
+    payload = read_bounded_bytes(sidecar, label="review context manifest")
+    manifest = ContextManifest.from_dict(
+        decode_json_object(payload, path=sidecar, label="review context manifest")
+    )
+    if manifest.output_sha256 != _sha256(artifact_text.encode("utf-8")):
+        raise UsageError(
+            "review context manifest output_sha256 does not match the artifact it accompanies"
+        )
+    return (
+        {
+            "intent": manifest.intent.value,
+            "manifest_digest": _sha256(payload),
+            "manifest_path": _REVIEW_CONTEXT_MANIFEST_PATH,
+        },
+        payload,
+    )
+
+
+def _resume_review_context(
+    store: RunStore, meta: dict[str, Any], frozen: Path
+) -> dict[str, str] | None:
+    """Validate a copied composer receipt against the frozen artifact only."""
+    if "review_context" not in meta:
+        return None
+    value = meta["review_context"]
+    expected = {"intent", "manifest_digest", "manifest_path"}
+    if type(value) is not dict or set(value) != expected:
+        raise UsageError("cannot resume: saved review_context has an invalid shape")
+    context = value
+    intent = context["intent"]
+    manifest_digest = context["manifest_digest"]
+    manifest_path = context["manifest_path"]
+    if not all(isinstance(item, str) for item in (intent, manifest_digest, manifest_path)):
+        raise UsageError("cannot resume: saved review_context fields must be strings")
+    if manifest_path != _REVIEW_CONTEXT_MANIFEST_PATH:
+        raise UsageError("cannot resume: saved review_context manifest path is invalid")
+    payload = store.read_owned_bytes(store.run_dir / manifest_path, max_bytes=MAX_JSON_FILE_BYTES)
+    if _sha256(payload) != manifest_digest:
+        raise UsageError("cannot resume: copied review context manifest digest does not match")
+    manifest = ContextManifest.from_dict(
+        decode_json_object(
+            payload,
+            path=store.run_dir / manifest_path,
+            label="copied review context manifest",
+        )
+    )
+    if manifest.intent.value != intent:
+        raise UsageError("cannot resume: copied review context manifest intent does not match")
+    if manifest.output_sha256 != _sha256(frozen.read_bytes()):
+        raise UsageError(
+            "cannot resume: copied review context manifest does not bind frozen artifact"
+        )
+    return {
+        "intent": intent,
+        "manifest_digest": manifest_digest,
+        "manifest_path": manifest_path,
+    }
+
+
+def _review_context_doc_scope_note(review_context: dict[str, str]) -> str:
+    return (
+        "review context implementation validation was not assessed because no repository "
+        f"snapshot could be established (intent: {review_context['intent']})."
+    )
+
+
 def _dispatch_error_detail(error: BaseException) -> str:
     """One bounded representation for fresh and resumed dispatch stops."""
     return f"{type(error).__name__}: {failure_summary(str(error))}"
@@ -77,11 +171,14 @@ def cmd_run(args: argparse.Namespace) -> int:
     args, artifact = validate_run_args(args)
     resume_dir = getattr(args, "_resume_dir", None)
     resume_meta = getattr(args, "_resume_meta", None) if resume_dir is not None else None
+    captured_review_context: tuple[dict[str, str], bytes] | None = None
+    captured_artifact_text: str | None = None
     if resume_dir is None:
         # Decode before RunStore creates anything. A malformed artifact is a
         # usage refusal, not a runtime-error run with an unexplained partial
         # directory that cannot be resumed.
-        _read_artifact_text(artifact)
+        captured_artifact_text = _read_artifact_text(artifact)
+        captured_review_context = _capture_review_context(artifact, captured_artifact_text)
     # Deliberately NOT resolved here: resolving would follow a symlinked
     # artifact to its target's own name, so a review of `link_spec.md ->
     # real_spec.md` would report and store the artifact as "real_spec.md"
@@ -134,13 +231,25 @@ def cmd_run(args: argparse.Namespace) -> int:
             run_id = resume_dir.name
             store = RunStore(resume_dir.parent, run_id, resume=True)
             frozen = resume_frozen_artifact(resume_dir)
+            review_context = _resume_review_context(store, resume_meta or {}, frozen)
             # Resume selection below takes the hash from the validated saved
             # identity. This placeholder is never trusted or persisted.
             digest = ""
         else:
             run_id = f"run-{time.strftime('%Y%m%dT%H%M%S')}-{uuid.uuid4().hex[:8]}"
             store = RunStore(Path(args.out) if args.out else default_root(), run_id)
-            frozen, digest = store.artifact_copy(artifact)
+            review_context = None
+            if captured_review_context is not None:
+                review_context, manifest_payload = captured_review_context
+                store.create_owned_bytes(
+                    store.run_dir / _REVIEW_CONTEXT_MANIFEST_PATH, manifest_payload
+                )
+                assert captured_artifact_text is not None
+                frozen, digest = store.artifact_copy_bytes(
+                    artifact, captured_artifact_text.encode("utf-8")
+                )
+            else:
+                frozen, digest = store.artifact_copy(artifact)
         # One writer per run directory (see RunStore.lock). Taken as early
         # as the two branches above allow -- both must construct the
         # RunStore first, and the fresh-run branch also copies the artifact
@@ -192,6 +301,10 @@ def cmd_run(args: argparse.Namespace) -> int:
         review.copy_transition_warnings(downgrades)
         schema_file = schema_path(store.run_dir)
         artifact_text = _read_artifact_text(frozen)
+        if review_context is not None and snapshot.repo_root is None:
+            note = _review_context_doc_scope_note(review_context)
+            if note not in downgrades:
+                downgrades.append(note)
 
         warning_seen = False
 
@@ -258,6 +371,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 detected_host=resolved.detected_host,
                 effective_include_self=resolved.effective_include_self,
                 repository_scope_mode=repository_scope_mode,
+                review_context=review_context,
             )
             if repository_scope_audit is not None:
                 meta["repository_scope_audit"] = repository_scope_audit
@@ -416,7 +530,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                     artifact,
                     frozen,
                     digest,
-                    resume_dir is not None,
+                    resume_dir is not None or review_context is not None,
                     last_digest,
                     snapshot,
                     iteration,

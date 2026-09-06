@@ -189,6 +189,20 @@ class RunStore:
             digest = hashlib.file_digest(handle, "sha256").hexdigest()
         return target, f"sha256:{digest}"
 
+    def artifact_copy_bytes(self, source: Path, payload: bytes) -> tuple[Path, str]:
+        """Freeze bytes already validated against adjacent provenance.
+
+        Composer sidecars bind a digest to the composite's exact bytes. A
+        second pathname read after that validation would reopen a replacement
+        race, so this writes the captured bytes directly into the ordinary
+        run-owned artifact location.
+        """
+        target_dir = self.run_dir / "artifact"
+        secure_mkdir(target_dir, parents=True, exist_ok=True, root=self.root)
+        target = target_dir / Path(source).name
+        secure_create_bytes(target, payload, root=self.root)
+        return target, "sha256:" + hashlib.sha256(payload).hexdigest()
+
     def _write_atomic(self, path: Path, text: str) -> Path:
         """Write via a temporary file in the same directory, then rename.
 
