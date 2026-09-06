@@ -207,8 +207,101 @@ def test_run_freezes_a_valid_composer_manifest_without_changing_explicit_repo_sc
     assert meta["repository_scope_mode"] == "explicit"
 
 
+def _halted_composite_run(tmp_path):
+    repo = _git_repo(tmp_path / "repo")
+    source = repo / "implementation.py"
+    source.write_text("value = 1\n", encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True, capture_output=True, env=_env())
+    _git_commit(repo, "base")
+    source.write_text("value = 2\n", encoding="utf-8")
+    plan = tmp_path / "plan.md"
+    composite = tmp_path / "composite.md"
+    plan.write_text("# Plan\nValidate implementation.\n", encoding="utf-8")
+    compose(repo=repo, out=composite, plan=plan, worktree_diff=True)
+    result = run_af(
+        tmp_path,
+        composite,
+        "--repo",
+        str(repo),
+        "--friend",
+        "fake:good:repo",
+        "--merge",
+        "orchestrator",
+    )
+    assert result.returncode == 10, result.stderr
+    return next((tmp_path / "runs").iterdir())
+
+
+def _resume_run(tmp_path, run_dir):
+    return subprocess.run(
+        [
+            sys.executable,
+            str(AF),
+            "run",
+            "--resume",
+            run_dir.name,
+            "--out",
+            str(tmp_path / "runs"),
+        ],
+        capture_output=True,
+        text=True,
+        env=_env(),
+    )
+
+
+def _respond_to_halted_merge(run_dir):
+    request = run_dir / "round-1" / "REQUEST.json"
+    (request.parent / "RESPONSE.json").write_text(
+        request.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+
+
+def test_resume_refuses_a_context_run_with_missing_review_context_metadata(tmp_path):
+    run_dir = _halted_composite_run(tmp_path)
+    _respond_to_halted_merge(run_dir)
+    meta_path = run_dir / "run.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta.pop("review_context")
+    meta_path.write_text(json.dumps(meta), encoding="utf-8")
+
+    result = _resume_run(tmp_path, run_dir)
+
+    assert result.returncode == 2
+    assert "review_context" in result.stderr
+
+
+def test_resume_refuses_review_context_metadata_with_a_manifest_digest_mismatch(tmp_path):
+    run_dir = _halted_composite_run(tmp_path)
+    _respond_to_halted_merge(run_dir)
+    meta_path = run_dir / "run.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["review_context"]["manifest_digest"] = "sha256:" + "0" * 64
+    meta_path.write_text(json.dumps(meta), encoding="utf-8")
+
+    result = _resume_run(tmp_path, run_dir)
+
+    assert result.returncode == 2
+    assert "manifest digest" in result.stderr
+
+
+def test_resume_refuses_a_symlinked_copied_review_context_manifest_cleanly(tmp_path):
+    run_dir = _halted_composite_run(tmp_path)
+    _respond_to_halted_merge(run_dir)
+    copied = run_dir / "review-context.json"
+    target = tmp_path / "outside-manifest.json"
+    target.write_text("{}", encoding="utf-8")
+    copied.unlink()
+    copied.symlink_to(target)
+
+    result = _resume_run(tmp_path, run_dir)
+
+    assert result.returncode == 2
+    assert "review context manifest" in result.stderr
+    assert "traceback" not in result.stderr.lower()
+
+
 @pytest.mark.parametrize("sidecar_kind", ["malformed", "symlink"])
-def test_run_rejects_an_untrusted_adjacent_context_sidecar_before_creating_a_run(
+def test_run_ignores_untrusted_adjacent_json_for_an_ordinary_markdown_artifact(
     tmp_path, sidecar_kind
 ):
     artifact = tmp_path / "ordinary.md"
@@ -217,6 +310,26 @@ def test_run_rejects_an_untrusted_adjacent_context_sidecar_before_creating_a_run
     if sidecar_kind == "malformed":
         sidecar.write_text('{"not": "a composer manifest"}', encoding="utf-8")
     else:
+        target = tmp_path / "elsewhere.json"
+        target.write_text("{}", encoding="utf-8")
+        sidecar.symlink_to(target)
+
+    result = run_af(tmp_path, artifact, "--friend", "fake:good")
+
+    assert result.returncode == 0, result.stderr
+    assert len(list((tmp_path / "runs").iterdir())) == 1
+
+
+@pytest.mark.parametrize("sidecar_kind", ["missing", "malformed", "symlink"])
+def test_run_rejects_a_marked_composite_with_an_invalid_context_sidecar_before_creating_a_run(
+    tmp_path, sidecar_kind
+):
+    artifact = tmp_path / "composite.md"
+    artifact.write_text("<!-- afriend-review-context: v1 -->\n# Review context\n", encoding="utf-8")
+    sidecar = artifact.with_suffix(".md.json")
+    if sidecar_kind == "malformed":
+        sidecar.write_text('{"not": "a composer manifest"}', encoding="utf-8")
+    elif sidecar_kind == "symlink":
         target = tmp_path / "elsewhere.json"
         target.write_text("{}", encoding="utf-8")
         sidecar.symlink_to(target)

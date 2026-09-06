@@ -33,6 +33,7 @@ MAX_CHANGE_BYTES = 4 * 1024 * 1024
 MAX_CHANGE_MEMBERS = 64
 MAX_CHANGESET_BYTES = 8 * 1024 * 1024
 _MAX_GIT_ERROR_BYTES = 64 * 1024
+COMPOSER_MARKER = "<!-- afriend-review-context: v1 -->"
 
 
 class ContextIntent(StrEnum):
@@ -554,6 +555,7 @@ def _render_composite(
     changes: tuple[_CapturedChange, ...],
 ) -> str:
     lines = [
+        COMPOSER_MARKER,
         "# Review context",
         "",
         f"Review intent: {manifest.intent.value}",

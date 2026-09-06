@@ -33,7 +33,7 @@ from ..orchestrator import (
     NeedsOrchestrator,
     write_request,
 )
-from ..reviewcontext import ContextManifest
+from ..reviewcontext import COMPOSER_MARKER, ContextManifest
 from ..reviewstate import ReviewState
 from ..rounds import partition_dispatchable
 from ..runstore import RunStore, default_root
@@ -89,11 +89,15 @@ def _capture_review_context(
     RunStore construction, so malformed or symlinked adjacent JSON cannot
     leave a misleading resumable directory behind.
     """
+    if artifact_text.split("\n", 1)[0] != COMPOSER_MARKER:
+        return None
     sidecar = artifact.with_suffix(artifact.suffix + ".json")
     try:
         sidecar.lstat()
     except FileNotFoundError:
-        return None
+        raise UsageError(
+            f"marked review context artifact requires review context manifest {sidecar}"
+        ) from None
     except OSError as exc:
         raise UsageError(f"cannot inspect review context manifest {sidecar}: {exc}") from exc
     payload = read_bounded_bytes(sidecar, label="review context manifest")
@@ -118,7 +122,21 @@ def _resume_review_context(
     store: RunStore, meta: dict[str, Any], frozen: Path
 ) -> dict[str, str] | None:
     """Validate a copied composer receipt against the frozen artifact only."""
+    copied_manifest = store.run_dir / _REVIEW_CONTEXT_MANIFEST_PATH
+    try:
+        copied_manifest.lstat()
+        has_copied_manifest = True
+    except FileNotFoundError:
+        has_copied_manifest = False
+    except OSError as exc:
+        raise UsageError(
+            f"cannot resume: cannot inspect copied review context manifest: {exc}"
+        ) from exc
     if "review_context" not in meta:
+        if has_copied_manifest or _read_artifact_text(frozen).split("\n", 1)[0] == COMPOSER_MARKER:
+            raise UsageError(
+                "cannot resume: frozen review context evidence is missing review_context metadata"
+            )
         return None
     value = meta["review_context"]
     expected = {"intent", "manifest_digest", "manifest_path"}
@@ -132,7 +150,14 @@ def _resume_review_context(
         raise UsageError("cannot resume: saved review_context fields must be strings")
     if manifest_path != _REVIEW_CONTEXT_MANIFEST_PATH:
         raise UsageError("cannot resume: saved review_context manifest path is invalid")
-    payload = store.read_owned_bytes(store.run_dir / manifest_path, max_bytes=MAX_JSON_FILE_BYTES)
+    try:
+        payload = store.read_owned_bytes(
+            store.run_dir / manifest_path, max_bytes=MAX_JSON_FILE_BYTES
+        )
+    except OSError as exc:
+        raise UsageError(
+            f"cannot resume: copied review context manifest is unavailable or unsafe: {exc}"
+        ) from exc
     if _sha256(payload) != manifest_digest:
         raise UsageError("cannot resume: copied review context manifest digest does not match")
     manifest = ContextManifest.from_dict(
