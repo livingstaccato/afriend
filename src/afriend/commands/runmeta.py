@@ -135,7 +135,6 @@ def _base_meta(
     detected_host: str | None = None,
     effective_include_self: bool | None = None,
     repository_scope_mode: str | None = "automatic",
-    review_context: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """run.json's common fields.
 
@@ -192,8 +191,6 @@ def _base_meta(
     }
     if repository_scope_mode is not None:
         meta["repository_scope_mode"] = repository_scope_mode
-    if review_context is not None:
-        meta["review_context"] = review_context
     if effective_include_self is not None:
         meta["detected_host"] = detected_host
         meta["effective_include_self"] = effective_include_self
