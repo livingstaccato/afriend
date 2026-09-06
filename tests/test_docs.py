@@ -424,7 +424,7 @@ def test_current_docs_explain_bounded_review_context_composition_and_protocol():
         assert phrase in readme, phrase
     assert "host-session resolver" in docs
     assert "deterministic, content-bound composite" in docs
-    assert "normal run snapshot/resume" in architecture
+    assert "normal run then creates the snapshot and frozen artifacts/resume path" in architecture
 
 
 def test_readme_first_review_preflight_covers_standalone_and_composed_contexts():
@@ -461,6 +461,16 @@ def test_live_docs_describe_composer_output_as_content_bound_until_run_freezes_i
     assert "frozen run-owned artifact and manifest copies" in text["README.md"]
     for name, value in text.items():
         assert "immutable composite" not in value, name
+
+
+def test_architecture_index_orders_preflight_before_run_snapshot():
+    architecture = " ".join(
+        (REPO / "docs" / "architecture" / "README.md").read_text().lower().split()
+    )
+
+    assert "preflight precedes dispatch" in architecture
+    assert "normal run then creates the snapshot and frozen artifacts/resume path" in architecture
+    assert "before `/afriend` preflight" not in architecture
 
 
 def test_skill_routing_diagram_labels_all_skills_and_commands():
