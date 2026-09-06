@@ -102,6 +102,61 @@ def test_guided_preview_json_is_machine_readable_and_never_writes(tmp_path, monk
     assert not providerconfig.config_path().exists()
 
 
+def test_guided_review_context_preview_and_apply_only_touch_selected_settings(
+    tmp_path, monkeypatch, capsys
+):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setattr(init_module, "assess_all", lambda *_args, **_kwargs: _ready_codex())
+
+    assert (
+        init_module.cmd_init(
+            _args(
+                "--json",
+                "--review-context-sources",
+                "recent-session",
+                "--review-context-ambiguity",
+                "refuse",
+            )
+        )
+        == 0
+    )
+
+    preview = json.loads(capsys.readouterr().out)
+    assert preview["changes"] == {
+        "review_context": {"ambiguity": "refuse", "sources": "recent-session"}
+    }
+    assert not sessionconfig.config_path().exists()
+
+    assert (
+        init_module.cmd_init(
+            _args(
+                "--apply",
+                "--review-context-sources",
+                "recent-session",
+                "--review-context-ambiguity",
+                "refuse",
+            )
+        )
+        == 0
+    )
+
+    assert sessionconfig.load().review_context == sessionconfig.ReviewContextConfig(
+        enabled=True,
+        sources="recent-session",
+        automatic_combine=True,
+        ambiguity="refuse",
+    )
+
+
+def test_guided_review_context_rejects_an_invalid_selection_without_writing(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+
+    with pytest.raises(UsageError, match=r"review_context.sources.*one of"):
+        init_module.cmd_init(_args("--review-context-sources", "all-history"))
+
+    assert not sessionconfig.config_path().exists()
+
+
 def test_guided_apply_changes_only_selected_settings_and_preserves_others(
     tmp_path, monkeypatch, capsys
 ):

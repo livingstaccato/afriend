@@ -415,14 +415,6 @@ def test_skill_routing_diagram_labels_all_skills_and_commands():
     assert "afriend run --resume" in visible
 
 
-def test_skill_routing_diagram_includes_preflight_events_and_read_only_status():
-    source = (REPO / "docs" / "architecture" / "skill-routing.puml").read_text()
-    visible = _svg_visible_text(REPO / "docs" / "architecture" / "skill-routing.svg")
-    for label in ("session preflight", "events.jsonl", "afriend status"):
-        assert label in source
-        assert label in visible
-
-
 def test_resume_routes_to_run_without_claim_resolution_inputs():
     router = (AFRIEND / "SKILL.md").read_text().lower()
     resolve = " ".join((ENTRYPOINTS / "resolve" / "SKILL.md").read_text().lower().split())

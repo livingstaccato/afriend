@@ -213,17 +213,42 @@ def _cmd_guided_init(args: argparse.Namespace) -> int:
     registry = load_adapters(ADAPTER_DIR)
     known = set(registry)
     default_profile = getattr(args, "default_profile", None)
+    review_context_changes = {
+        name: value
+        for name, value in {
+            "enabled": getattr(args, "review_context_enabled", None),
+            "sources": getattr(args, "review_context_sources", None),
+            "automatic_combine": getattr(args, "review_context_automatic_combine", None),
+            "ambiguity": getattr(args, "review_context_ambiguity", None),
+        }.items()
+        if value is not None
+    }
     enabled = set(getattr(args, "enable_provider", []))
     disabled = set(getattr(args, "disable_provider", []))
     ollama_model = getattr(args, "ollama_model", None)
 
+    session = (
+        sessionconfig.load() if default_profile is not None or review_context_changes else None
+    )
     if default_profile is not None:
-        session = sessionconfig.load()
+        assert session is not None
         if reviewprofiles.resolve(default_profile, session.profiles) is None:
             known_profiles = [*reviewprofiles.names(), *sorted(session.profiles)]
             raise UsageError(
                 f"default profile must be one of {known_profiles}; got {default_profile!r}"
             )
+    if review_context_changes:
+        assert session is not None
+        sessionconfig._validate_review_context(
+            sessionconfig.config_path(),
+            {
+                "enabled": session.review_context.enabled,
+                "sources": session.review_context.sources,
+                "automatic_combine": session.review_context.automatic_combine,
+                "ambiguity": session.review_context.ambiguity,
+                **review_context_changes,
+            },
+        )
     for name in sorted(enabled | disabled):
         if name not in known:
             raise UsageError(f"provider must be one of {sorted(known)}; got {name!r}")
@@ -249,6 +274,8 @@ def _cmd_guided_init(args: argparse.Namespace) -> int:
     changes: dict[str, object] = {}
     if default_profile is not None:
         changes["session"] = {"default_profile": default_profile}
+    if review_context_changes:
+        changes["review_context"] = review_context_changes
     if provider_changes:
         changes["providers"] = provider_changes
 
@@ -263,7 +290,7 @@ def _cmd_guided_init(args: argparse.Namespace) -> int:
     applying = bool(getattr(args, "apply", False))
     target = _roster_target(args) if applying else None
     files_before: dict[Path, bool] = {}
-    if default_profile is not None:
+    if default_profile is not None or review_context_changes:
         session_path = sessionconfig.config_path()
         files_before[session_path] = session_path.exists()
     if provider_changes:
@@ -286,10 +313,12 @@ def _cmd_guided_init(args: argparse.Namespace) -> int:
             # before changing either file. A malformed pre-existing config is
             # therefore a safe refusal, never a reason to apply only the
             # earlier half.
-            if default_profile is not None:
+            if default_profile is not None or review_context_changes:
                 sessionconfig.load(reviewprofiles.names())
             if provider_changes:
                 providerconfig.load(known)
+            if review_context_changes:
+                sessionconfig.set_review_context(**review_context_changes)
             if default_profile is not None:
                 sessionconfig.set_default(default_profile, known=reviewprofiles.names())
             for name in sorted(enabled):
@@ -361,6 +390,17 @@ def _cmd_guided_init(args: argparse.Namespace) -> int:
         )
     if default_profile is not None:
         print(f"  default profile: {default_profile}", file=sys.stderr)
+    if "enabled" in review_context_changes:
+        print(f"  review context enabled: {review_context_changes['enabled']}", file=sys.stderr)
+    if "sources" in review_context_changes:
+        print(f"  review context sources: {review_context_changes['sources']}", file=sys.stderr)
+    if "automatic_combine" in review_context_changes:
+        print(
+            f"  review context automatic combine: {review_context_changes['automatic_combine']}",
+            file=sys.stderr,
+        )
+    if "ambiguity" in review_context_changes:
+        print(f"  review context ambiguity: {review_context_changes['ambiguity']}", file=sys.stderr)
     for name in sorted(enabled):
         print(f"  enable provider: {name}", file=sys.stderr)
     for name in sorted(disabled):

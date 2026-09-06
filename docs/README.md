@@ -9,10 +9,10 @@ quickstart, see the [top-level README](../README.md); come here for detail.
 
 | Document | What it covers |
 |---|---|
-| [/afriend](../src/afriend/assets/entrypoints/afriend/SKILL.md) | The sole router, session preflight, lifecycle completion feedback, and stable CLI routing |
-| [review](../src/afriend/assets/entrypoints/review/SKILL.md) | Artifact reviews with `afriend run` and task-only profile/mode choices |
+| [/afriend](../src/afriend/assets/entrypoints/afriend/SKILL.md) | The sole router, host-session resolver, context preflight, lifecycle completion feedback, and stable CLI routing |
+| [review](../src/afriend/assets/entrypoints/review/SKILL.md) | Authoritative artifact reviews and bounded context composition with `afriend run` |
 | [status](../src/afriend/assets/entrypoints/status/SKILL.md) | Read-only readiness with `doctor` and named-run inspection with `status` |
-| [configure](../src/afriend/assets/entrypoints/configure/SKILL.md) | Guided setup, explicit provider defaults, and safe named profiles |
+| [configure](../src/afriend/assets/entrypoints/configure/SKILL.md) | Guided setup, explicit provider defaults, safe named profiles, and review-context policy |
 | [resolve](../src/afriend/assets/entrypoints/resolve/SKILL.md) | Read-only claim discovery and named-run resolutions with supplied evidence |
 | [modes](../src/afriend/assets/entrypoints/afriend/references/modes.md) | All four modes — `report`, `crossexam`, `gate`, `loop` — plus claim states, ceilings, and exit codes |
 
@@ -51,9 +51,10 @@ quickstart, see the [top-level README](../README.md); come here for detail.
 - **[The gate loop](architecture/gate-workflow.puml)** — how `--mode gate` and
   `afriend resolve` fit together, and the two things a resolution can be
   refused for.
-- **[Skill routing](architecture/skill-routing.puml)** — how `/afriend` hands
-  explicit operations through session preflight to focused skills, event
-  feedback, and stable CLI commands.
+- **[Skill routing](architecture/skill-routing.puml)** — how the host-session
+  resolver hands explicit evidence to the CLI composer, creates a deterministic,
+  content-bound composite plus manifest, then enters the normal run snapshot/resume path
+  through session preflight, focused skills, and lifecycle feedback.
 
 Rendered PNG and SVG are committed alongside each source. Regenerate with
 `make diagrams`.

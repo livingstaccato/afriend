@@ -57,18 +57,47 @@ Codex work. Do not use this skill to generate a first review of code.
 ## Session preflight and feedback
 
 On the first review request in a host task, and before every requested new
-loop iteration, pause before dispatch and state the resolved run:
+loop iteration, resolve review context from host-visible explicit evidence
+under its selected session window. An explicit supplied artifact remains
+authoritative. Combine evidence only when `afriend context show` reports
+enabled review context and automatic combining, the relation is unambiguous,
+and every selected change belongs to one repository. Never invent a path or
+read CLI session history. The CLI composer receives only the host's selected
+paths, repository root, and immutable change choices.
 
-> About to start afriend to review `<artifact>` in `<mode>` mode
-> with `<profile>`. Scope: `<repository snapshot|document only>`. Friends:
-> `<name, provider, lens, role>`; external tools: `<denied|explicit grant>`.
+For an approved composed chain, invoke:
 
-Accept the resolved default, a task-only profile or mode, a task-only enabled
-roster, or stop. Do not repeat the preflight for later work in the same review
-session unless the user requests a new loop iteration. The preflight is
-descriptive: it does not grant provider enablement, external tools,
-unsafe-extra arguments, or sandbox exceptions. A direct CLI command remains
-non-interactive and uses its effective profile plus explicit flags.
+```bash
+afriend context compose --repo <root> --out <composite> \
+  --plan <plan> --review <review> --worktree-diff --range <base..head>
+```
+
+Use only the selected role and change flags. The command writes a deterministic,
+content-bound composite and bound manifest; it is not dispatch. Its output is
+replaceable before `afriend run`, but each replacement needs a matching valid
+bound manifest. `afriend run` then freezes run-owned artifact and manifest
+copies. Then pause before dispatch and state the resolved run:
+
+> About to start afriend to `<intent>` with plan `<plan|none>`, review
+> `<review|none>`, and changes `<every selected member>`, in repository
+> `<root>`. Profile/mode: `<profile>/<mode>`. Friends:
+> `<name, provider, lens, role>`; downgrade: `<none|reason>`; external tools:
+> `<denied|explicit grant>`.
+>
+> You can cancel, changes only, review only, plan only, or change the profile or mode before dispatch.
+
+The preflight lists all selected plan, review, and change members; it never
+collapses a plural change set into an unnamed “latest diff.”
+
+For a standalone artifact, name that one artifact and its normal scope in the
+same preflight. Accept the resolved default, a task-only profile or mode, a
+task-only enabled roster, or stop. Do not repeat the preflight for later work
+in the same review session unless the user requests a new loop iteration. The
+preflight is descriptive: it does not grant provider enablement, external
+tools, unsafe-extra arguments, or sandbox exceptions. After it, invoke
+`afriend run <composite> --repo <root>` for a composed chain, or the selected
+standalone artifact command. A direct CLI command remains non-interactive and
+uses its effective profile plus explicit flags.
 
 As a run progresses, report when each friend finishes or fails, including its
 provider, lens, result, and any downgrade. At completion, read the final
@@ -116,6 +145,26 @@ Use `afriend profiles list`, `show`, `create`, `update`, `delete`, and
 mode, preset, lenses, friend/timeout ceilings, and round/iteration ceilings;
 it cannot select providers, a friend roster, models, credentials, environment
 forwarding, external tools, unsafe arguments, or sandbox exceptions.
+
+### Review-context settings
+
+Review-context settings govern what the host may combine; they do not enlarge
+the host's visibility or authority. Inspect them before resolving a chain:
+
+```bash
+afriend context show
+afriend context set --sources current-task --automatic-combine --ambiguity ask
+```
+
+`current-task` limits candidates to explicit evidence in the current host
+task. `recent-session` permits the configured host session window, still only
+for host-visible explicit evidence. `--enabled`/`--disabled` controls host
+resolution; `--automatic-combine`/`--no-automatic-combine` controls whether
+an unambiguous chain may be composed; `--ambiguity ask|newest|refuse` controls
+source selection. `ask` is the default. `newest` is restricted to
+same-repository candidates and must be announced; `refuse` requires the user
+to select a source. These settings do not grant repository, provider,
+external-tool, write, sandbox, or session-history authority.
 
 Two supported forms select the review context:
 

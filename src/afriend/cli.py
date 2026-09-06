@@ -17,6 +17,7 @@ several of which reach into cli.py's namespace directly (e.g.
 import sys
 
 from .cliargs import _specs_from_flags, build_parser
+from .commands.context import cmd_context
 from .commands.doctor import cmd_doctor
 
 # _resolve_repo_root moved to commands/environment.py when run.py was
@@ -56,6 +57,7 @@ __all__ = [
     "_stderr_tail",
     "available_lenses",
     "build_parser",
+    "cmd_context",
     "cmd_doctor",
     "cmd_init",
     "cmd_profiles",
@@ -85,6 +87,8 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_providers(args)
         if args.command == "profiles":
             return cmd_profiles(args)
+        if args.command == "context":
+            return cmd_context(args)
         parser.print_help()
         return 0
     except AfError as exc:

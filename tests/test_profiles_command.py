@@ -34,7 +34,13 @@ def test_custom_profile_inherits_builtin_and_only_overrides_safe_settings(tmp_pa
     assert json.loads(sessionconfig.config_path().read_text(encoding="utf-8")) == {
         "default_profile": "quick",
         "profiles": {"ci": {"base": "balanced", "max_friends": 3, "timeout": 120}},
-        "version": 2,
+        "review_context": {
+            "ambiguity": "ask",
+            "automatic_combine": True,
+            "enabled": True,
+            "sources": "current-task",
+        },
+        "version": 3,
     }
 
 

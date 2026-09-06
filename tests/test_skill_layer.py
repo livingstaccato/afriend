@@ -83,6 +83,45 @@ def test_router_sets_session_expectations_before_dispatch_and_after_completion()
     assert "task-only" in lowered
 
 
+def test_review_context_skills_keep_host_resolution_bounded_and_explicit():
+    router = " ".join((ENTRYPOINTS / "afriend" / "SKILL.md").read_text().lower().split())
+    review = " ".join((ENTRYPOINTS / "review" / "SKILL.md").read_text().lower().split())
+    configure = " ".join((ENTRYPOINTS / "configure" / "SKILL.md").read_text().lower().split())
+
+    for phrase in (
+        "explicit supplied artifact is authoritative",
+        "host-visible explicit evidence",
+        "selected session window",
+        "automatic combining is enabled",
+        "default ambiguity policy is ask",
+        "same-repository candidates",
+        "announce the selection",
+        "explicit source choice",
+        "never invent a path",
+        "does not read cli session history",
+    ):
+        assert phrase in review, phrase
+
+    for phrase in (
+        "all selected plan, review, and change members",
+        "cancel, changes only, review only, plan only",
+        "change the profile or mode",
+        "afriend context compose",
+        "afriend run <composite> --repo <root>",
+    ):
+        assert phrase in router, phrase
+
+    for phrase in (
+        "afriend context show",
+        "afriend context set",
+        "current-task",
+        "recent-session",
+        "automatic_combine",
+        "does not grant",
+    ):
+        assert phrase in configure, phrase
+
+
 def test_focused_skills_hold_their_operational_boundaries():
     review = " ".join((ENTRYPOINTS / "review" / "SKILL.md").read_text().lower().split())
     status = " ".join((ENTRYPOINTS / "status" / "SKILL.md").read_text().lower().split())

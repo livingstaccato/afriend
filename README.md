@@ -10,7 +10,7 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 [![Dependencies](https://img.shields.io/badge/runtime%20deps-none-brightgreen)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-2211-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2273-brightgreen)](tests/)
 
 It automates a workflow you may already do by hand: run a review, paste the
 findings into a different model, ask whether they hold up, carry the argument
@@ -117,22 +117,86 @@ afriend run docs/my-design.md
 ```
 
 On the first review request in a host task, `/afriend` presents one compact
-preflight before dispatch:
+preflight before dispatch. It names the applicable standalone-artifact or
+composed-context form:
 
-> About to start afriend to review `<artifact>` in `<mode>` mode
-> with `<profile>`. Scope: `<repository snapshot|document only>`. Friends:
-> `<name, provider, lens, role>`; external tools: `<denied|explicit grant>`.
+> Standalone artifact: about to start afriend to review `<artifact>` in
+> `<mode>` mode with `<profile>`. Scope:
+> `<repository snapshot|document only>`.
+>
+> Composed context: about to start afriend to `<intent>` with plan
+> `<plan|none>`, review `<review|none>`, and changes `<every selected member>`
+> in repository `<root>`. Profile/mode: `<profile>/<mode>`.
+>
+> Friends: `<name, provider, lens, role>`; downgrade: `<none|reason>`;
+> external tools: `<denied|explicit grant>`. You can cancel, changes only,
+> review only, plan only, or change the profile or mode before dispatch.
 
-You can accept it, choose a task-only profile or mode, change the task-only
-roster, or stop. It is shown again only before a requested new loop iteration.
-The preflight describes authority; it never grants external tools, provider
-enablement, unsafe arguments, or sandbox exceptions. Direct CLI runs stay
-non-interactive.
+For composed context, the preflight names the intent and every selected plan,
+review, and change member; it does not collapse a plural change set into an
+unnamed latest diff.
+Before dispatch, you can cancel, changes only, review only, plan only, or
+change the profile or mode.
+
+You can accept it, make a task-only profile or mode choice, change the
+task-only roster, or stop. It is shown again only before a requested new loop
+iteration. The preflight describes authority; it never grants external tools,
+provider enablement, unsafe arguments, or sandbox exceptions. Direct CLI runs
+stay non-interactive.
 
 The built-in profiles are `quick` (one `report` fan-out), `balanced`
 (`crossexam`), and `thorough` (`loop`). `quick` is the default. Use
 `--profile NAME` for one run; an explicit `--mode` wins over the profile's
 mode and other explicit safe run flags win over profile values.
+
+### Context-aware host reviews
+
+An explicit supplied artifact is authoritative: a direct `afriend run
+<artifact>` remains a standalone review. For a host-assisted chain review,
+the host-session resolver considers only host-visible explicit evidence within
+its configured session window. It never invents a path, reads CLI session
+history, or combines unrelated repositories.
+
+Inspect or change the bounded, user-owned policy with explicit settings:
+
+```bash
+afriend context show
+afriend context set --sources current-task --automatic-combine --ambiguity ask
+```
+
+`current-task` considers explicit evidence in the current host task;
+`recent-session` permits the configured host session window. Review context is
+enabled and automatic combining is enabled by default. The default ambiguity
+policy is `ask`, which presents candidate sources for selection. `newest`
+considers same-repository candidates only and announces its selection;
+`refuse` requires an explicit source choice. `--enabled`/`--disabled` and
+`--automatic-combine`/`--no-automatic-combine` change only this host policy.
+The policy does not grant repository, provider, external-tool, or write
+authority.
+
+When a plan and/or review plus one repository's change set are unambiguous,
+the host supplies the exact evidence to the CLI composer, then preflights the
+result before it dispatches friends:
+
+```bash
+afriend context compose --repo <root> --out <composite> \
+  --plan <plan> --review <review> --worktree-diff --range <base..head>
+afriend run <composite> --repo <root>
+```
+
+The preflight names the intent, every selected plan, review, and change member,
+repository, profile/mode, friends, and any downgrade. Before dispatch, you can
+cancel, choose changes only, review only, or plan only, or change the profile
+or mode. The composer accepts only explicit paths and change flags; it does
+not discover evidence or dispatch a review.
+
+The composer produces a deterministic, content-bound composite with a sidecar
+manifest bound to its exact content. Its output is replaceable before run, but
+the replacement needs its own valid bound manifest. Unmarked artifacts ignore
+adjacent JSON; marked composites require a valid bound manifest. A normal run
+then freezes run-owned artifact and manifest copies, so resume verifies those
+same frozen run-owned artifact and manifest copies rather than discovering
+current session material.
 
 The host is the orchestrator. In Codex, Codex remains the orchestrator and is
 included as a friend by default. The report labels it

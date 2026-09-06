@@ -23,6 +23,8 @@ from .trust import MODEL_RE
 
 RUN_MODES = ("report", "crossexam", "gate", "loop")
 MERGE_CHOICES = ("exact", "orchestrator")
+REVIEW_CONTEXT_SOURCES = ("current-task", "recent-session")
+REVIEW_CONTEXT_AMBIGUITIES = ("ask", "newest", "refuse")
 
 
 class _ExplicitModeAction(argparse.Action):
@@ -81,6 +83,23 @@ class _AfArgumentParser(argparse.ArgumentParser):
             error = _resolve_form_error(parsed)
             if error is not None:
                 self.error(error)
+        if (
+            getattr(parsed, "command", None) == "context"
+            and getattr(parsed, "context_command", None) == "set"
+            and all(
+                getattr(parsed, name, None) is None
+                for name in ("enabled", "sources", "automatic_combine", "ambiguity")
+            )
+        ):
+            self.error("context set requires at least one setting")
+        if (
+            getattr(parsed, "command", None) == "context"
+            and getattr(parsed, "context_command", None) == "compose"
+        ):
+            if not parsed.plan and not parsed.review:
+                self.error("context compose requires at least one --plan or --review")
+            if not parsed.worktree_diff and not parsed.ranges:
+                self.error("context compose requires --worktree-diff or at least one --range")
         return parsed
 
 
@@ -328,6 +347,52 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="NAME",
         help="set the default built-in review profile in guided setup",
     )
+    review_context_enabled = init_p.add_mutually_exclusive_group()
+    review_context_enabled.add_argument(
+        "--enable-review-context",
+        action="store_const",
+        const=True,
+        default=None,
+        dest="review_context_enabled",
+        help="enable review-context resolution in guided setup",
+    )
+    review_context_enabled.add_argument(
+        "--disable-review-context",
+        action="store_const",
+        const=False,
+        default=None,
+        dest="review_context_enabled",
+        help="disable review-context resolution in guided setup",
+    )
+    init_p.add_argument(
+        "--review-context-sources",
+        default=None,
+        metavar="SOURCES",
+        help="set review-context source window in guided setup",
+    )
+    automatic_combine = init_p.add_mutually_exclusive_group()
+    automatic_combine.add_argument(
+        "--review-context-automatic-combine",
+        action="store_const",
+        const=True,
+        default=None,
+        dest="review_context_automatic_combine",
+        help="enable automatic review-context combining in guided setup",
+    )
+    automatic_combine.add_argument(
+        "--no-review-context-automatic-combine",
+        action="store_const",
+        const=False,
+        default=None,
+        dest="review_context_automatic_combine",
+        help="disable automatic review-context combining in guided setup",
+    )
+    init_p.add_argument(
+        "--review-context-ambiguity",
+        default=None,
+        metavar="POLICY",
+        help="set review-context ambiguity policy in guided setup",
+    )
     init_p.add_argument(
         "--enable-provider",
         action="append",
@@ -404,6 +469,38 @@ def build_parser() -> argparse.ArgumentParser:
     profiles_sub.choices["create"].set_defaults(base_required=True)
     profiles_sub.add_parser("delete").add_argument("name", metavar="NAME")
     profiles_sub.add_parser("set-default").add_argument("name", metavar="NAME")
+
+    context_p = sub.add_parser("context")
+    context_sub = context_p.add_subparsers(dest="context_command", required=True)
+    context_show = context_sub.add_parser("show")
+    context_show.add_argument("--json", action="store_true", help="machine-readable output")
+
+    context_set = context_sub.add_parser("set")
+    context_enabled = context_set.add_mutually_exclusive_group()
+    context_enabled.add_argument("--enabled", action="store_const", const=True, default=None)
+    context_enabled.add_argument("--disabled", dest="enabled", action="store_const", const=False)
+    context_set.add_argument("--sources", choices=sorted(REVIEW_CONTEXT_SOURCES), default=None)
+    context_automatic = context_set.add_mutually_exclusive_group()
+    context_automatic.add_argument(
+        "--automatic-combine", action="store_const", const=True, default=None
+    )
+    context_automatic.add_argument(
+        "--no-automatic-combine", dest="automatic_combine", action="store_const", const=False
+    )
+    context_set.add_argument(
+        "--ambiguity", choices=sorted(REVIEW_CONTEXT_AMBIGUITIES), default=None
+    )
+
+    context_compose = context_sub.add_parser("compose")
+    context_compose.add_argument("--repo", required=True, metavar="REPO")
+    context_compose.add_argument("--out", required=True, metavar="COMPOSITE")
+    context_compose.add_argument("--plan", action="append", default=[], metavar="PLAN")
+    context_compose.add_argument("--review", action="append", default=[], metavar="REVIEW")
+    context_compose.add_argument("--worktree-diff", action="store_true")
+    context_compose.add_argument(
+        "--range", dest="ranges", action="append", default=[], metavar="BASE..HEAD"
+    )
+    context_compose.add_argument("--json", action="store_true", help="machine-readable output")
     return parser
 
 

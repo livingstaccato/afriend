@@ -24,7 +24,7 @@ from ..ceilings import (
 )
 from ..claimschema import schema_path
 from ..dispatch import failure_summary
-from ..errors import AfError, UsageError
+from ..errors import AfError
 from ..failures import RepeatTracker
 from ..ledger import Claim
 from ..orchestrator import (
@@ -54,18 +54,16 @@ from .environment import (
 )
 from .haltstate import loop_position, write_halt
 from .resume import resume_iteration
+from .reviewcontext import (
+    REVIEW_CONTEXT_MANIFEST_PATH as _REVIEW_CONTEXT_MANIFEST_PATH,
+    capture_artifact_input,
+    doc_scope_note as _review_context_doc_scope_note,
+    read_artifact_text as _read_artifact_text,
+    resume_review_context as _resume_review_context,
+)
 from .runmeta import JUDGING_MODES, _base_meta, finish_run, loop_is_done, validate_run_args
 from .scopeanchor import _validate_repository_scope_anchor, resolve_repository_scope
 from .setup import prepare_run
-
-
-def _read_artifact_text(path: Path) -> str:
-    try:
-        return path.read_text(encoding="utf-8")
-    except UnicodeDecodeError as exc:
-        raise UsageError(f"artifact must be valid UTF-8: {path}") from exc
-    except OSError as exc:
-        raise UsageError(f"cannot read artifact {path}: {exc}") from exc
 
 
 def _dispatch_error_detail(error: BaseException) -> str:
@@ -77,11 +75,10 @@ def cmd_run(args: argparse.Namespace) -> int:
     args, artifact = validate_run_args(args)
     resume_dir = getattr(args, "_resume_dir", None)
     resume_meta = getattr(args, "_resume_meta", None) if resume_dir is not None else None
+    captured_review_context: tuple[dict[str, str], bytes] | None = None
+    captured_artifact_text: str | None = None
     if resume_dir is None:
-        # Decode before RunStore creates anything. A malformed artifact is a
-        # usage refusal, not a runtime-error run with an unexplained partial
-        # directory that cannot be resumed.
-        _read_artifact_text(artifact)
+        captured_artifact_text, captured_review_context = capture_artifact_input(artifact)
     # Deliberately NOT resolved here: resolving would follow a symlinked
     # artifact to its target's own name, so a review of `link_spec.md ->
     # real_spec.md` would report and store the artifact as "real_spec.md"
@@ -134,13 +131,25 @@ def cmd_run(args: argparse.Namespace) -> int:
             run_id = resume_dir.name
             store = RunStore(resume_dir.parent, run_id, resume=True)
             frozen = resume_frozen_artifact(resume_dir)
+            review_context = _resume_review_context(store, resume_meta or {}, frozen)
             # Resume selection below takes the hash from the validated saved
             # identity. This placeholder is never trusted or persisted.
             digest = ""
         else:
             run_id = f"run-{time.strftime('%Y%m%dT%H%M%S')}-{uuid.uuid4().hex[:8]}"
             store = RunStore(Path(args.out) if args.out else default_root(), run_id)
-            frozen, digest = store.artifact_copy(artifact)
+            review_context = None
+            if captured_review_context is not None:
+                review_context, manifest_payload = captured_review_context
+                store.create_owned_bytes(
+                    store.run_dir / _REVIEW_CONTEXT_MANIFEST_PATH, manifest_payload
+                )
+                assert captured_artifact_text is not None
+                frozen, digest = store.artifact_copy_bytes(
+                    artifact, captured_artifact_text.encode("utf-8")
+                )
+            else:
+                frozen, digest = store.artifact_copy(artifact)
         # One writer per run directory (see RunStore.lock). Taken as early
         # as the two branches above allow -- both must construct the
         # RunStore first, and the fresh-run branch also copies the artifact
@@ -192,6 +201,10 @@ def cmd_run(args: argparse.Namespace) -> int:
         review.copy_transition_warnings(downgrades)
         schema_file = schema_path(store.run_dir)
         artifact_text = _read_artifact_text(frozen)
+        if review_context is not None and snapshot.repo_root is None:
+            note = _review_context_doc_scope_note(review_context)
+            if note not in downgrades:
+                downgrades.append(note)
 
         warning_seen = False
 
@@ -259,6 +272,8 @@ def cmd_run(args: argparse.Namespace) -> int:
                 effective_include_self=resolved.effective_include_self,
                 repository_scope_mode=repository_scope_mode,
             )
+            if review_context is not None:
+                meta["review_context"] = review_context
             if repository_scope_audit is not None:
                 meta["repository_scope_audit"] = repository_scope_audit
             return meta
@@ -416,7 +431,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                     artifact,
                     frozen,
                     digest,
-                    resume_dir is not None,
+                    resume_dir is not None or review_context is not None,
                     last_digest,
                     snapshot,
                     iteration,
