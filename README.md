@@ -575,6 +575,9 @@ under [`plugins/`](plugins/) for loaders that can't install a Python package:
 /plugin marketplace add /path/to/afriend/plugins
 ```
 
+For setup checks and recovery from a missing marketplace file, see
+[installation and plugin troubleshooting](docs/installation-troubleshooting.md).
+
 Plugins package capabilities; the afriend plugin provides exactly
 five skills: `/afriend`, `review`, `status`, `configure`, and `resolve`.
 `/afriend` is the only router and short slash selector; direct qualified
