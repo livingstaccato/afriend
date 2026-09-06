@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.7.0
+
+Context-aware review composition makes a review, plan, and related repository
+changes available to friends as one explicit, frozen artifact.
+
+- Adds configurable session review-context policy and `afriend context show`,
+  `set`, and `compose` commands. Hosts can automatically combine unambiguous
+  current-task inputs, ask when intent is ambiguous, and present the selected
+  review intent and sources before dispatch.
+- Binds plans, code reviews, and one or more repository changes
+  deterministically, including untracked changes, into a size-bounded composite
+  with a signed-content manifest. Friends receive the frozen composite rather
+  than mutable source inputs.
+- Preserves replay integrity: run metadata records the context provenance and
+  resume refuses missing, forged, malformed, or mismatched context bindings.
+- Updates the shipped skills, README, routing diagram, and architecture guide
+  for context-aware review selection and preflight behavior.
+
 ## 0.6.2
 
 A repository-review access correction for confined Codex friends.
