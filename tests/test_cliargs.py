@@ -178,6 +178,66 @@ def test_run_repo_parses_as_an_explicit_worktree_root():
     assert parser.parse_args(["run", "spec.md", "--repo", "/worktree"]).repo == "/worktree"
 
 
+def test_context_subcommands_parse_only_their_narrow_stable_forms():
+    parser = cliargs.build_parser()
+
+    shown = parser.parse_args(["context", "show", "--json"])
+    updated = parser.parse_args(
+        ["context", "set", "--sources", "current-task", "--ambiguity", "ask"]
+    )
+    composed = parser.parse_args(
+        [
+            "context",
+            "compose",
+            "--repo",
+            "repository",
+            "--out",
+            "composite.md",
+            "--plan",
+            "plan.md",
+            "--review",
+            "review.md",
+            "--worktree-diff",
+            "--range",
+            "base..head",
+            "--range",
+            "other-base..other-head",
+        ]
+    )
+
+    assert (shown.command, shown.context_command, shown.json) == ("context", "show", True)
+    assert (updated.enabled, updated.sources, updated.automatic_combine, updated.ambiguity) == (
+        None,
+        "current-task",
+        None,
+        "ask",
+    )
+    assert composed.repo == "repository"
+    assert composed.out == "composite.md"
+    assert composed.plan == ["plan.md"]
+    assert composed.review == ["review.md"]
+    assert composed.worktree_diff is True
+    assert composed.ranges == ["base..head", "other-base..other-head"]
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["context", "show", "--model", "gpt-5.6-sol"],
+        ["context", "set", "--enable-provider", "codex"],
+        ["context", "compose", "--provider", "codex"],
+        ["context", "compose", "--allow-external-tools", "codex"],
+        ["context", "compose", "--allow-unsandboxed-friend"],
+        ["context", "compose", "--unsafe-extra-args=--bad"],
+    ],
+)
+def test_context_parser_rejects_run_authority_and_arbitrary_flags(argv):
+    with pytest.raises(SystemExit) as raised:
+        cliargs.build_parser().parse_args(argv)
+
+    assert raised.value.code == 2
+
+
 def test_host_provider_parses_and_is_resumable():
     args = cliargs.build_parser().parse_args(["run", "spec.md", "--host-provider", "wrapper-agent"])
     assert args.host_provider == "wrapper-agent"
