@@ -13,7 +13,7 @@ from enum import StrEnum
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import selectors
 import subprocess
@@ -24,12 +24,14 @@ from .errors import UsageError
 from .jsonio import read_bounded_bytes
 
 _DIGEST_RE = re.compile(r"sha256:[0-9a-f]{64}")
-_COMMIT_RE = re.compile(r"[0-9a-f]{40}")
+_COMMIT_RE = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})")
 _INPUT_ROLES = frozenset({"plan", "review"})
 _CHANGE_KINDS = frozenset({"worktree", "range"})
 _MANIFEST_VERSION = 1
 MAX_CONTEXT_SOURCE_BYTES = 4 * 1024 * 1024
 MAX_CHANGE_BYTES = 4 * 1024 * 1024
+MAX_CHANGE_MEMBERS = 64
+MAX_CHANGESET_BYTES = 8 * 1024 * 1024
 _MAX_GIT_ERROR_BYTES = 64 * 1024
 
 
@@ -170,7 +172,7 @@ class ContextManifest:
         expected = {"version", "intent", "repository", "inputs", "changes", "output_sha256"}
         if set(data) != expected:
             raise UsageError("review context manifest has unexpected fields")
-        if data["version"] != _MANIFEST_VERSION:
+        if type(data["version"]) is not int or data["version"] != _MANIFEST_VERSION:
             raise UsageError("review context manifest version is unsupported")
         raw_intent = data["intent"]
         if not isinstance(raw_intent, str):
@@ -262,7 +264,12 @@ def _git_error(args: tuple[str, ...], stderr: bytes) -> UsageError:
     return UsageError(f"cannot compose review context: git {' '.join(args)} failed: {detail}")
 
 
-def _git_bytes(repo: Path, *args: str, limit: int = MAX_CHANGE_BYTES) -> bytes:
+def _git_bytes(
+    repo: Path,
+    *args: str,
+    limit: int = MAX_CHANGE_BYTES,
+    allowed_returncodes: frozenset[int] = frozenset({0}),
+) -> bytes:
     """Run a fixed Git argv vector while retaining at most ``limit`` output bytes."""
     try:
         process = subprocess.Popen(
@@ -296,7 +303,7 @@ def _git_bytes(repo: Path, *args: str, limit: int = MAX_CHANGE_BYTES) -> bytes:
         raise UsageError(
             f"cannot compose review context: git output exceeds the {limit}-byte limit"
         )
-    if returncode != 0:
+    if returncode not in allowed_returncodes:
         raise _git_error(args, bytes(errors))
     return bytes(output)
 
@@ -366,20 +373,60 @@ def _range_patch(repo: Path, start: str, end: str) -> bytes:
     )
 
 
+def _untracked_paths(repo: Path) -> tuple[str, ...]:
+    raw = _git_bytes(repo, "ls-files", "--others", "--exclude-standard", "-z")
+    try:
+        entries = tuple(entry.decode("utf-8") for entry in raw.split(b"\0") if entry)
+    except UnicodeDecodeError as exc:
+        raise UsageError("review context untracked path must be valid UTF-8") from exc
+    for entry in entries:
+        path = PurePosixPath(entry)
+        if not entry or path.is_absolute() or ".." in path.parts:
+            raise UsageError("review context Git returned an unsafe untracked path")
+    return entries
+
+
 def _worktree_patch(repo: Path) -> bytes:
     head = _resolve_commit(repo, "HEAD")
-    return _git_bytes(
-        repo,
-        "-c",
-        "core.pager=cat",
-        "diff",
-        "--no-ext-diff",
-        "--no-textconv",
-        "--binary",
-        "--full-index",
-        head,
-        "--",
-    )
+    patches = [
+        _git_bytes(
+            repo,
+            "-c",
+            "core.pager=cat",
+            "diff",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--binary",
+            "--full-index",
+            head,
+            "--",
+        )
+    ]
+    total = len(patches[0])
+    for relative in _untracked_paths(repo):
+        patch = _git_bytes(
+            repo,
+            "-c",
+            "core.pager=cat",
+            "diff",
+            "--no-index",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--binary",
+            "--full-index",
+            "--",
+            "/dev/null",
+            relative,
+            allowed_returncodes=frozenset({0, 1}),
+        )
+        total += len(patch)
+        if total > MAX_CHANGE_BYTES:
+            raise UsageError(
+                "cannot compose review context: worktree patch exceeds the "
+                f"{MAX_CHANGE_BYTES}-byte limit"
+            )
+        patches.append(patch)
+    return b"".join(patches)
 
 
 def _read_input(role: str, label: str, path: Path) -> tuple[ContextInput, bytes]:
@@ -421,23 +468,27 @@ def _capture_changes(
     repo: Path, *, worktree_diff: bool, ranges: tuple[str, ...]
 ) -> tuple[_CapturedChange, ...]:
     captured: list[_CapturedChange] = []
+    total_bytes = 0
+
+    def add(member: ChangeMember, patch: bytes, expression: str | None) -> None:
+        nonlocal total_bytes
+        total_bytes += len(patch)
+        if total_bytes > MAX_CHANGESET_BYTES:
+            raise UsageError(
+                "cannot compose review context: change evidence exceeds the "
+                f"{MAX_CHANGESET_BYTES}-byte total limit"
+            )
+        captured.append(_CapturedChange(member, patch, expression))
+
     if worktree_diff:
         patch = _worktree_patch(repo)
         if not patch:
             raise UsageError("review context worktree diff is empty")
-        captured.append(
-            _CapturedChange(
-                ChangeMember("worktree", "Working tree diff", _digest(patch)), patch, None
-            )
-        )
+        add(ChangeMember("worktree", "Working tree diff", _digest(patch)), patch, None)
     for expression in ranges:
         start, end = _resolve_range(repo, expression)
         patch = _range_patch(repo, start, end)
-        captured.append(
-            _CapturedChange(
-                ChangeMember("range", "Commit range", _digest(patch), start, end), patch, expression
-            )
-        )
+        add(ChangeMember("range", "Commit range", _digest(patch), start, end), patch, expression)
     if not captured:
         raise UsageError("review context requires a worktree diff or at least one commit range")
     return tuple(captured)
@@ -471,9 +522,17 @@ def _verify_change(repo: Path, captured: _CapturedChange) -> None:
         raise UsageError(f"review context {member.kind} change changed while composing")
 
 
-def _fenced(payload: bytes) -> str:
-    text = payload.decode("utf-8")
-    return "````text\n" + text + ("" if text.endswith("\n") else "\n") + "````\n"
+def _fenced(payload: bytes, language: str) -> str:
+    try:
+        text = payload.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise UsageError("review context evidence block must be valid UTF-8") from exc
+    longest = max(
+        (len(line.strip()) for line in text.splitlines() if line.strip().strip("`") == ""),
+        default=2,
+    )
+    fence = "`" * max(3, longest + 1)
+    return fence + language + "\n" + text + ("" if text.endswith("\n") else "\n") + fence + "\n"
 
 
 def _question(intent: ContextIntent) -> str:
@@ -527,7 +586,7 @@ def _render_composite(
                 "",
                 f"## {item.role.title()}: {item.label}",
                 "",
-                _fenced(contents[item.role]).rstrip("\n"),
+                _fenced(contents[item.role], "text").rstrip("\n"),
             ]
         )
     for index, captured in enumerate(changes, start=1):
@@ -537,24 +596,19 @@ def _render_composite(
             if member.kind == "worktree"
             else f"{member.label} ({member.start}..{member.end})"
         )
-        try:
-            patch = captured.patch.decode("utf-8")
-        except UnicodeDecodeError as exc:
-            raise UsageError("review context Git patch must be valid UTF-8") from exc
         lines.extend(
             [
                 "",
                 f"### Change {index}: {title}",
                 "",
-                "````diff",
-                patch.rstrip("\n"),
-                "````",
+                _fenced(captured.patch, "diff").rstrip("\n"),
             ]
         )
     return "\n".join(lines) + "\n"
 
 
-def _atomic_write(path: Path, payload: bytes) -> None:
+def _stage_output(path: Path, payload: bytes) -> Path:
+    """Write one durable sibling temporary file without publishing it."""
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
     )
@@ -564,10 +618,31 @@ def _atomic_write(path: Path, payload: bytes) -> None:
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
-        temporary.replace(path)
+        return temporary
     except BaseException:
         temporary.unlink(missing_ok=True)
         raise
+
+
+def _destination_aliases_source(destination: Path, source: Path) -> bool:
+    """Detect lexical, symlink, and hard-link aliases before any staging."""
+    try:
+        return destination.samefile(source)
+    except OSError:
+        return destination.absolute() == source
+
+
+def _reject_input_output_aliases(
+    output: Path, sidecar: Path, inputs: Iterable[ContextInput]
+) -> None:
+    for item in inputs:
+        if _destination_aliases_source(output, item.source_path) or _destination_aliases_source(
+            sidecar, item.source_path
+        ):
+            raise UsageError(
+                "cannot compose review context: output or sidecar would overwrite an input: "
+                f"{item.source_path}"
+            )
 
 
 def compose(
@@ -594,6 +669,10 @@ def compose(
         raise UsageError("review context ranges must be an iterable of strings") from exc
     if not all(isinstance(item, str) for item in selected_ranges):
         raise UsageError("review context ranges must contain only strings")
+    if len(selected_ranges) + int(worktree_diff) > MAX_CHANGE_MEMBERS:
+        raise UsageError(
+            f"review context change set accepts at most {MAX_CHANGE_MEMBERS} worktree/range members"
+        )
     root = _repository_root(Path(repo))
     output = Path(out).absolute()
     if not output.parent.is_dir():
@@ -606,6 +685,7 @@ def compose(
         captured_inputs.append(_read_input("plan", "Implementation plan", Path(plan)))
     if review is not None:
         captured_inputs.append(_read_input("review", "Prior review", Path(review)))
+    _reject_input_output_aliases(output, sidecar, (item for item, _content in captured_inputs))
     captured_changes = _capture_changes(root, worktree_diff=worktree_diff, ranges=selected_ranges)
     intent = select_intent(
         plan=plan is not None, review=review is not None, has_changes=bool(captured_changes)
@@ -636,13 +716,24 @@ def compose(
     sidecar_payload = (json.dumps(completed.to_dict(), indent=2, sort_keys=True) + "\n").encode(
         "utf-8"
     )
-    # Each replacement is atomic.  Both payloads were completely validated
-    # before either name is changed, so every normal return leaves a matched pair.
-    _atomic_write(sidecar, sidecar_payload)
+    # Stage both files before publishing either one.  The composite is the
+    # authoritative artifact, so publish it first: a failed replacement must
+    # not create, replace, or delete a sidecar (which could be prior evidence).
+    staged_output = _stage_output(output, composite)
     try:
-        _atomic_write(output, composite)
+        staged_sidecar = _stage_output(sidecar, sidecar_payload)
     except BaseException:
-        # Do not leave a new sidecar behind when publishing the composite fails.
-        sidecar.unlink(missing_ok=True)
+        staged_output.unlink(missing_ok=True)
+        raise
+    try:
+        staged_output.replace(output)
+    except BaseException:
+        staged_output.unlink(missing_ok=True)
+        staged_sidecar.unlink(missing_ok=True)
+        raise
+    try:
+        staged_sidecar.replace(sidecar)
+    except BaseException:
+        staged_sidecar.unlink(missing_ok=True)
         raise
     return completed

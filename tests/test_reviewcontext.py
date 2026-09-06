@@ -7,6 +7,7 @@ import pytest
 
 from afriend.errors import UsageError
 from afriend.reviewcontext import (
+    MAX_CHANGE_MEMBERS,
     ChangeMember,
     ContextInput,
     ContextIntent,
@@ -124,6 +125,116 @@ def test_compose_writes_a_deterministic_three_member_chain_and_strict_sidecar(re
     assert output.with_suffix(".md.json").read_bytes() == first_sidecar
 
 
+def test_compose_includes_untracked_worktree_files_in_change_evidence(repository, tmp_path):
+    repo, base, head = repository
+    untracked = repo / "new implementation.txt"
+    untracked.write_text("new implementation\n", encoding="utf-8")
+    plan = tmp_path / "plan.md"
+    plan.write_text("# plan\n", encoding="utf-8")
+    output = tmp_path / "composite.md"
+
+    compose(
+        repo=repo,
+        out=output,
+        plan=plan,
+        worktree_diff=True,
+        ranges=(f"{base}..{head}",),
+    )
+
+    text = output.read_text(encoding="utf-8")
+    assert "new implementation.txt" in text
+    assert "new implementation" in text
+
+
+def test_compose_rejects_a_change_set_over_the_member_budget_before_output(repository, tmp_path):
+    repo, base, head = repository
+    plan = tmp_path / "plan.md"
+    plan.write_text("# plan\n", encoding="utf-8")
+    output = tmp_path / "composite.md"
+
+    with pytest.raises(UsageError, match="at most"):
+        compose(
+            repo=repo,
+            out=output,
+            plan=plan,
+            ranges=(f"{base}..{head}",) * (MAX_CHANGE_MEMBERS + 1),
+        )
+
+    assert not output.exists()
+    assert not output.with_suffix(".md.json").exists()
+
+
+def test_compose_uses_a_fence_that_cannot_be_closed_by_plan_content(repository, tmp_path):
+    repo, base, head = repository
+    plan = tmp_path / "plan.md"
+    plan.write_text("before\n````\n## untrusted heading\nafter\n", encoding="utf-8")
+    output = tmp_path / "composite.md"
+
+    compose(
+        repo=repo,
+        out=output,
+        plan=plan,
+        worktree_diff=True,
+        ranges=(f"{base}..{head}",),
+    )
+
+    assert "`````text\nbefore\n````\n## untrusted heading\nafter\n`````" in output.read_text(
+        encoding="utf-8"
+    )
+
+
+def test_compose_supports_sha256_git_object_ids(tmp_path):
+    repo = tmp_path / "sha256-repo"
+    repo.mkdir()
+    initialized = subprocess.run(
+        ["git", "init", "--object-format=sha256"], cwd=repo, capture_output=True, text=True
+    )
+    if initialized.returncode != 0:
+        pytest.skip("installed Git does not support SHA-256 object format")
+    _git(repo, "config", "user.name", "Test User")
+    _git(repo, "config", "user.email", "test@example.invalid")
+    code = repo / "code.txt"
+    code.write_text("first\n", encoding="utf-8")
+    _git(repo, "add", "code.txt")
+    _git(repo, "commit", "-m", "first")
+    base = _git(repo, "rev-parse", "HEAD")
+    code.write_text("second\n", encoding="utf-8")
+    _git(repo, "commit", "-am", "second")
+    head = _git(repo, "rev-parse", "HEAD")
+    plan = tmp_path / "plan.md"
+    plan.write_text("# plan\n", encoding="utf-8")
+
+    manifest = compose(
+        repo=repo, out=tmp_path / "composite.md", plan=plan, ranges=(f"{base}..{head}",)
+    )
+
+    assert manifest.changes[0].start is not None
+    assert len(manifest.changes[0].start) == 64
+    assert manifest.changes[0].end is not None
+    assert len(manifest.changes[0].end) == 64
+
+
+@pytest.mark.parametrize("source_is_sidecar", [False, True])
+def test_compose_refuses_an_output_or_sidecar_that_aliases_an_input(
+    repository, tmp_path, source_is_sidecar
+):
+    repo, base, head = repository
+    output = tmp_path / "composite.md"
+    source = output.with_suffix(".md.json") if source_is_sidecar else output
+    source.write_text("# plan\n", encoding="utf-8")
+
+    with pytest.raises(UsageError, match="would overwrite an input"):
+        compose(
+            repo=repo,
+            out=output,
+            plan=source,
+            worktree_diff=True,
+            ranges=(f"{base}..{head}",),
+        )
+
+    assert source.read_text(encoding="utf-8") == "# plan\n"
+
+
 def test_compose_rejects_unreadable_or_unstable_sources_before_any_output(repository, tmp_path):
     repo, base, head = repository
     invalid = tmp_path / "invalid.md"
@@ -190,6 +301,30 @@ def test_compose_rechecks_a_source_immediately_before_writing(repository, tmp_pa
     assert not output.with_suffix(".md.json").exists()
 
 
+def test_compose_output_publish_failure_preserves_an_existing_sidecar(repository, tmp_path):
+    repo, base, head = repository
+    plan = tmp_path / "plan.md"
+    plan.write_text("# plan\n", encoding="utf-8")
+    output = tmp_path / "composite.md"
+    output.mkdir()
+    sidecar = output.with_suffix(".md.json")
+    previous = b'{"prior": "evidence"}\n'
+    sidecar.write_bytes(previous)
+
+    with pytest.raises(OSError):
+        compose(
+            repo=repo,
+            out=output,
+            plan=plan,
+            worktree_diff=True,
+            ranges=(f"{base}..{head}",),
+        )
+
+    assert output.is_dir()
+    assert sidecar.read_bytes() == previous
+    assert not list(tmp_path.glob(".composite.md*.tmp"))
+
+
 def test_manifest_parser_refuses_non_reconstructible_or_extra_json_fields(tmp_path):
     source = tmp_path / "plan.md"
     source.write_text("# plan\n", encoding="utf-8")
@@ -206,6 +341,10 @@ def test_manifest_parser_refuses_non_reconstructible_or_extra_json_fields(tmp_pa
     with pytest.raises(UsageError, match="input path"):
         ContextManifest.from_dict(manifest)
     manifest["inputs"][0]["path"] = str(source.resolve())
+    manifest["version"] = True
+    with pytest.raises(UsageError, match="version"):
+        ContextManifest.from_dict(manifest)
+    manifest["version"] = 1
     manifest["chat_history"] = "must never be accepted"
     with pytest.raises(UsageError, match="unexpected fields"):
         ContextManifest.from_dict(manifest)
