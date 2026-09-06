@@ -72,6 +72,7 @@ def resume_review_context(
     store: RunStore, meta: dict[str, Any], frozen: Path
 ) -> dict[str, str] | None:
     """Validate a copied composer receipt against the frozen artifact only."""
+    has_marker = read_artifact_text(frozen).split("\n", 1)[0] == COMPOSER_MARKER
     copied_manifest = store.run_dir / REVIEW_CONTEXT_MANIFEST_PATH
     try:
         copied_manifest.lstat()
@@ -83,11 +84,13 @@ def resume_review_context(
             f"cannot resume: cannot inspect copied review context manifest: {exc}"
         ) from exc
     if "review_context" not in meta:
-        if has_copied_manifest or read_artifact_text(frozen).split("\n", 1)[0] == COMPOSER_MARKER:
+        if has_copied_manifest or has_marker:
             raise UsageError(
                 "cannot resume: frozen review context evidence is missing review_context metadata"
             )
         return None
+    if not has_marker:
+        raise UsageError("cannot resume: review_context metadata requires a frozen composer marker")
     value = meta["review_context"]
     expected = {"intent", "manifest_digest", "manifest_path"}
     if type(value) is not dict or set(value) != expected:

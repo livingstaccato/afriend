@@ -56,7 +56,11 @@ def _validate_digest(value: object, field: str = "digest") -> str:
 def _canonical_path(value: object, field: str) -> Path:
     if not isinstance(value, Path):
         raise UsageError(f"review context {field} must be a Path")
-    if not value.is_absolute() or value != value.resolve():
+    try:
+        canonical = value.resolve()
+    except (OSError, ValueError) as exc:
+        raise UsageError(f"review context {field} must be a canonical absolute path") from exc
+    if not value.is_absolute() or value != canonical:
         raise UsageError(f"review context {field} must be a canonical absolute path")
     return value
 
@@ -549,6 +553,16 @@ def _question(intent: ContextIntent) -> str:
     }[intent]
 
 
+def _display(value: str | Path) -> str:
+    """Render manifest identifiers without allowing Markdown structure escapes."""
+    return "".join(
+        {"\n": "\\n", "\r": "\\r", "\t": "\\t"}.get(character, f"\\u{ord(character):04x}")
+        if character in {"`", "\\"} or ord(character) < 32 or ord(character) == 127
+        else character
+        for character in str(value)
+    )
+
+
 def _render_composite(
     manifest: ContextManifest,
     contents: Mapping[str, bytes],
@@ -564,10 +578,13 @@ def _render_composite(
         "",
         "## Manifest",
         "",
-        f"- Repository: `{manifest.repository_root}`",
+        f"- Repository: `{_display(manifest.repository_root)}`",
     ]
     for item in manifest.inputs:
-        lines.append(f"- {item.role}: `{item.label}` — `{item.source_path}` — `{item.digest}`")
+        lines.append(
+            f"- {item.role}: `{_display(item.label)}` — `{_display(item.source_path)}` — "
+            f"`{item.digest}`"
+        )
     for index, change in enumerate(manifest.changes, start=1):
         identity = (
             f"{change.start}..{change.end}" if change.kind == "range" else "working tree patch"
@@ -586,7 +603,7 @@ def _render_composite(
         lines.extend(
             [
                 "",
-                f"## {item.role.title()}: {item.label}",
+                f"## {item.role.title()}: {_display(item.label)}",
                 "",
                 _fenced(contents[item.role], "text").rstrip("\n"),
             ]
@@ -594,9 +611,9 @@ def _render_composite(
     for index, captured in enumerate(changes, start=1):
         member = captured.member
         title = (
-            member.label
+            _display(member.label)
             if member.kind == "worktree"
-            else f"{member.label} ({member.start}..{member.end})"
+            else f"{_display(member.label)} ({member.start}..{member.end})"
         )
         lines.extend(
             [

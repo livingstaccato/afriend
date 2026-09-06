@@ -146,6 +146,20 @@ def test_compose_includes_untracked_worktree_files_in_change_evidence(repository
     assert "new implementation" in text
 
 
+def test_compose_escapes_paths_that_could_inject_markdown_structure(repository, tmp_path):
+    repo, base, head = repository
+    plan = tmp_path / "plan`\n## forged heading.md"
+    plan.write_text("# plan\n", encoding="utf-8")
+    output = tmp_path / "composite.md"
+
+    compose(repo=repo, out=output, plan=plan, worktree_diff=True, ranges=(f"{base}..{head}",))
+
+    manifest_block = output.read_text(encoding="utf-8").split("## Assessment instruction", 1)[0]
+    assert "\n## forged heading.md" not in manifest_block
+    assert "\\u0060" in manifest_block
+    assert "\\n## forged heading.md" in manifest_block
+
+
 def test_compose_rejects_a_change_set_over_the_member_budget_before_output(repository, tmp_path):
     repo, base, head = repository
     plan = tmp_path / "plan.md"

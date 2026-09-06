@@ -87,6 +87,14 @@ def _halted_composite_run(tmp_path):
     return next((tmp_path / "runs").iterdir())
 
 
+def _halted_ordinary_run(tmp_path):
+    artifact = tmp_path / "ordinary.md"
+    artifact.write_text("# ordinary artifact\n", encoding="utf-8")
+    result = run_af(tmp_path, artifact, "--friend", "fake:good", "--merge", "orchestrator")
+    assert result.returncode == 10, result.stderr
+    return next((tmp_path / "runs").iterdir())
+
+
 def test_capture_ignores_an_unmarked_artifact_before_reading_its_sidecar(tmp_path):
     artifact = tmp_path / "ordinary.md"
     artifact.write_text("# ordinary markdown\n", encoding="utf-8")
@@ -185,6 +193,35 @@ def test_resume_refuses_a_context_run_with_missing_review_context_metadata(tmp_p
     assert "review_context" in result.stderr
 
 
+def test_resume_refuses_forged_context_metadata_for_an_unmarked_frozen_artifact(tmp_path):
+    run_dir = _halted_ordinary_run(tmp_path)
+    _respond_to_halted_merge(run_dir)
+    repo, base, head = _repository_with_history(tmp_path)
+    plan = tmp_path / "plan.md"
+    composite = tmp_path / "forged-composite.md"
+    plan.write_text("# plan\n", encoding="utf-8")
+    compose(repo=repo, out=composite, plan=plan, worktree_diff=True, ranges=(f"{base}..{head}",))
+    forged_manifest = json.loads(composite.with_suffix(".md.json").read_text(encoding="utf-8"))
+    frozen = next((run_dir / "artifact").iterdir())
+    forged_manifest["output_sha256"] = "sha256:" + hashlib.sha256(frozen.read_bytes()).hexdigest()
+    payload = json.dumps(forged_manifest, sort_keys=True).encode("utf-8")
+    (run_dir / "review-context.json").write_bytes(payload)
+    meta_path = run_dir / "run.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["review_context"] = {
+        "intent": forged_manifest["intent"],
+        "manifest_digest": "sha256:" + hashlib.sha256(payload).hexdigest(),
+        "manifest_path": "review-context.json",
+    }
+    meta_path.write_text(json.dumps(meta), encoding="utf-8")
+
+    result = _resume_run(tmp_path, run_dir)
+
+    assert result.returncode == 2
+    assert "marker" in result.stderr
+    assert "traceback" not in result.stderr.lower()
+
+
 def test_resume_refuses_review_context_metadata_with_a_manifest_digest_mismatch(tmp_path):
     run_dir = _halted_composite_run(tmp_path)
     _respond_to_halted_merge(run_dir)
@@ -253,6 +290,25 @@ def test_run_rejects_a_marked_composite_with_an_invalid_context_sidecar_before_c
 
     assert result.returncode == 2
     assert "review context manifest" in result.stderr
+    assert not (tmp_path / "runs").exists()
+
+
+def test_run_rejects_a_marked_sidecar_with_a_nul_path_cleanly(tmp_path):
+    repo, base, head = _repository_with_history(tmp_path)
+    plan = tmp_path / "plan.md"
+    composite = tmp_path / "composite.md"
+    plan.write_text("# plan\n", encoding="utf-8")
+    compose(repo=repo, out=composite, plan=plan, worktree_diff=True, ranges=(f"{base}..{head}",))
+    sidecar = composite.with_suffix(".md.json")
+    manifest = json.loads(sidecar.read_text(encoding="utf-8"))
+    manifest["inputs"][0]["path"] = "/tmp/forged\x00path.md"
+    sidecar.write_text(json.dumps(manifest), encoding="utf-8")
+
+    result = run_af(tmp_path, composite, "--friend", "fake:good")
+
+    assert result.returncode == 2
+    assert "path" in result.stderr
+    assert "traceback" not in result.stderr.lower()
     assert not (tmp_path / "runs").exists()
 
 
