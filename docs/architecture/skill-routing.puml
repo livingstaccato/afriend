@@ -12,7 +12,7 @@ title afriend skill routing
 rectangle "/afriend\nsole router" as router
 rectangle "host-session resolver\nexplicit evidence / session window" as resolver #FFF8E1
 rectangle "CLI composer\nafriend context compose" as composer #E8F5E9
-rectangle "immutable composite + manifest" as composite #F3E5F5
+rectangle "deterministic, content-bound composite + manifest" as composite #F3E5F5
 rectangle "session preflight\nfirst review or new loop iteration" as preflight #FFF8E1
 rectangle "review" as review
 rectangle "status" as status

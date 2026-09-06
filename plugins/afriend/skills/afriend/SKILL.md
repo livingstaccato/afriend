@@ -72,9 +72,11 @@ afriend context compose --repo <root> --out <composite> \
   --plan <plan> --review <review> --worktree-diff --range <base..head>
 ```
 
-Use only the selected role and change flags. The command writes an immutable
-composite and bound manifest; it is not dispatch. Then pause before dispatch
-and state the resolved run:
+Use only the selected role and change flags. The command writes a deterministic,
+content-bound composite and bound manifest; it is not dispatch. Its output is
+replaceable before `afriend run`, but each replacement needs a matching valid
+bound manifest. `afriend run` then freezes run-owned artifact and manifest
+copies. Then pause before dispatch and state the resolved run:
 
 > About to start afriend to `<intent>` with plan `<plan|none>`, review
 > `<review|none>`, and changes `<every selected member>`, in repository

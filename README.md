@@ -10,7 +10,7 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 [![Dependencies](https://img.shields.io/badge/runtime%20deps-none-brightgreen)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-2267-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2269-brightgreen)](tests/)
 
 It automates a workflow you may already do by hand: run a review, paste the
 findings into a different model, ask whether they hold up, carry the argument
@@ -117,17 +117,32 @@ afriend run docs/my-design.md
 ```
 
 On the first review request in a host task, `/afriend` presents one compact
-preflight before dispatch:
+preflight before dispatch. It names the applicable standalone-artifact or
+composed-context form:
 
-> About to start afriend to review `<artifact>` in `<mode>` mode
-> with `<profile>`. Scope: `<repository snapshot|document only>`. Friends:
-> `<name, provider, lens, role>`; external tools: `<denied|explicit grant>`.
+> Standalone artifact: about to start afriend to review `<artifact>` in
+> `<mode>` mode with `<profile>`. Scope:
+> `<repository snapshot|document only>`.
+>
+> Composed context: about to start afriend to `<intent>` with plan
+> `<plan|none>`, review `<review|none>`, and changes `<every selected member>`
+> in repository `<root>`. Profile/mode: `<profile>/<mode>`.
+>
+> Friends: `<name, provider, lens, role>`; downgrade: `<none|reason>`;
+> external tools: `<denied|explicit grant>`. You can cancel, changes only,
+> review only, plan only, or change the profile or mode before dispatch.
 
-You can accept it, choose a task-only profile or mode, change the task-only
-roster, or stop. It is shown again only before a requested new loop iteration.
-The preflight describes authority; it never grants external tools, provider
-enablement, unsafe arguments, or sandbox exceptions. Direct CLI runs stay
-non-interactive.
+For composed context, the preflight names the intent and every selected plan,
+review, and change member; it does not collapse a plural change set into an
+unnamed latest diff.
+Before dispatch, you can cancel, changes only, review only, plan only, or
+change the profile or mode.
+
+You can accept it, make a task-only profile or mode choice, change the
+task-only roster, or stop. It is shown again only before a requested new loop
+iteration. The preflight describes authority; it never grants external tools,
+provider enablement, unsafe arguments, or sandbox exceptions. Direct CLI runs
+stay non-interactive.
 
 The built-in profiles are `quick` (one `report` fan-out), `balanced`
 (`crossexam`), and `thorough` (`loop`). `quick` is the default. Use
@@ -175,11 +190,13 @@ cancel, choose changes only, review only, or plan only, or change the profile
 or mode. The composer accepts only explicit paths and change flags; it does
 not discover evidence or dispatch a review.
 
-The composite begins with the review-context marker and has a sidecar manifest
-bound to its exact content. Unmarked artifacts ignore adjacent JSON; marked
-composites require a valid bound manifest. A normal run freezes the composite
-and records the manifest evidence, so resume verifies that same immutable
-review context rather than discovering current session material.
+The composer produces a deterministic, content-bound composite with a sidecar
+manifest bound to its exact content. Its output is replaceable before run, but
+the replacement needs its own valid bound manifest. Unmarked artifacts ignore
+adjacent JSON; marked composites require a valid bound manifest. A normal run
+then freezes run-owned artifact and manifest copies, so resume verifies those
+same frozen run-owned artifact and manifest copies rather than discovering
+current session material.
 
 The host is the orchestrator. In Codex, Codex remains the orchestrator and is
 included as a friend by default. The report labels it

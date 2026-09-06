@@ -423,8 +423,44 @@ def test_current_docs_explain_bounded_review_context_composition_and_protocol():
     ):
         assert phrase in readme, phrase
     assert "host-session resolver" in docs
-    assert "immutable composite" in docs
+    assert "deterministic, content-bound composite" in docs
     assert "normal run snapshot/resume" in architecture
+
+
+def test_readme_first_review_preflight_covers_standalone_and_composed_contexts():
+    readme = REPO.joinpath("README.md").read_text()
+    start = readme.index("On the first review request in a host task")
+    end = readme.index("The built-in profiles", start)
+    preflight = " ".join(readme[start:end].lower().split())
+
+    for phrase in (
+        "standalone artifact",
+        "intent",
+        "every selected plan, review, and change member",
+        "repository",
+        "profile/mode",
+        "friends",
+        "downgrade",
+        "cancel, changes only, review only, plan only",
+        "change the profile or mode",
+    ):
+        assert phrase in preflight, phrase
+
+
+def test_live_docs_describe_composer_output_as_content_bound_until_run_freezes_it():
+    current = {
+        "README.md": REPO / "README.md",
+        "docs/README.md": REPO / "docs" / "README.md",
+        "architecture README": REPO / "docs" / "architecture" / "README.md",
+        "router skill": ENTRYPOINTS / "afriend" / "SKILL.md",
+        "review skill": ENTRYPOINTS / "review" / "SKILL.md",
+    }
+    text = {name: " ".join(path.read_text().lower().split()) for name, path in current.items()}
+
+    assert "replaceable before run" in text["README.md"]
+    assert "frozen run-owned artifact and manifest copies" in text["README.md"]
+    for name, value in text.items():
+        assert "immutable composite" not in value, name
 
 
 def test_skill_routing_diagram_labels_all_skills_and_commands():
@@ -454,7 +490,7 @@ def test_skill_routing_diagram_shows_review_context_composition_path():
     for label in (
         "host-session resolver",
         "cli composer",
-        "immutable composite + manifest",
+        "deterministic, content-bound composite + manifest",
         "normal run snapshot / resume",
     ):
         assert label in source

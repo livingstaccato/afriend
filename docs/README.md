@@ -52,8 +52,8 @@ quickstart, see the [top-level README](../README.md); come here for detail.
   `afriend resolve` fit together, and the two things a resolution can be
   refused for.
 - **[Skill routing](architecture/skill-routing.puml)** — how the host-session
-  resolver hands explicit evidence to the CLI composer, creates an immutable
-  composite plus manifest, then enters the normal run snapshot/resume path
+  resolver hands explicit evidence to the CLI composer, creates a deterministic,
+  content-bound composite plus manifest, then enters the normal run snapshot/resume path
   through session preflight, focused skills, and lifecycle feedback.
 
 Rendered PNG and SVG are committed alongside each source. Regenerate with

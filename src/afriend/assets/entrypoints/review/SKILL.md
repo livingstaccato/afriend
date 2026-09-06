@@ -52,10 +52,12 @@ afriend context compose --repo <root> --out <composite> \
 ```
 
 Use only the role and change flags that the approved evidence supplies. The
-composer returns a deterministic composite and its bound sidecar manifest; it
-does not discover evidence, expand session visibility, or grant authority.
-After the host preflight, run the returned composite with `afriend run
-<composite> --repo <root>`.
+composer returns a deterministic, content-bound composite and its bound
+sidecar manifest; it does not discover evidence, expand session visibility, or
+grant authority. Its output is replaceable before `afriend run`, but a
+replacement needs a matching valid bound manifest. `afriend run` freezes
+run-owned artifact and manifest copies. After the host preflight, run the
+returned composite with `afriend run <composite> --repo <root>`.
 
 Read the resulting `report.md` and present its findings faithfully. Report a
 recorded downgrade (including a one-friend report), a refusal, failed friends,
