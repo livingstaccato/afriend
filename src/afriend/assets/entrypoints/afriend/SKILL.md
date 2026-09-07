@@ -106,6 +106,21 @@ next action is to inspect, resolve, resume, fix configuration, retry, or start
 another iteration. Do not call a failed, incomplete, downgraded, or
 single-friend run a completed independent review.
 
+Do not leave a completed worker as an implied queue. When a friend, delegated
+worker, or afriend run finishes, immediately report its outcome and name the
+next action. Continue the declared workflow when that action is already
+authorized; otherwise state the exact user decision or host permission needed.
+The host, not afriend, owns worker lifecycle, edits, commits, merges, and
+permission settings. A provider grant such as `--allow-external-tools=PROVIDER`
+only permits that provider's managed tools for this run; it does not grant the
+host authority to launch a worker or bypass a host permission classifier.
+
+For investigation, ask the host to use a read-only worker that returns
+evidence. For implementation, ask it to use an isolated worker that returns a
+diff and test results: "Do not commit, push, or merge." If the host refuses an
+autonomous edit-and-commit worker, split the work that way rather than claiming
+afriend can override the refusal.
+
 ## Running it
 
 ```bash

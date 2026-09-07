@@ -30,6 +30,7 @@ def test_contract_first_provider_and_authority_guidance_is_shipped():
 
     for phrase in (
         "host is the orchestrator",
+        "do not leave a completed worker as an implied queue",
         "--include-self",
         "afriend providers list",
         "afriend providers enable",
