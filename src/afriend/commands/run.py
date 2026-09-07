@@ -10,7 +10,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 import shutil
 import signal
-import sys
 import time
 from typing import Any
 import uuid
@@ -51,7 +50,6 @@ from .environment import (
     clock_offset,
     freeze_revision,
     reconcile_snapshot_scope,
-    snapshot_scope_downgrade_note,
 )
 from .haltstate import loop_position, write_halt
 from .resume import resume_iteration
@@ -63,6 +61,7 @@ from .reviewcontext import (
     resume_review_context as _resume_review_context,
 )
 from .runmeta import JUDGING_MODES, _base_meta, finish_run, loop_is_done, validate_run_args
+from .runwarnings import warn_doc_scope
 from .scopeanchor import _validate_repository_scope_anchor, resolve_repository_scope
 from .setup import prepare_run
 
@@ -209,22 +208,6 @@ def cmd_run(args: argparse.Namespace) -> int:
 
         warning_seen = False
 
-        def _warn_doc_scope() -> None:
-            nonlocal warning_seen
-            if warning_seen:
-                return
-            note = snapshot_scope_downgrade_note(artifact.name)
-            if note in downgrades:
-                print(
-                    "afriend: warning: doc scope only -- no repository was detected for "
-                    f"the artifact '{artifact.name}'. Friends can only read the artifact "
-                    "text, not repository code. Place the artifact file inside the "
-                    "repository you want reviewed to get full scope.",
-                    file=sys.stderr,
-                    flush=True,
-                )
-                warning_seen = True
-
         repo_root, specs = reconcile_snapshot_scope(artifact, snapshot, specs, downgrades)
         reporter.resolved_roster(
             specs,
@@ -239,7 +222,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             repository_scope_mode=repository_scope_mode,
             required=resume_meta is None,
         )
-        _warn_doc_scope()
+        warning_seen = warn_doc_scope(artifact, downgrades, warning_seen)
         # The snapshot serves two independent purposes, and taking it only
         # for the first one was a bug: repo-scope friends are checked out
         # from it, AND `afriend resolve` compares a resolution's location
@@ -454,7 +437,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 _, round_specs = reconcile_snapshot_scope(
                     artifact, snapshot, round_specs, downgrades
                 )
-                _warn_doc_scope()
+                warning_seen = warn_doc_scope(artifact, downgrades, warning_seen)
                 snapshot_sha = snapshot.commit
                 if revision.downgrade is not None:
                     downgrades.append(revision.downgrade)

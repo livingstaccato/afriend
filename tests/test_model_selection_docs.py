@@ -102,7 +102,7 @@ def test_live_model_provenance_docs_cover_unset_opencode_and_the_startup_flow():
         assert "does not supply `--ignore-user-config`" in normalized
 
     for flow in (
-        "commands/friends.py + roster.py\\n<size:11>model provenance + selection</size>",
+        "commands/friends.py + roster.py\\n<size:11>selection, model provenance, host roles, lenses</size>",
         "progress.py",
         "RUN --> ROSTER : resolve model provenance",
         "PCONFIG --> ROSTER : provider setting",
