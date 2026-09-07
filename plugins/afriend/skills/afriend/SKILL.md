@@ -379,11 +379,20 @@ To inspect a named run without dispatching or changing anything, use:
 afriend status <run-id-or-path>
 afriend status <run-id-or-path> --watch
 afriend status <run-id-or-path> --json
+afriend runs list
+afriend runs prune --older-than 30
+afriend runs prune --older-than 30 --confirm
+afriend plan <run-id-or-path>
 ```
 
 `status` reports identity, mode, scope, profile, lifecycle state, friend
 completion or failure, current round, claim states, downgrades, and a next
-action. `--watch` tails new lifecycle events until the terminal event; an
+action. It includes transcript-safe final triage and links to the report,
+ledger, and parsed evidence without copying captured transcript content.
+`runs list` inventories audit records; retain-all is the default. `runs prune`
+is preview-only without `--confirm` and never runs automatically. `plan` writes
+one durable, non-mutating, claim-linked `PLAN.md` for a complete terminal run;
+it is a proposal for the host to review, not a resolution or code edit. `--watch` tails new lifecycle events until the terminal event; an
 unterminated final JSONL line is simply still being written. Existing runs
 without `events.jsonl` remain inspectable from their saved artifacts.
 
