@@ -328,6 +328,10 @@ def test_resuming_carries_the_original_mode_through(tmp_path):
     _respond(tmp_path, [])
     result = _resume(tmp_path)
     assert result.returncode == 0, result.stderr
+    assert (
+        "afriend:   fake-judge_uphold_a-0 (fake) -- model: Fake CLI default "
+        "(no --model passed; exact model not verified) [CLI default]"
+    ) in result.stderr
     meta = _run_json(tmp_path)
     assert meta["mode"] == "crossexam"
     assert meta["claim_states"], "the resumed run should have judged its claims"

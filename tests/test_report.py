@@ -375,7 +375,7 @@ def test_very_long_single_line_claim_text_is_preserved_verbatim():
     assert any(long_text in ln for ln in out.splitlines())
 
 
-def test_friend_model_none_reports_inherited():
+def test_legacy_friend_model_selection_is_not_mislabeled_as_inherited():
     m = meta(
         friends=[
             {
@@ -389,13 +389,35 @@ def test_friend_model_none_reports_inherited():
         ]
     )
     out = render([claim("c-0001@1")], [], m)
-    assert "inherited" in out
+    assert "| friend | role | independent | model | model source | effort |" in out
+    assert "recorded model; selection source unavailable" in out
+    assert "| friend-a | independent reviewer | True | inherited |" not in out
+
+
+def test_report_lists_persisted_model_selection_source():
+    m = meta(
+        friends=[
+            {
+                "name": "friend-a",
+                "model": "gpt-6-astra",
+                "model_source": "provider-setting",
+                "effort": None,
+                "readonly": True,
+                "scope": "repo",
+                "status": "ok",
+            },
+        ]
+    )
+
+    out = render([claim("c-0001@1")], [], m)
+
+    assert "| friend-a | independent reviewer | True | gpt-6-astra | provider setting |" in out
 
 
 def test_empty_friends_list_does_not_crash():
     m = meta(friends=[])
     out = render([claim("c-0001@1")], [], m)
-    assert "| friend | role | independent | model | effort | transport | write-protected |" in out
+    assert "| friend | role | independent | model | model source | effort | transport |" in out
 
 
 def test_render_does_not_mutate_inputs():

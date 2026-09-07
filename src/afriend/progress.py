@@ -27,6 +27,7 @@ import threading
 import time
 from typing import TextIO
 
+from .adapters import FriendSpec
 from .errors import UsageError
 from .events import EventRecord, EventWriter
 
@@ -47,6 +48,22 @@ _TICK_S = 0.5
 # or other user content, so every dispatched friend receives this fixed,
 # descriptive label instead.
 _LIFECYCLE_LENS = "configured"
+_MODEL_SOURCE_LABELS = {
+    "invocation": "invocation",
+    "explicit-friend": "explicit friend",
+    "roster": "roster",
+    "provider-setting": "provider setting",
+    "adapter-default": "adapter default",
+    "cli-default": "CLI default",
+    "recorded-unknown": "recorded model; selection source unavailable",
+}
+_PROVIDER_DISPLAY_NAMES = {
+    "codex": "Codex",
+    "opencode": "OpenCode",
+    "agy": "Antigravity",
+    "claude": "Claude",
+    "ollama": "Ollama",
+}
 
 
 def format_duration(seconds: float) -> str:
@@ -86,6 +103,7 @@ class Progress:
     _beat: threading.Thread | None = field(default=None, repr=False)
     event_writer: EventWriter | None = field(default=None, repr=False)
     _terminal_event_written: bool = field(default=False, repr=False)
+    _roster_announced: bool = field(default=False, repr=False)
 
     # --- writing ----------------------------------------------------------
 
@@ -112,6 +130,27 @@ class Progress:
 
     def note(self, text: str) -> None:
         self._emit(f"afriend: {text}")
+
+    def resolved_roster(self, specs: list[FriendSpec]) -> None:
+        """Name the model requested for this invocation's actual roster.
+
+        This is intentionally human-only progress, not a lifecycle event:
+        selection provenance is recorded in the round audit and can contain
+        configuration details that the compact event stream deliberately
+        does not duplicate. A CLI default is not an observed backend model;
+        in particular Codex is invoked with ``--ignore-user-config``.
+        """
+        if self._roster_announced or not specs:
+            return
+        self._roster_announced = True
+        for spec in specs:
+            source = _MODEL_SOURCE_LABELS[spec.model_source]
+            if spec.model is None:
+                display = _PROVIDER_DISPLAY_NAMES.get(spec.cli, spec.cli.title())
+                model = f"{display} CLI default (no --model passed; exact model not verified)"
+            else:
+                model = spec.model
+            self._emit(f"afriend:   {spec.name} ({spec.cli}) -- model: {model} [{source}]")
 
     def _event(self, event_type: str, payload: dict[str, object]) -> None:
         """Best-effort telemetry that cannot change review execution."""

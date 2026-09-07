@@ -10,6 +10,7 @@ import io
 import time
 
 from afriend import progress
+from afriend.adapters import FriendSpec
 from afriend.events import read_events
 from afriend.runstore import RunStore
 
@@ -58,6 +59,57 @@ def test_progress_never_writes_to_stdout(capsys):
     captured = capsys.readouterr()
     assert captured.out == ""
     assert "fake-ok-0" in captured.err
+
+
+def test_resolved_roster_names_requested_models_and_selection_sources():
+    stream = io.StringIO()
+    reporter = progress.Progress(stream=stream)
+
+    reporter.resolved_roster(
+        [
+            FriendSpec(
+                "codex-security-0",
+                "codex",
+                "security",
+                "gpt-6-astra",
+                None,
+                "doc",
+                900,
+                model_source="provider-setting",
+            ),
+            FriendSpec(
+                "mystery-ops-0",
+                "mystery-cloud",
+                "ops",
+                None,
+                None,
+                "doc",
+                900,
+            ),
+        ]
+    )
+
+    assert _lines(stream) == [
+        "afriend:   codex-security-0 (codex) -- model: gpt-6-astra [provider setting]",
+        "afriend:   mystery-ops-0 (mystery-cloud) -- model: Mystery-Cloud CLI default "
+        "(no --model passed; exact model not verified) [CLI default]",
+    ]
+
+
+def test_resolved_roster_is_printed_once_per_reporter_before_dispatch():
+    stream = io.StringIO()
+    reporter = progress.Progress(stream=stream)
+    specs = [
+        FriendSpec("codex-ops-0", "codex", "ops", None, None, "doc", 900),
+    ]
+
+    reporter.resolved_roster(specs)
+    reporter.resolved_roster(specs)
+
+    assert _lines(stream) == [
+        "afriend:   codex-ops-0 (codex) -- model: Codex CLI default "
+        "(no --model passed; exact model not verified) [CLI default]"
+    ]
 
 
 def test_a_finished_friend_is_named_with_its_outcome_and_duration():

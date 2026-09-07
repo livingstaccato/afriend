@@ -99,6 +99,7 @@ def persist_skip(store: RunStore, round_no: int, skipped: SkippedFriend) -> dict
         "independent": skipped.spec.independent,
         "host_self_review": skipped.spec.host_self_review,
         "model": skipped.spec.model,
+        "model_source": skipped.spec.model_source,
         "effort": skipped.spec.effort,
         "transport": "not-dispatched",
         "write_protected": False,
@@ -392,6 +393,7 @@ def dispatch_round(
             dispatch_specs = [s for s in specs if s.name in cwd_for]
             if not dispatch_specs:
                 return DispatchRoundOutcome([])
+            report.resolved_roster(dispatch_specs)
             # Bounded: see ceilings.DEFAULT_MAX_CONCURRENCY. Futures are read
             # in `dispatch_specs` order, so aggregation remains stable.
             workers = max(1, min(max_concurrency, len(dispatch_specs)))
@@ -550,6 +552,7 @@ def persist_result(
         "independent": spec.independent,
         "host_self_review": spec.host_self_review,
         "model": spec.model,
+        "model_source": spec.model_source,
         "effort": spec.effort,
         "transport": transport,
         "write_protected": capability.readonly,
@@ -601,6 +604,7 @@ def recover_result_audit(store: RunStore, round_no: int, spec: FriendSpec) -> di
             "independent": spec.independent,
             "host_self_review": spec.host_self_review,
             "model": spec.model,
+            "model_source": spec.model_source,
             "effort": spec.effort,
             "transport": "legacy-unknown",
             "write_protected": False,

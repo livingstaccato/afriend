@@ -98,6 +98,19 @@ def test_report_run_produces_ledger_and_report(tmp_path):
     assert "# Adversarial review" in (runs[0] / "report.md").read_text()
 
 
+def test_report_run_prints_model_roster_to_stderr_and_keeps_stdout_path_only(tmp_path):
+    artifact = tmp_path / "spec.md"
+    artifact.write_text("# spec\nA design with a missing guard.\n")
+
+    result = run_af(tmp_path, artifact, "--friend", "fake:good", "--model", "gpt-6-astra")
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == str(next((tmp_path / "runs").iterdir()))
+    assert "afriend:   fake-good-0 (fake) -- model: gpt-6-astra [invocation]" in result.stderr
+    meta = json.loads((next((tmp_path / "runs").iterdir()) / "run.json").read_text())
+    assert meta["friends"][0]["model_source"] == "invocation"
+
+
 def test_report_run_writes_ordered_safe_lifecycle_events(tmp_path):
     artifact = tmp_path / "spec.md"
     artifact.write_text("# spec\nA design with a missing guard.\n")
@@ -128,6 +141,7 @@ def test_report_run_writes_ordered_safe_lifecycle_events(tmp_path):
     serialized = (run_dir / "events.jsonl").read_text()
     assert "missing guard" not in serialized
     assert "argv" not in serialized
+    assert "model" not in serialized
 
 
 def test_arbitrary_roster_lens_cannot_abort_or_leak_into_lifecycle_events(monkeypatch, tmp_path):

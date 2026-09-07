@@ -1,12 +1,12 @@
 """Render report.md.
 
-The header states the model and effort each friend actually received.
-Without that, a weak critique from a friend that silently ran at default
-effort reads as a signal about the artifact when it is really a signal
-about the flag matrix -- and a run where several friends failed would
-otherwise read as a clean bill of health. Every friend is listed, including
-failures, and the empty-findings case says explicitly that it is not the
-same as "no problems found."
+The header states the requested model, where that selection came from, and
+the effort each friend received. Without that, a weak critique from a friend
+that silently ran at default effort reads as a signal about the artifact when
+it is really a signal about the flag matrix -- and a run where several
+friends failed would otherwise read as a clean bill of health. Every friend
+is listed, including failures, and the empty-findings case says explicitly
+that it is not the same as "no problems found."
 
 `render` is a pure function: it only reads its arguments and returns a
 string. It never writes files, never mutates `claims`/`aliases`/`run_meta`,
@@ -41,6 +41,15 @@ from .snapshots import SnapshotIdentity
 from .verdicts import CONTESTED, DEADLOCKED, INCOMPLETE, UNPROVEN
 
 SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
+_MODEL_SOURCE_LABELS = {
+    "invocation": "invocation",
+    "explicit-friend": "explicit friend",
+    "roster": "roster",
+    "provider-setting": "provider setting",
+    "adapter-default": "adapter default",
+    "cli-default": "CLI default",
+    "recorded-unknown": "recorded model; selection source unavailable",
+}
 
 # The states where a reader has to see the argument rather than a label.
 # `deadlocked` is the one §7.2 names explicitly ("both sides quoted
@@ -141,6 +150,24 @@ def _escape_status_cell(value: object) -> str:
     text = re.sub(r"(?i)\b([a-z][a-z0-9+.-]*)://", r"\1: //", text)
     text = re.sub(r"(?i)\bwww\.", "www .", text)
     return re.sub(r"(?i)\b(javascript|vbscript|data):", r"\1 :", text)
+
+
+def _model_source_label(friend: dict[str, Any]) -> str:
+    """Render selection provenance without inventing it for older rows."""
+    source = friend.get("model_source")
+    if isinstance(source, str):
+        return _MODEL_SOURCE_LABELS.get(source, "recorded model; selection source unavailable")
+    return "recorded model; selection source unavailable"
+
+
+def _model_display(friend: dict[str, Any]) -> object:
+    """Do not turn an absent model record into a claim of inheritance."""
+    model = friend.get("model")
+    if model:
+        return model
+    if friend.get("model_source") == "cli-default":
+        return "CLI default (not verified)"
+    return "recorded model unavailable"
 
 
 def _code_span(text: str) -> str:
@@ -525,10 +552,10 @@ def render(
     lines.append("## Friends")
     lines.append("")
     lines.append(
-        "| friend | role | independent | model | effort | transport | write-protected | "
-        "declared scope | OS-confined | status |"
+        "| friend | role | independent | model | model source | effort | transport | "
+        "write-protected | declared scope | OS-confined | status |"
     )
-    lines.append("|---|---|---|---|---|---|---|---|---|---|")
+    lines.append("|---|---|---|---|---|---|---|---|---|---|---|")
     for friend in run_meta["friends"]:
         transport = friend.get("transport", "exec")
         write_protected = friend.get("write_protected", friend.get("readonly", False))
@@ -545,7 +572,8 @@ def render(
             f"| {_escape_cell(friend['name'])} | "
             f"{_escape_cell(role)} | "
             f"{_escape_cell(independent)} | "
-            f"{_escape_cell(friend['model'] or 'inherited')} | "
+            f"{_escape_cell(_model_display(friend))} | "
+            f"{_escape_cell(_model_source_label(friend))} | "
             f"{_escape_cell(friend['effort'] or 'inherited')} | "
             f"{_escape_cell(transport)} | "
             f"{_escape_cell(write_protected)} | "
@@ -554,7 +582,7 @@ def render(
             f"{_escape_status_cell(friend['status'])} |"
         )
     if not run_meta["friends"]:
-        lines.append("| _(no friends were spawned)_ |  |  |  |  |  |  |  |  |  |")
+        lines.append("| _(no friends were spawned)_ |  |  |  |  |  |  |  |  |  |  |")
     read_exposed: list[str] = []
     exposed_seen: set[str] = set()
     for friend in run_meta["friends"]:
