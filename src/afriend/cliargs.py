@@ -444,6 +444,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--watch", action="store_true", help="follow lifecycle events until finished"
     )
 
+    plan_p = sub.add_parser("plan")
+    plan_p.add_argument("run_id", metavar="RUN_ID_OR_PATH")
+    plan_p.add_argument("--out", default=None, help="run root, if not the default")
+
     runs_p = sub.add_parser("runs")
     runs_sub = runs_p.add_subparsers(dest="runs_command", required=True)
     runs_list_p = runs_sub.add_parser("list")
