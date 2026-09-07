@@ -140,7 +140,10 @@ class Progress:
         selection provenance is recorded in the round audit and can contain
         configuration details that the compact event stream deliberately
         does not duplicate. A CLI default is not an observed backend model;
-        in particular Codex is invoked with ``--ignore-user-config``.
+        under the default external-tools-denied policy Codex receives
+        ``--ignore-user-config``. An explicitly allowed Codex invocation may
+        instead use user configuration, so it is not described as a built-in
+        CLI default.
         """
         if self._roster_announced or not specs:
             return
