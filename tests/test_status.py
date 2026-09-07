@@ -103,12 +103,286 @@ def test_status_json_is_versioned_and_uses_legacy_artifacts_when_events_are_abse
     assert status.cmd_status(_args("run-status", out=root, json_output=True)) == 0
 
     payload = json.loads(capsys.readouterr().out)
-    assert payload["version"] == 2
+    assert payload["version"] == 3
     assert payload["state"] == "terminal"
     assert payload["mode"] == "report"
     assert payload["profile"] == "quick"
     assert payload["claims"] == {"by_status": {"pending": 1}, "total": 1}
     assert payload["downgrades"] == ["doc scope only"]
+
+
+def test_status_triage_projects_an_unresolved_final_claim_without_transcript_text(
+    monkeypatch, tmp_path, capsys
+):
+    root = tmp_path / "runs"
+    run = _run(root, events=False)
+    secret = "secret raw completion must not appear"
+    (run / "round-1").mkdir()
+    (run / "round-1" / "fake-security-0.raw").write_text(secret, encoding="utf-8")
+    (run / "round-1" / "fake-security-0.prompt").write_text(secret, encoding="utf-8")
+    (run / "round-1" / "fake-security-0.err").write_text(secret, encoding="utf-8")
+    (run / "round-1" / "fake-security-0.json").write_text("{}", encoding="utf-8")
+    (run / "report.md").write_text(secret, encoding="utf-8")
+    claim = json.loads((run / "claims.jsonl").read_text(encoding="utf-8"))
+    claim["claim"] = secret
+    claim["evidence"] = secret
+    (run / "claims.jsonl").write_text(json.dumps(claim) + "\n", encoding="utf-8")
+    meta = json.loads((run / "run.json").read_text(encoding="utf-8"))
+    meta["roster"] = [
+        {
+            "name": "fake-security-0",
+            "cli": "fake",
+            "lens": "security",
+            "model": None,
+            "effort": None,
+            "scope": "doc",
+            "timeout": 1,
+        }
+    ]
+    (run / "run.json").write_text(json.dumps(meta), encoding="utf-8")
+
+    loaded: list[Path] = []
+    checked: list[Path] = []
+    original_read = status.secure_read_bytes
+    original_regular_exists = status.secure_regular_exists
+
+    def record_read(path, **kwargs):
+        loaded.append(Path(path))
+        return original_read(path, **kwargs)
+
+    def record_regular_exists(path, **kwargs):
+        checked.append(Path(path))
+        return original_regular_exists(path, **kwargs)
+
+    monkeypatch.setattr(status, "secure_read_bytes", record_read)
+    monkeypatch.setattr(status, "secure_regular_exists", record_regular_exists)
+
+    assert status.cmd_status(_args("run-status", out=root, json_output=True)) == 0
+
+    summary = json.loads(capsys.readouterr().out)
+    assert summary["triage"] == {
+        "evidence_paths": [str(run / "round-1" / "fake-security-0.json")],
+        "final_claim_ids": ["c-0001@1"],
+        "final_findings": [
+            {
+                "evidence_paths": [str(run / "round-1" / "fake-security-0.json")],
+                "id": "c-0001@1",
+                "severity": "high",
+                "status": "unresolved",
+            }
+        ],
+        "ledger_path": str(run / "claims.jsonl"),
+        "report_path": str(run / "report.md"),
+        "unresolved_claim_ids": ["c-0001@1"],
+        "unresolved_count": 1,
+    }
+    assert secret not in json.dumps(summary)
+    assert all(path.suffix not in {".raw", ".prompt", ".err"} for path in loaded)
+    assert all(path.suffix not in {".raw", ".prompt", ".err"} for path in checked)
+
+
+def test_status_triage_uses_final_resolved_claims_and_renders_them(tmp_path, capsys):
+    root = tmp_path / "runs"
+    run = _run(root, events=False)
+    predecessor = json.loads((run / "claims.jsonl").read_text(encoding="utf-8"))
+    successor = {**predecessor, "id": "c-0001@2", "supersedes": "c-0001@1"}
+    with (run / "claims.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(successor) + "\n")
+        handle.write(
+            json.dumps(
+                {
+                    "type": "resolution",
+                    "claim_id": "c-0001@2",
+                    "disposition": "fixed",
+                    "author": "operator",
+                    "evidence": "src/app.py:1",
+                    "round": 2,
+                    "verified": "location-changed",
+                }
+            )
+            + "\n"
+        )
+
+    assert status.cmd_status(_args("run-status", out=root)) == 0
+
+    output = capsys.readouterr().out
+    assert "final findings: c-0001@2 [high, fixed]" in output
+    assert "final findings: c-0001@1" not in output
+    assert "unresolved=0" in output
+
+
+def test_status_triage_includes_each_aliased_claims_original_parsed_evidence(tmp_path):
+    root = tmp_path / "runs"
+    run = _run(root, events=False)
+    original = json.loads((run / "claims.jsonl").read_text(encoding="utf-8"))
+    duplicate = {
+        **original,
+        "id": "c-0002@1",
+        "origin": ["fake-ops-0"],
+        "lens": "ops",
+        "round": 2,
+    }
+    with (run / "claims.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(duplicate) + "\n")
+        handle.write(
+            json.dumps(
+                {
+                    "type": "alias",
+                    "canonical": "c-0001@1",
+                    "duplicate": "c-0002@1",
+                    "round": 2,
+                    "source": "exact",
+                    "rationale": "same finding",
+                }
+            )
+            + "\n"
+        )
+    (run / "round-1").mkdir()
+    (run / "round-1" / "fake-security-0.json").write_text("{}", encoding="utf-8")
+    (run / "round-2").mkdir()
+    (run / "round-2" / "fake-ops-0.json").write_text("{}", encoding="utf-8")
+    meta = json.loads((run / "run.json").read_text(encoding="utf-8"))
+    meta["roster"] = [
+        {
+            "name": "fake-security-0",
+            "cli": "fake",
+            "lens": "security",
+            "model": None,
+            "effort": None,
+            "scope": "doc",
+            "timeout": 1,
+        },
+        {
+            "name": "fake-ops-0",
+            "cli": "fake",
+            "lens": "ops",
+            "model": None,
+            "effort": None,
+            "scope": "doc",
+            "timeout": 1,
+        },
+    ]
+    (run / "run.json").write_text(json.dumps(meta), encoding="utf-8")
+
+    summary = status.summarize(run, root=root)
+
+    assert summary["triage"]["final_claim_ids"] == ["c-0001@1"]
+    assert summary["triage"]["final_findings"][0]["evidence_paths"] == [
+        str(run / "round-1" / "fake-security-0.json"),
+        str(run / "round-2" / "fake-ops-0.json"),
+    ]
+
+
+def test_status_triage_keeps_predecessor_evidence_at_its_original_round(tmp_path):
+    root = tmp_path / "runs"
+    run = _run(root, events=False)
+    predecessor = json.loads((run / "claims.jsonl").read_text(encoding="utf-8"))
+    successor = {
+        **predecessor,
+        "id": "c-0001@2",
+        "origin": ["fake-ops-0"],
+        "lens": "ops",
+        "round": 2,
+        "supersedes": "c-0001@1",
+    }
+    with (run / "claims.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(successor) + "\n")
+    (run / "round-1").mkdir()
+    (run / "round-1" / "fake-security-0.json").write_text("{}", encoding="utf-8")
+    (run / "round-2").mkdir()
+    (run / "round-2" / "fake-ops-0.json").write_text("{}", encoding="utf-8")
+    meta = json.loads((run / "run.json").read_text(encoding="utf-8"))
+    meta["roster"] = [
+        {
+            "name": "fake-security-0",
+            "cli": "fake",
+            "lens": "security",
+            "model": None,
+            "effort": None,
+            "scope": "doc",
+            "timeout": 1,
+        },
+        {
+            "name": "fake-ops-0",
+            "cli": "fake",
+            "lens": "ops",
+            "model": None,
+            "effort": None,
+            "scope": "doc",
+            "timeout": 1,
+        },
+    ]
+    (run / "run.json").write_text(json.dumps(meta), encoding="utf-8")
+
+    summary = status.summarize(run, root=root)
+
+    assert summary["triage"]["final_claim_ids"] == ["c-0001@2"]
+    assert summary["triage"]["final_findings"][0]["evidence_paths"] == [
+        str(run / "round-1" / "fake-security-0.json"),
+        str(run / "round-2" / "fake-ops-0.json"),
+    ]
+
+
+def test_status_triage_uses_validated_claim_states_with_resolution_precedence(tmp_path):
+    root = tmp_path / "runs"
+    run = _run(root, events=False)
+    meta = json.loads((run / "run.json").read_text(encoding="utf-8"))
+    meta["claim_states"] = {"c-0001@1": "settled-refuted"}
+    (run / "run.json").write_text(json.dumps(meta), encoding="utf-8")
+
+    refuted = status.summarize(run, root=root)["triage"]
+
+    assert refuted["final_findings"][0]["status"] == "settled-refuted"
+    assert refuted["unresolved_claim_ids"] == []
+    assert refuted["unresolved_count"] == 0
+
+    with (run / "claims.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(
+            json.dumps(
+                {
+                    "type": "resolution",
+                    "claim_id": "c-0001@1",
+                    "disposition": "fixed",
+                    "author": "operator",
+                    "evidence": "src/app.py:1",
+                    "round": 2,
+                    "verified": "location-changed",
+                }
+            )
+            + "\n"
+        )
+
+    resolved = status.summarize(run, root=root)["triage"]
+
+    assert resolved["final_findings"][0]["status"] == "fixed"
+    assert resolved["unresolved_count"] == 0
+
+
+def test_status_triage_keeps_empty_legacy_and_event_only_runs_unknown_or_absent(tmp_path, capsys):
+    root = tmp_path / "runs"
+    legacy = _run(root, events=False)
+    (legacy / "claims.jsonl").unlink()
+    event_only = root / "event-only"
+    event_only.mkdir()
+    (event_only / "events.jsonl").write_text(
+        _event("run_started", {"mode": "report", "profile": "quick", "status": "started"}) + "\n",
+        encoding="utf-8",
+    )
+
+    legacy_summary = status.summarize(legacy, root=root)
+    event_summary = status.summarize(event_only, root=root)
+
+    expected = {
+        "evidence_paths": [],
+        "final_claim_ids": [],
+        "final_findings": [],
+        "ledger_path": None,
+        "report_path": None,
+        "unresolved_claim_ids": [],
+        "unresolved_count": 0,
+    }
+    assert legacy_summary["triage"] == expected
+    assert event_summary["triage"] == expected
 
 
 def test_status_projects_persisted_zero_response_completeness_safely(tmp_path, capsys):
