@@ -198,6 +198,27 @@ def test_rendered_diagrams_contain_no_accidental_strikethrough():
         )
 
 
+def test_rendered_diagram_pngs_match_the_committed_source_digest_manifest():
+    """Portable CI cannot require PlantUML, so track render/source freshness.
+
+    `make diagrams` regenerates this manifest after rendering. Comparing both
+    hashes catches a changed source with stale renders as well as a changed PNG
+    with an unreviewed digest; it does not need image OCR or local PlantUML.
+    """
+    import hashlib
+
+    architecture = REPO / "docs" / "architecture"
+    manifest = json.loads((architecture / "diagram-digests.json").read_text())
+    expected = {}
+    for source in sorted(architecture.glob("*.puml")):
+        png = source.with_suffix(".png")
+        expected[source.stem] = {
+            "puml_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+            "png_sha256": hashlib.sha256(png.read_bytes()).hexdigest(),
+        }
+    assert manifest == expected
+
+
 def test_shipped_docs_never_invoke_a_bare_af_command():
     """The console script is `afriend`. `af` was the pre-packaging name and
     does not exist on anyone's PATH.
@@ -626,10 +647,11 @@ def test_live_markdown_preserves_model_selection_provenance_contract():
     assert "`--ignore-user-config`" in router
     assert "model selection provenance" in index.lower()
     assert "Provider `set-model`" in configure
-    assert "invocation --model" in component_source
-    assert "CLI default" in component_source
-    assert "invocation --model" in component_svg
-    assert "CLI default" in component_svg
+    assert "CLI --> RUN" in component_source
+    assert "RUN --> ROSTER : resolve model provenance" in component_source
+    assert "model provenance" in component_source
+    assert "resolve model provenance" in component_svg
+    assert "model provenance" in component_svg
 
     troubleshooting_link = "[installation and plugin troubleshooting](installation-troubleshooting.md)"
     assert troubleshooting_link in index
@@ -645,20 +667,24 @@ def test_live_model_provenance_docs_cover_unset_opencode_and_the_startup_flow():
     for markdown in (readme, router, modes):
         assert unset_opencode in markdown
 
-    assert "built-in default" in readme
-    assert "`--ignore-user-config`" in readme
-    assert "exact backend model remains unverified" in readme
+    for markdown in (readme, router, modes):
+        normalized = " ".join(markdown.split())
+        assert "default external-tools-denied policy" in normalized
+        assert "`--ignore-user-config`" in normalized
+        assert "`--allow-external-tools=codex`" in normalized
+        assert "does not supply `--ignore-user-config`" in normalized
 
     for flow in (
-        "commands/friends.py + roster.py\\n<size:11>selection, model provenance, host roles, lenses</size>",
+        "commands/friends.py + roster.py\\n<size:11>model provenance + selection</size>",
         "progress.py",
-        "CLI --> ROSTER : invocation --model",
-        "PCONFIG --> ROSTER : provider set-model",
-        "ROSTER --> PROGRESS : startup model provenance",
-        "ROSTER --> STORE : run.json model provenance",
-        "ROSTER --> REPORT : report model provenance",
+        "RUN --> ROSTER : resolve model provenance",
+        "PCONFIG --> ROSTER : provider setting",
+        "RUN --> PROGRESS : startup provenance",
+        "RUN --> STORE : persist model provenance",
+        "STORE --> REPORT : report model provenance",
     ):
         assert flow in component_source
+    assert "as MODELS" not in component_source
 
 
 def test_shipped_docs_state_the_one_friend_mode_contract_exactly():

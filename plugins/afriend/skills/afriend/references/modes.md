@@ -372,6 +372,12 @@ afriend run spec.md --friend opencode:security:openai/gpt-5.6-sol \
 
 Without an explicit model, OpenCode is recorded as `OpenCode CLI default (no --model passed; exact model not verified)`: that is a provider CLI default, not a verified backend identity.
 
+Under the default external-tools-denied policy, Codex receives
+`--ignore-user-config`, so an unset model selects its built-in default rather
+than user configuration. An explicit `--allow-external-tools=codex` does not
+supply `--ignore-user-config`, so afriend makes no built-in-default claim for
+that invocation.
+
 `--enable-provider NAME` and `--disable-provider NAME` override persistent
 settings for one automatically discovered run. Disabled providers are not
 probed. Readiness is assessed before `--max-friends`: only `ready` providers

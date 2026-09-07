@@ -234,8 +234,11 @@ Model selection is resolved in this exact order: invocation `--model` > explicit
 named model is requested and passed to the provider; it is not verified as the
 backend model that answered. When no model is selected, no `--model` is
 passed; the exact model is not verified and the record says that provider's
-CLI default. Codex is invoked with `--ignore-user-config`, so its user config
-does not silently add a competing per-run selection layer.
+CLI default. Under the default external-tools-denied policy, Codex receives
+`--ignore-user-config`, so an unset model selects its built-in default rather
+than user configuration. An explicit `--allow-external-tools=codex` does not
+supply `--ignore-user-config`, so afriend makes no built-in-default claim for
+that invocation.
 
 For example, an explicit OpenCode model is a provider-specific request, not a
 verified backend identity:

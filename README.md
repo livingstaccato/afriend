@@ -10,7 +10,7 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 [![Dependencies](https://img.shields.io/badge/runtime%20deps-none-brightgreen)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-2297-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2298-brightgreen)](tests/)
 
 It automates a workflow you may already do by hand: run a review, paste the
 findings into a different model, ask whether they hold up, carry the argument
@@ -293,7 +293,13 @@ afriend run spec.md --friend opencode:security:openai/gpt-5.6-sol \
   --allow-external-tools=opencode
 ```
 
-Without an explicit OpenCode model, the startup record says `OpenCode CLI default (no --model passed; exact model not verified)`. When its model is unset, Codex uses its built-in default because afriend invokes Codex with `--ignore-user-config`; the exact backend model remains unverified.
+Without an explicit OpenCode model, the startup record says `OpenCode CLI default (no --model passed; exact model not verified)`.
+Under the default external-tools-denied policy, Codex receives
+`--ignore-user-config`; with no `--model`, that selects its built-in default
+rather than user configuration, while the exact backend model remains
+unverified. An explicit `--allow-external-tools=codex` does not supply
+`--ignore-user-config`, so afriend makes no built-in-default claim for that
+invocation.
 
 > ⚠️ `--friend` **replaces** discovery rather than adding to it. One
 > `--friend` flag means a one-friend roster. A `report` with one friend is
