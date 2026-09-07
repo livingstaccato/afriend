@@ -143,6 +143,7 @@ class Progress:
         if self._roster_announced or not specs:
             return
         self._roster_announced = True
+        self._emit("afriend: friends ready:")
         for spec in specs:
             source = _MODEL_SOURCE_LABELS[spec.model_source]
             if spec.model is None:

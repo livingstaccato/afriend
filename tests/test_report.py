@@ -392,6 +392,7 @@ def test_legacy_friend_model_selection_is_not_mislabeled_as_inherited():
     assert "| friend | role | independent | model | model source | effort |" in out
     assert "recorded model; selection source unavailable" in out
     assert "| friend-a | independent reviewer | True | inherited |" not in out
+    assert "CLI default (no --model passed; exact model not verified)" not in out
 
 
 def test_report_lists_persisted_model_selection_source():
@@ -412,6 +413,38 @@ def test_report_lists_persisted_model_selection_source():
     out = render([claim("c-0001@1")], [], m)
 
     assert "| friend-a | independent reviewer | True | gpt-6-astra | provider setting |" in out
+
+
+def test_report_names_each_provider_when_a_cli_default_model_was_requested():
+    m = meta(
+        friends=[
+            {
+                "name": "codex-ops",
+                "cli": "codex",
+                "model": None,
+                "model_source": "cli-default",
+                "effort": None,
+                "readonly": True,
+                "scope": "repo",
+                "status": "ok",
+            },
+            {
+                "name": "opencode-ops",
+                "cli": "opencode",
+                "model": None,
+                "model_source": "cli-default",
+                "effort": None,
+                "readonly": True,
+                "scope": "repo",
+                "status": "ok",
+            },
+        ]
+    )
+
+    out = render([claim("c-0001@1")], [], m)
+
+    assert "Codex CLI default (no --model passed; exact model not verified)" in out
+    assert "OpenCode CLI default (no --model passed; exact model not verified)" in out
 
 
 def test_empty_friends_list_does_not_crash():

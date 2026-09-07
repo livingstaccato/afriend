@@ -119,6 +119,7 @@ def test_result_rows_preserve_the_resolved_model_selection_source(tmp_path):
     )
 
     assert row["model_source"] == "roster"
+    assert row["cli"] == "fake"
 
 
 def test_repeat_disabled_friend_is_partitioned_and_persisted_as_a_skip(tmp_path):
@@ -143,6 +144,7 @@ def test_repeat_disabled_friend_is_partitioned_and_persisted_as_a_skip(tmp_path)
     assert meta_path.read_text().startswith("status=skipped\n")
     assert not store.friend_prompt_path(3, "broken-ops-0").exists()
     assert row["transport"] == "not-dispatched"
+    assert row["cli"] == "fake"
     assert row["status"].startswith("skipped: ")
 
 

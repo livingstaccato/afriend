@@ -50,6 +50,13 @@ _MODEL_SOURCE_LABELS = {
     "cli-default": "CLI default",
     "recorded-unknown": "recorded model; selection source unavailable",
 }
+_PROVIDER_DISPLAY_NAMES = {
+    "codex": "Codex",
+    "opencode": "OpenCode",
+    "agy": "Antigravity",
+    "claude": "Claude",
+    "ollama": "Ollama",
+}
 
 # The states where a reader has to see the argument rather than a label.
 # `deadlocked` is the one §7.2 names explicitly ("both sides quoted
@@ -166,7 +173,11 @@ def _model_display(friend: dict[str, Any]) -> object:
     if model:
         return model
     if friend.get("model_source") == "cli-default":
-        return "CLI default (not verified)"
+        cli = friend.get("cli")
+        if isinstance(cli, str) and cli:
+            provider = _PROVIDER_DISPLAY_NAMES.get(cli, cli.title())
+            return f"{provider} CLI default (no --model passed; exact model not verified)"
+        return "CLI default (no --model passed; exact model not verified)"
     return "recorded model unavailable"
 
 

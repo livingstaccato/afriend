@@ -90,6 +90,7 @@ def test_resolved_roster_names_requested_models_and_selection_sources():
     )
 
     assert _lines(stream) == [
+        "afriend: friends ready:",
         "afriend:   codex-security-0 (codex) -- model: gpt-6-astra [provider setting]",
         "afriend:   mystery-ops-0 (mystery-cloud) -- model: Mystery-Cloud CLI default "
         "(no --model passed; exact model not verified) [CLI default]",
@@ -107,8 +108,9 @@ def test_resolved_roster_is_printed_once_per_reporter_before_dispatch():
     reporter.resolved_roster(specs)
 
     assert _lines(stream) == [
+        "afriend: friends ready:",
         "afriend:   codex-ops-0 (codex) -- model: Codex CLI default "
-        "(no --model passed; exact model not verified) [CLI default]"
+        "(no --model passed; exact model not verified) [CLI default]",
     ]
 
 
