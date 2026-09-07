@@ -245,6 +245,8 @@ afriend run spec.md --friend opencode:security:openai/gpt-5.6-sol \
   --allow-external-tools=opencode
 ```
 
+Without an explicit model, OpenCode is recorded as `OpenCode CLI default (no --model passed; exact model not verified)`: that is a provider CLI default, not a verified backend identity.
+
 For one run, `--enable-provider NAME` and `--disable-provider NAME` override
 those defaults during automatic discovery. Disabled providers are not
 probed. A friend must be `ready` before it consumes `--max-friends` capacity:

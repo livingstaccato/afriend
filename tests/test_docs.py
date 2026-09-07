@@ -635,6 +635,32 @@ def test_live_markdown_preserves_model_selection_provenance_contract():
     assert troubleshooting_link in index
 
 
+def test_live_model_provenance_docs_cover_unset_opencode_and_the_startup_flow():
+    readme = REPO.joinpath("README.md").read_text()
+    router = (AFRIEND / "SKILL.md").read_text()
+    modes = (AFRIEND / "references" / "modes.md").read_text()
+    component_source = REPO.joinpath("docs", "architecture", "components.puml").read_text()
+
+    unset_opencode = "OpenCode CLI default (no --model passed; exact model not verified)"
+    for markdown in (readme, router, modes):
+        assert unset_opencode in markdown
+
+    assert "built-in default" in readme
+    assert "`--ignore-user-config`" in readme
+    assert "exact backend model remains unverified" in readme
+
+    for flow in (
+        "commands/friends.py + roster.py\\n<size:11>selection, model provenance, host roles, lenses</size>",
+        "progress.py",
+        "CLI --> ROSTER : invocation --model",
+        "PCONFIG --> ROSTER : provider set-model",
+        "ROSTER --> PROGRESS : startup model provenance",
+        "ROSTER --> STORE : run.json model provenance",
+        "ROSTER --> REPORT : report model provenance",
+    ):
+        assert flow in component_source
+
+
 def test_shipped_docs_state_the_one_friend_mode_contract_exactly():
     readme = " ".join(REPO.joinpath("README.md").read_text().lower().split())
     skill = " ".join((AFRIEND / "SKILL.md").read_text().lower().split())

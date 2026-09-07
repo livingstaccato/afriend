@@ -34,7 +34,7 @@ package "Entry" {
 }
 
 package "Roster & contract" {
-  rectangle "commands/friends.py + roster.py\n<size:11>selection, host roles, lenses</size>" as ROSTER
+  rectangle "commands/friends.py + roster.py\n<size:11>selection, model provenance, host roles, lenses</size>" as ROSTER
   rectangle "model selection provenance\n<size:11>invocation --model → explicit friend/roster →</size>\n<size:11>provider set-model → adapter default → CLI default</size>" as MODELS
   rectangle "providerconfig.py\n<size:11>persistent enable/model policy</size>" as PCONFIG
   rectangle "readiness.py\n<size:11>effective provider admission</size>" as READY
@@ -55,6 +55,7 @@ package "Execute" {
 }
 
 package "Interpret & record" {
+  rectangle "progress.py\n<size:11>startup roster + stderr status</size>" as PROGRESS
   rectangle "normalize.py\n<size:11>envelope, JSON recovery</size>" as NORM
   rectangle "claimschema.py\n<size:11>payload validation</size>" as SCHEMA
   rectangle "merge.py\n<size:11>exact-merge, aliases</size>" as MERGE
@@ -71,6 +72,7 @@ cloud "Ollama HTTP endpoint" as HTTP #E8F5E9
 CLI --> ARGS
 CLI --> RUN
 CLI --> DOC
+CLI --> ROSTER : invocation --model
 
 RUN --> ROSTER
 RUN --> AUTH
@@ -84,11 +86,14 @@ RUN --> REPORT
 ARGS --> AUTH
 ROSTER --> ADAPT
 ROSTER --> MODELS
-ROSTER --> PCONFIG
 ROSTER --> READY
 ROSTER --> TRUST
+PCONFIG --> ROSTER : provider set-model
 MODELS --> PCONFIG
 MODELS --> ADAPT
+ROSTER --> PROGRESS : startup model provenance
+ROSTER --> STORE : run.json model provenance
+ROSTER --> REPORT : report model provenance
 READY --> PCONFIG
 READY --> AUTH
 READY --> ADAPT
