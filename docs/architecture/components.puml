@@ -34,7 +34,7 @@ package "Entry" {
 }
 
 package "Roster & contract" {
-  rectangle "commands/friends.py + roster.py\n<size:11>model provenance + selection</size>" as ROSTER
+  rectangle "commands/friends.py + roster.py\n<size:11>selection, model provenance, host roles, lenses</size>" as ROSTER
   rectangle "providerconfig.py\n<size:11>persistent enable/model policy</size>" as PCONFIG
   rectangle "readiness.py\n<size:11>effective provider admission</size>" as READY
   rectangle "authority.py\n<size:11>provider-scoped tool grants</size>" as AUTH
@@ -82,6 +82,7 @@ RUN --> STORE : persist model provenance
 RUN --> PROGRESS : startup provenance
 
 ARGS --> AUTH
+ARGS --> ROSTER : CLI arguments
 ROSTER --> ADAPT
 ROSTER --> READY
 ROSTER --> TRUST

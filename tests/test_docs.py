@@ -219,6 +219,18 @@ def test_rendered_diagram_pngs_match_the_committed_source_digest_manifest():
     assert manifest == expected
 
 
+def test_components_diagram_keeps_roster_ownership_and_cli_arguments_flow():
+    source = (REPO / "docs" / "architecture" / "components.puml").read_text()
+    visible = _svg_visible_text(REPO / "docs" / "architecture" / "components.svg")
+
+    assert (
+        "commands/friends.py + roster.py\\n"
+        "<size:11>selection, model provenance, host roles, lenses</size>"
+    ) in source
+    assert "ARGS --> ROSTER : CLI arguments" in source
+    assert "selection, model provenance, host roles, lenses" in visible
+
+
 def test_shipped_docs_never_invoke_a_bare_af_command():
     """The console script is `afriend`. `af` was the pre-packaging name and
     does not exist on anyone's PATH.
