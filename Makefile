@@ -46,6 +46,7 @@ plugin-sync-copy: ## Copy canonical skill projection into the plugin
 diagrams: ## Re-render docs/architecture/*.puml to PNG + SVG
 	plantuml -tpng docs/architecture/*.puml
 	plantuml -tsvg docs/architecture/*.puml
+	python3 scripts/write_diagram_manifest.py
 
 quality: lint type-check max-loc plugin-sync version-sync wheel-assets wheel-install release-distributions test ## Run all portable quality gates
 

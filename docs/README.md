@@ -12,7 +12,7 @@ quickstart, see the [top-level README](../README.md); come here for detail.
 | [/afriend](../src/afriend/assets/entrypoints/afriend/SKILL.md) | The sole router, host-session resolver, context preflight, lifecycle completion feedback, and stable CLI routing |
 | [review](../src/afriend/assets/entrypoints/review/SKILL.md) | Authoritative artifact reviews and bounded context composition with `afriend run` |
 | [status](../src/afriend/assets/entrypoints/status/SKILL.md) | Read-only readiness with `doctor` and named-run inspection with `status` |
-| [configure](../src/afriend/assets/entrypoints/configure/SKILL.md) | Guided setup, explicit provider defaults, safe named profiles, and review-context policy |
+| [configure](../src/afriend/assets/entrypoints/configure/SKILL.md) | Guided setup, explicit provider defaults, model selection provenance, safe named profiles, and review-context policy |
 | [resolve](../src/afriend/assets/entrypoints/resolve/SKILL.md) | Read-only claim discovery and named-run resolutions with supplied evidence |
 | [modes](../src/afriend/assets/entrypoints/afriend/references/modes.md) | All four modes — `report`, `crossexam`, `gate`, `loop` — plus claim states, ceilings, and exit codes |
 | [installation and plugin troubleshooting](installation-troubleshooting.md) | Separate CLI and Claude plugin setup, plus recovery from a missing marketplace file |
@@ -37,7 +37,8 @@ quickstart, see the [top-level README](../README.md); come here for detail.
 ### The diagrams
 
 - **[Module architecture](architecture/components.puml)** — which module owns
-  what, and how a run threads through them.
+  what, including model selection provenance, and how a run threads through
+  them.
 - **[Run flow](architecture/run-flow.puml)** — how `afriend run` resolves
   automatic artifact-derived or explicit `--repo` context, records Git-blob
   binding or an independently frozen artifact, admits providers, applies

@@ -34,7 +34,7 @@ package "Entry" {
 }
 
 package "Roster & contract" {
-  rectangle "commands/friends.py + roster.py\n<size:11>selection, host roles, lenses</size>" as ROSTER
+  rectangle "commands/friends.py + roster.py\n<size:11>selection, model provenance, host roles, lenses</size>" as ROSTER
   rectangle "providerconfig.py\n<size:11>persistent enable/model policy</size>" as PCONFIG
   rectangle "readiness.py\n<size:11>effective provider admission</size>" as READY
   rectangle "authority.py\n<size:11>provider-scoped tool grants</size>" as AUTH
@@ -51,6 +51,7 @@ package "Execute" {
   rectangle "dispatch.py\n<size:11>argv → process</size>" as DISP
   rectangle "spawn.py\n<size:11>process groups, reaping</size>" as SPAWN
   rectangle "http_transport.py\n<size:11>bounded endpoint process</size>" as HTTPX
+  rectangle "progress.py\n<size:11>startup roster + stderr status</size>" as PROGRESS
 }
 
 package "Interpret & record" {
@@ -71,20 +72,21 @@ CLI --> ARGS
 CLI --> RUN
 CLI --> DOC
 
-RUN --> ROSTER
+RUN --> ROSTER : resolve model provenance
 RUN --> AUTH
 RUN --> PROMPT
 RUN --> ISO
 RUN --> ROUNDS
 RUN --> MERGE
-RUN --> STORE
-RUN --> REPORT
+RUN --> STORE : persist model provenance
+RUN --> PROGRESS : startup provenance
 
 ARGS --> AUTH
+ARGS --> ROSTER : CLI arguments
 ROSTER --> ADAPT
-ROSTER --> PCONFIG
 ROSTER --> READY
 ROSTER --> TRUST
+PCONFIG --> ROSTER : provider setting
 READY --> PCONFIG
 READY --> AUTH
 READY --> ADAPT
@@ -111,6 +113,7 @@ NORM --> SCHEMA
 
 MERGE --> LEDGER
 STORE --> LEDGER
+STORE --> REPORT : report model provenance
 REPORT --> LEDGER
 
 @enduml

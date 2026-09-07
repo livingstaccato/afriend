@@ -21,7 +21,7 @@ from pathlib import Path
 import shutil
 
 from .. import providerconfig, rosterfile
-from ..adapters import Adapter, FriendSpec, validate_roster_uniqueness
+from ..adapters import Adapter, FriendSpec, ModelSource, validate_roster_uniqueness
 from ..authority import DENY_ALL, AuthorityPolicy, enforce
 from ..cliargs import _specs_from_flags
 from ..errors import NoFriendsError, UsageError
@@ -45,6 +45,25 @@ class ResolvedRoster:
     source: str | None = None
     detected_host: str | None = None
     effective_include_self: bool | None = None
+
+
+def _selected_model(
+    invocation_model: str | None,
+    explicit_model: str | None,
+    explicit_source: ModelSource,
+    provider_model: str | None,
+    adapter_model: str | None,
+) -> tuple[str | None, ModelSource]:
+    """Resolve one model selection with its immutable source."""
+    if invocation_model is not None:
+        return invocation_model, "invocation"
+    if explicit_model is not None:
+        return explicit_model, explicit_source
+    if provider_model is not None:
+        return provider_model, "provider-setting"
+    if adapter_model is not None:
+        return adapter_model, "adapter-default"
+    return None, "cli-default"
 
 
 def validate_resume_capabilities(
@@ -239,7 +258,13 @@ def resolve_friends(
                 checked.append(spec)
                 continue
             row = readiness[spec.cli]
-            effective_model = invocation_model or spec.model or row.model
+            effective_model, model_source = _selected_model(
+                invocation_model,
+                spec.model,
+                "explicit-friend",
+                row.model,
+                registry[spec.cli].default_model,
+            )
             configured_http = (
                 row.state is ReadinessState.REACHABLE_UNCONFIGURED and effective_model is not None
             )
@@ -248,7 +273,7 @@ def resolve_friends(
                     raise UsageError(row.reason)
                 rejected.append(f"{spec.name} ({spec.cli}): {row.reason}")
                 continue
-            checked.append(replace(spec, model=effective_model))
+            checked.append(replace(spec, model=effective_model, model_source=model_source))
         if rejected and not checked:
             raise NoFriendsError("explicit friend preflight failed: " + "; ".join(rejected))
         if rejected:
@@ -288,12 +313,13 @@ def resolve_friends(
     # §10.1 layer 4: invocation flags outrank the roster and the preset.
     model = getattr(args, "model", None)
     effort = getattr(args, "effort", None)
-    if model or effort:
+    if model is not None or effort is not None:
         specs = [
             replace(
                 s,
-                model=model or s.model,
-                effort=effort or s.effort,
+                model=model if model is not None else s.model,
+                effort=effort if effort is not None else s.effort,
+                model_source="invocation" if model is not None else s.model_source,
             )
             for s in specs
         ]

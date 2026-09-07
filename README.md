@@ -10,7 +10,7 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 [![Dependencies](https://img.shields.io/badge/runtime%20deps-none-brightgreen)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-2273-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2306-brightgreen)](tests/)
 
 It automates a workflow you may already do by hand: run a review, paste the
 findings into a different model, ask whether they hold up, carry the argument
@@ -269,11 +269,37 @@ Pick your reviewers and lenses explicitly:
 afriend run spec.md --friend codex:security --friend claude:ops
 ```
 
-A third slot picks the model — required for `ollama`, which has no default:
+### Model selection provenance
+
+Model selection is resolved in this exact order: invocation `--model` > explicit
+`--friend`/roster > provider `set-model` > adapter default > CLI default. A
+named model is requested and passed to the provider; it is not verified as the
+backend model that answered. When no model is selected, no `--model` is
+passed; the exact model is not verified and the record says that provider's
+CLI default.
+
+A third `--friend` slot picks a requested model — required for `ollama`, which
+has no default:
 
 ```bash
 afriend run spec.md --friend ollama:security:qwen3:0.6b
 ```
+
+OpenCode model names are provider-specific strings, so pass one explicitly
+when its generic CLI default is not the review you intend:
+
+```bash
+afriend run spec.md --friend opencode:security:openai/gpt-5.6-sol \
+  --allow-external-tools=opencode
+```
+
+Without an explicit OpenCode model, the startup record says `OpenCode CLI default (no --model passed; exact model not verified)`.
+Under the default external-tools-denied policy, Codex receives
+`--ignore-user-config`; with no `--model`, that selects its built-in default
+rather than user configuration, while the exact backend model remains
+unverified. An explicit `--allow-external-tools=codex` does not supply
+`--ignore-user-config`, so afriend makes no built-in-default claim for that
+invocation.
 
 > ⚠️ `--friend` **replaces** discovery rather than adding to it. One
 > `--friend` flag means a one-friend roster. A `report` with one friend is

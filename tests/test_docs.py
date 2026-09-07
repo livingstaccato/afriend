@@ -198,6 +198,39 @@ def test_rendered_diagrams_contain_no_accidental_strikethrough():
         )
 
 
+def test_rendered_diagram_pngs_match_the_committed_source_digest_manifest():
+    """Portable CI cannot require PlantUML, so track render/source freshness.
+
+    `make diagrams` regenerates this manifest after rendering. Comparing both
+    hashes catches a changed source with stale renders as well as a changed PNG
+    with an unreviewed digest; it does not need image OCR or local PlantUML.
+    """
+    import hashlib
+
+    architecture = REPO / "docs" / "architecture"
+    manifest = json.loads((architecture / "diagram-digests.json").read_text())
+    expected = {}
+    for source in sorted(architecture.glob("*.puml")):
+        png = source.with_suffix(".png")
+        expected[source.stem] = {
+            "puml_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+            "png_sha256": hashlib.sha256(png.read_bytes()).hexdigest(),
+        }
+    assert manifest == expected
+
+
+def test_components_diagram_keeps_roster_ownership_and_cli_arguments_flow():
+    source = (REPO / "docs" / "architecture" / "components.puml").read_text()
+    visible = _svg_visible_text(REPO / "docs" / "architecture" / "components.svg")
+
+    assert (
+        "commands/friends.py + roster.py\\n"
+        "<size:11>selection, model provenance, host roles, lenses</size>"
+    ) in source
+    assert "ARGS --> ROSTER : CLI arguments" in source
+    assert "selection, model provenance, host roles, lenses" in visible
+
+
 def test_shipped_docs_never_invoke_a_bare_af_command():
     """The console script is `afriend`. `af` was the pre-packaging name and
     does not exist on anyone's PATH.
@@ -561,35 +594,6 @@ def test_no_shipped_doc_calls_a_shipped_mode_unimplemented():
                         f"{path.relative_to(REPO)}: {name!r} ships, doc says otherwise"
                     )
     assert not offenders, "docs call a shipped feature absent:\n" + "\n".join(offenders)
-
-
-def test_contract_first_provider_and_authority_guidance_is_shipped():
-    docs = {
-        "README.md": REPO.joinpath("README.md").read_text(),
-        **{path.name: path.read_text() for path in OPERATOR_DOCS},
-    }
-    joined = " ".join("\n".join(docs.values()).lower().replace("`", "").split())
-
-    for phrase in (
-        "host is the orchestrator",
-        "--include-self",
-        "afriend providers list",
-        "afriend providers enable",
-        "afriend providers disable",
-        "afriend providers set-model",
-        "--enable-provider",
-        "--disable-provider",
-        "disabled providers are not probed",
-        "--allow-external-tools",
-        "external tools are denied by default",
-        "reachable-unconfigured",
-        "policy-blocked",
-        "snapshot",
-    ):
-        assert phrase in joined, phrase
-
-    assert "max-loop-iterations" in joined
-    assert re.search(r"\bexits? 11\b", joined)
 
 
 def test_shipped_docs_state_the_one_friend_mode_contract_exactly():

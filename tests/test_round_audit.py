@@ -95,6 +95,33 @@ def test_successful_stderr_is_visible_bounded_and_references_full_capture(tmp_pa
     assert store.friend_err_path(1, "friend-ops-0").read_text() == stderr
 
 
+def test_result_rows_preserve_the_resolved_model_selection_source(tmp_path):
+    store = RunStore(tmp_path, "run-model-source")
+    spec = FriendSpec(
+        "friend-ops-0",
+        "fake",
+        "ops",
+        "requested-model",
+        None,
+        "doc",
+        30,
+        model_source="roster",
+    )
+
+    row = persist_result(
+        store,
+        1,
+        spec,
+        Capability(False, True, "none"),
+        _success(),
+        "exec",
+        ExternalToolPolicy.DENY,
+    )
+
+    assert row["model_source"] == "roster"
+    assert row["cli"] == "fake"
+
+
 def test_repeat_disabled_friend_is_partitioned_and_persisted_as_a_skip(tmp_path):
     assert hasattr(rounds_mod, "partition_dispatchable")
     tracker = RepeatTracker()
@@ -117,6 +144,7 @@ def test_repeat_disabled_friend_is_partitioned_and_persisted_as_a_skip(tmp_path)
     assert meta_path.read_text().startswith("status=skipped\n")
     assert not store.friend_prompt_path(3, "broken-ops-0").exists()
     assert row["transport"] == "not-dispatched"
+    assert row["cli"] == "fake"
     assert row["status"].startswith("skipped: ")
 
 

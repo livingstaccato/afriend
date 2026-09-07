@@ -15,6 +15,10 @@ def test_event_records_reject_unsafe_payload_fields():
         EventRecord.create(
             "friend_finished", {"provider": "fake", "stdout": "secret"}, run_id="run-events"
         )
+    with pytest.raises(UsageError, match="not allowed"):
+        EventRecord.create(
+            "friend_finished", {"provider": "fake", "model": "gpt-6-astra"}, run_id="run-events"
+        )
 
 
 def test_event_records_are_versioned_and_bounded():

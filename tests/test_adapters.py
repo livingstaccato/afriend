@@ -353,6 +353,41 @@ def test_adapter_without_workspace_assets_remains_empty(tmp_path):
     assert loaded.workspace_assets == ()
 
 
+def test_adapter_loads_static_default_model(tmp_path):
+    (tmp_path / "static-model.toml").write_text(
+        'name = "static-model"\nbinary = "static-model"\ndefault_model = "qwen3:0.6b"\n'
+    )
+
+    loaded = adapters.load_adapters(tmp_path)["static-model"]
+
+    assert loaded.default_model == "qwen3:0.6b"
+
+
+@pytest.mark.parametrize(
+    "default_model",
+    [
+        "42",
+        "true",
+        '"-not-a-model"',
+        f'"{"a" * 65}"',
+    ],
+)
+def test_adapter_rejects_invalid_static_default_model(tmp_path, default_model):
+    (tmp_path / "invalid-static-model.toml").write_text(
+        "\n".join(
+            [
+                'name = "invalid-static-model"',
+                'binary = "invalid-static-model"',
+                f"default_model = {default_model}",
+                "",
+            ]
+        )
+    )
+
+    with pytest.raises(UsageError, match="default_model"):
+        adapters.load_adapters(tmp_path)
+
+
 def test_claude_schema_is_passed_inline_not_as_a_path(registry, files):
     """`claude --json-schema <schema>` takes the JSON itself. Every adapter
     used to get the schema FILE PATH, so claude rejected it before the model

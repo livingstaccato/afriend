@@ -1,0 +1,26 @@
+{
+  "claim-lifecycle": {
+    "png_sha256": "fff91e2c2ef98fd335e2926c83746f0308ca9db4868c2ce68518bfbc96e840a1",
+    "puml_sha256": "a5856dee8e6e4401c6e26b4d908d25f5fe4ab263f9dc23a89a10eacec39f921f"
+  },
+  "components": {
+    "png_sha256": "d6dfe4c23fb429bcd9d1507f92a6cb33d8054e889234fa70d964f5ec231e65f7",
+    "puml_sha256": "931e35d6df522af9db6e04d9b07f04c3698422b33f0a387d91a13706ac6b3dd2"
+  },
+  "crossexam-states": {
+    "png_sha256": "c27c541dc2089aa7ef79db3bb35b1ce46af06e308f18e7ca0695f1c3f9b21d3d",
+    "puml_sha256": "86dd5ee835eac331b297aa8381470bf011b36716fa42f1e66034eb040201e9d0"
+  },
+  "gate-workflow": {
+    "png_sha256": "65693b8511f44fb00eec330a7806e6148f765d5f78ebe2346402b1c1554780a5",
+    "puml_sha256": "a483c919d01d9d6f3d0d8f38b7e2d8f86204c4140d8ded6e7a2399eca494dfb9"
+  },
+  "run-flow": {
+    "png_sha256": "0bf107ae9301e8d8bcd3960c23fb34c8e54ce0945d857d920207ac23ac969213",
+    "puml_sha256": "3b7ca65de79f13d108991e466255c4ffcd9f0d7c944897e2c864d9a023a53de1"
+  },
+  "skill-routing": {
+    "png_sha256": "d4cebdf3227769b328a3f79e4cd2042e0cf6e4b0e51b191b3e6e458a154703bc",
+    "puml_sha256": "2d9784236abaa504f4741885e52fb050b20e882ed0dc1e9c33c5b9a205d7b013"
+  }
+}
