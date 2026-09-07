@@ -13,6 +13,7 @@ from typing import Any, Literal
 from .authority import AuthorityDecision, ExternalToolPolicy, enforce
 from .envelopes import Envelope, parse_envelope
 from .errors import UsageError
+from .trust import MODEL_RE
 from .workspaceassets import WorkspaceAsset, WorkspaceAssetAudit, parse_workspace_assets
 
 ModelSource = Literal[
@@ -256,6 +257,17 @@ def _validate_capability_probe(path: Path, probe_argv: list[str], probe_markers:
         raise UsageError(f"{path}: deny capability probe markers must be bounded")
 
 
+def _validate_default_model(path: Path, value: object) -> str | None:
+    """Accept the optional static adapter model only when it is safe to pass."""
+    if value is None:
+        return None
+    if not isinstance(value, str) or MODEL_RE.fullmatch(value) is None:
+        raise UsageError(
+            f"{path}: default_model must be null or match {MODEL_RE.pattern!r}; got {value!r}"
+        )
+    return value
+
+
 def load_adapters(directory: Path) -> dict[str, Adapter]:
     directory = Path(directory)
     if not directory.is_dir():
@@ -283,6 +295,7 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
             raise UsageError(f"{path}: sandbox must be a table")
         access_failure_stderr = sandbox_data.get("access_failure_stderr", [])
         transport = data.get("transport", "exec")
+        default_model = _validate_default_model(path, data.get("default_model"))
         workspace_assets = parse_workspace_assets(
             data.get("workspace_assets", []), transport=transport
         )
@@ -388,6 +401,7 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
             deny_external_tools_probe_argv=tuple(probe_argv),
             deny_external_tools_probe_markers=tuple(probe_markers),
             workspace_assets=workspace_assets,
+            default_model=default_model,
         )
     return registry
 
