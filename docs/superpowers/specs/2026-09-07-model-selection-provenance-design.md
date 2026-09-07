@@ -86,12 +86,16 @@ size contract.
 Add a small immutable model-selection value to the resolved friend data:
 
 - `requested_model: str | None`
-- `source: invocation | explicit_friend | roster | provider_setting | adapter_default | cli_default`
+- `source: invocation | explicit_friend | roster | provider_setting | adapter_default | cli_default | recorded_unknown`
 
 The resolved value is created once, before self-exclusion and dispatch, then
 flows to progress rendering, run metadata, and report rendering.  Existing
 adapter argv construction continues to consume the optional requested model;
 the feature does not change command construction or model precedence.
+
+For an already-recorded run that has a model identifier but no provenance,
+the source is `recorded_unknown`.  Its display says “recorded model; selection
+source unavailable,” rather than inventing a current configuration source.
 
 ## Compatibility and tests
 
