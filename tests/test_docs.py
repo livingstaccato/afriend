@@ -592,6 +592,49 @@ def test_contract_first_provider_and_authority_guidance_is_shipped():
     assert re.search(r"\bexits? 11\b", joined)
 
 
+def test_live_markdown_preserves_model_selection_provenance_contract():
+    """Selection provenance is operational evidence, not release-note prose.
+
+    Keep the contract in canonical Markdown as well as the rendered module
+    diagram: rendered SVGs can be regenerated, while these source documents
+    are what package and plugin consumers receive.  In particular, a named
+    model is a request passed to a provider, not proof of the backend model
+    that answered.
+    """
+    readme = REPO.joinpath("README.md").read_text()
+    index = REPO.joinpath("docs", "README.md").read_text()
+    router = (AFRIEND / "SKILL.md").read_text()
+    configure = (ENTRYPOINTS / "configure" / "SKILL.md").read_text()
+    modes = (AFRIEND / "references" / "modes.md").read_text()
+    component_source = REPO.joinpath("docs", "architecture", "components.puml").read_text()
+    component_svg = _svg_visible_text(REPO / "docs" / "architecture" / "components.svg")
+
+    expected_order = (
+        "invocation `--model` > explicit `--friend`/roster > provider "
+        "`set-model` > adapter default > CLI default"
+    )
+    for markdown in (readme, router, modes):
+        normalized = " ".join(markdown.split())
+        assert expected_order in normalized
+        assert (
+            "requested and passed to the provider; it is not verified as the backend model"
+            in normalized
+        )
+        assert "no `--model` is passed; the exact model is not verified" in normalized
+
+    assert "afriend run spec.md --friend opencode:security:openai/gpt-5.6-sol" in readme
+    assert "`--ignore-user-config`" in router
+    assert "model selection provenance" in index.lower()
+    assert "Provider `set-model`" in configure
+    assert "invocation --model" in component_source
+    assert "CLI default" in component_source
+    assert "invocation --model" in component_svg
+    assert "CLI default" in component_svg
+
+    troubleshooting_link = "[installation and plugin troubleshooting](installation-troubleshooting.md)"
+    assert troubleshooting_link in index
+
+
 def test_shipped_docs_state_the_one_friend_mode_contract_exactly():
     readme = " ".join(REPO.joinpath("README.md").read_text().lower().split())
     skill = " ".join((AFRIEND / "SKILL.md").read_text().lower().split())

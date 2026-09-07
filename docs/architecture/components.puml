@@ -35,6 +35,7 @@ package "Entry" {
 
 package "Roster & contract" {
   rectangle "commands/friends.py + roster.py\n<size:11>selection, host roles, lenses</size>" as ROSTER
+  rectangle "model selection provenance\n<size:11>invocation --model → explicit friend/roster →</size>\n<size:11>provider set-model → adapter default → CLI default</size>" as MODELS
   rectangle "providerconfig.py\n<size:11>persistent enable/model policy</size>" as PCONFIG
   rectangle "readiness.py\n<size:11>effective provider admission</size>" as READY
   rectangle "authority.py\n<size:11>provider-scoped tool grants</size>" as AUTH
@@ -82,9 +83,12 @@ RUN --> REPORT
 
 ARGS --> AUTH
 ROSTER --> ADAPT
+ROSTER --> MODELS
 ROSTER --> PCONFIG
 ROSTER --> READY
 ROSTER --> TRUST
+MODELS --> PCONFIG
+MODELS --> ADAPT
 READY --> PCONFIG
 READY --> AUTH
 READY --> ADAPT

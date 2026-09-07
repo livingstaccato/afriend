@@ -227,6 +227,24 @@ afriend providers set-model ollama qwen3:8b
 afriend providers clear-model ollama
 ```
 
+### Model selection provenance
+
+Model selection is resolved in this exact order: invocation `--model` > explicit
+`--friend`/roster > provider `set-model` > adapter default > CLI default. A
+named model is requested and passed to the provider; it is not verified as the
+backend model that answered. When no model is selected, no `--model` is
+passed; the exact model is not verified and the record says that provider's
+CLI default. Codex is invoked with `--ignore-user-config`, so its user config
+does not silently add a competing per-run selection layer.
+
+For example, an explicit OpenCode model is a provider-specific request, not a
+verified backend identity:
+
+```bash
+afriend run spec.md --friend opencode:security:openai/gpt-5.6-sol \
+  --allow-external-tools=opencode
+```
+
 For one run, `--enable-provider NAME` and `--disable-provider NAME` override
 those defaults during automatic discovery. Disabled providers are not
 probed. A friend must be `ready` before it consumes `--max-friends` capacity:

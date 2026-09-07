@@ -355,6 +355,21 @@ afriend providers set-model ollama qwen3:8b
 afriend providers clear-model ollama
 ```
 
+### Model selection provenance
+
+Model selection is resolved in this exact order: invocation `--model` > explicit
+`--friend`/roster > provider `set-model` > adapter default > CLI default. A
+named model is requested and passed to the provider; it is not verified as the
+backend model that answered. When no model is selected, no `--model` is
+passed; the exact model is not verified and the record says that provider's
+CLI default. For example, OpenCode's generic provider/model identifier can be
+selected explicitly:
+
+```bash
+afriend run spec.md --friend opencode:security:openai/gpt-5.6-sol \
+  --allow-external-tools=opencode
+```
+
 `--enable-provider NAME` and `--disable-provider NAME` override persistent
 settings for one automatically discovered run. Disabled providers are not
 probed. Readiness is assessed before `--max-friends`: only `ready` providers

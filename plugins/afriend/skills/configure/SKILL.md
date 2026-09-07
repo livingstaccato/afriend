@@ -12,10 +12,17 @@ afriend providers list
 ```
 
 `afriend providers list` reports persistent defaults; `afriend doctor` reports
-effective readiness. Persistent provider defaults are user-owned configuration, changed only for an
-exact user-requested change with `afriend providers enable`, `disable`,
+effective readiness. Persistent provider defaults are user-owned configuration,
+changed only for an exact user-requested change with `afriend providers enable`, `disable`,
 `set-model`, or `clear-model`. Do not turn an observation or recommendation
 into a persistent change.
+
+Provider `set-model` is only one model-selection layer: invocation `--model`
+and an explicit `--friend`/roster model take precedence; an adapter default
+and then the provider CLI default fill any remaining gap. A named model is a
+requested value passed to the provider, not verification of its backend model.
+With no selected model, no `--model` is passed and the exact provider CLI
+default remains unverified.
 
 Distinguish persistent defaults from per-run `--enable-provider` and
 `--disable-provider` overrides. External-tool authority is a third, separate
