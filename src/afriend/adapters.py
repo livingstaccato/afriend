@@ -8,12 +8,33 @@ speculation — see the spec's "verified invocation traps" section.
 from dataclasses import dataclass, field
 from pathlib import Path
 import tomllib
-from typing import Any
+from typing import Any, Literal
 
 from .authority import AuthorityDecision, ExternalToolPolicy, enforce
 from .envelopes import Envelope, parse_envelope
 from .errors import UsageError
 from .workspaceassets import WorkspaceAsset, WorkspaceAssetAudit, parse_workspace_assets
+
+ModelSource = Literal[
+    "invocation",
+    "explicit-friend",
+    "roster",
+    "provider-setting",
+    "adapter-default",
+    "cli-default",
+    "recorded-unknown",
+]
+MODEL_SOURCES: frozenset[ModelSource] = frozenset(
+    {
+        "invocation",
+        "explicit-friend",
+        "roster",
+        "provider-setting",
+        "adapter-default",
+        "cli-default",
+        "recorded-unknown",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -156,6 +177,10 @@ class Adapter:
     deny_external_tools_probe_argv: tuple[str, ...] = ()
     deny_external_tools_probe_markers: tuple[str, ...] = ()
     workspace_assets: tuple[WorkspaceAsset, ...] = ()
+    # An adapter may declare a static model that afriend should pass unless
+    # a stronger source selects one. Shipped adapters intentionally leave
+    # this unset and defer to their own CLI defaults.
+    default_model: str | None = None
 
     @property
     def is_readonly(self) -> bool:
@@ -190,6 +215,7 @@ class FriendSpec:
     timeout: int
     independent: bool = True
     host_self_review: bool = False
+    model_source: ModelSource = "cli-default"
 
 
 _MAX_CAPABILITY_PROBE_ARGS = 32

@@ -11,7 +11,7 @@ from dataclasses import replace
 import shutil
 from typing import Any
 
-from .adapters import Adapter, FriendSpec
+from .adapters import Adapter, FriendSpec, ModelSource
 from .authority import AuthorityPolicy, enforce as enforce_authority
 from .errors import NoFriendsError, UsageError
 from .providerconfig import ProviderPolicy
@@ -50,6 +50,22 @@ def mark_host_role(specs: list[FriendSpec], host: str | None) -> list[FriendSpec
         replace(spec, independent=False, host_self_review=True) if spec.cli == host else spec
         for spec in specs
     ]
+
+
+def _selected_model(
+    explicit_model: str | None,
+    explicit_source: ModelSource,
+    provider_model: str | None,
+    adapter_model: str | None,
+) -> tuple[str | None, ModelSource]:
+    """Apply the non-invocation model layers without truthiness shortcuts."""
+    if explicit_model is not None:
+        return explicit_model, explicit_source
+    if provider_model is not None:
+        return provider_model, "provider-setting"
+    if adapter_model is not None:
+        return adapter_model, "adapter-default"
+    return None, "cli-default"
 
 
 # Set to any non-empty value to keep HTTP friends out of auto-discovery
@@ -146,6 +162,7 @@ def resolve(
                     effort=entry.get("effort"),
                     scope=entry.get("scope", default_scope),
                     timeout=entry.get("timeout", timeout),
+                    model_source="roster" if entry.get("model") is not None else "cli-default",
                 )
             )
 
@@ -179,7 +196,13 @@ def resolve(
             if not row.ready and not roster_model_makes_ready:
                 rejected.append(f"{spec.name} ({spec.cli}): {row.reason}")
                 continue
-            specs.append(replace(spec, model=spec.model or row.model))
+            model, source = _selected_model(
+                spec.model,
+                spec.model_source,
+                row.model,
+                registry[spec.cli].default_model,
+            )
+            specs.append(replace(spec, model=model, model_source=source))
         if not specs:
             raise NoFriendsError(
                 "no usable friends from roster after readiness filtering: " + "; ".join(rejected)
@@ -205,15 +228,22 @@ def resolve(
     for index, cli in enumerate(available):
         adapter = registry[cli]
         scope = "repo" if adapter.is_readonly else NO_READONLY_DEFAULT_SCOPE
+        model, source = _selected_model(
+            None,
+            "cli-default",
+            readiness[cli].model,
+            adapter.default_model,
+        )
         specs.append(
             FriendSpec(
                 name=f"{cli}-{lenses[index % len(lenses)]}",
                 cli=cli,
                 lens=lenses[index % len(lenses)],
-                model=readiness[cli].model,
+                model=model,
                 effort=None,
                 scope=scope,
                 timeout=timeout,
+                model_source=source,
             )
         )
     selected, _dropped = apply_capacity(specs, max_friends)

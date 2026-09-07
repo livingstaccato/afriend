@@ -15,7 +15,7 @@ import math
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from ..adapters import FriendSpec
+from ..adapters import MODEL_SOURCES, FriendSpec
 from ..authority import AuthorityPolicy
 from ..ceilings import Budget
 from ..cliargs import MERGE_CHOICES, RUN_MODES
@@ -321,6 +321,18 @@ def _validated_roster_entries(
                 raise UsageError(
                     f"cannot resume: saved roster field {field_name!r} must be a string or null"
                 )
+        if "model_source" not in candidate:
+            candidate["model_source"] = (
+                "cli-default" if candidate.get("model") is None else "recorded-unknown"
+            )
+        elif (
+            type(candidate["model_source"]) is not str
+            or candidate["model_source"] not in MODEL_SOURCES
+        ):
+            raise UsageError(
+                "cannot resume: saved roster field 'model_source' must be one of "
+                f"{sorted(MODEL_SOURCES)}"
+            )
         for field_name in ("independent", "host_self_review"):
             if field_name in candidate and type(candidate[field_name]) is not bool:
                 raise UsageError(
@@ -358,7 +370,7 @@ def _validated_roster_entries(
             {
                 key: item
                 for key, item in candidate.items()
-                if key not in {"independent", "host_self_review"}
+                if key not in {"independent", "host_self_review", "model_source"}
             }
         )
         candidate.setdefault("independent", True)
