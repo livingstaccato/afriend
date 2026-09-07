@@ -333,6 +333,16 @@ def _validated_roster_entries(
                 "cannot resume: saved roster field 'model_source' must be one of "
                 f"{sorted(MODEL_SOURCES)}"
             )
+        source = candidate["model_source"]
+        model = candidate.get("model")
+        source_requires_model = source not in {"cli-default"}
+        source_forbids_model = source == "cli-default"
+        if (source_requires_model and (not isinstance(model, str) or not model)) or (
+            source_forbids_model and model is not None
+        ):
+            raise UsageError(
+                "cannot resume: saved roster field 'model_source' conflicts with its model value"
+            )
         for field_name in ("independent", "host_self_review"):
             if field_name in candidate and type(candidate[field_name]) is not bool:
                 raise UsageError(

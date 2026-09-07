@@ -47,6 +47,23 @@ def _resolve(monkeypatch, tmp_path, *options, models=None, registry=None):
     return friends.resolve_friends(args, registry, None, [])
 
 
+def _resolve_static_ollama(monkeypatch, tmp_path, *options):
+    registry = adapters.load_adapters(ADAPTER_DIR)
+    registry["ollama"] = replace(registry["ollama"], default_model="static-model")
+    monkeypatch.setattr(
+        friends.providerconfig,
+        "load",
+        lambda *_args, **_kwargs: ProviderPolicy(
+            {name: ProviderSetting(enabled=name == "ollama") for name in registry}
+        ),
+    )
+    monkeypatch.setattr(readiness.http_transport, "probe", lambda _endpoint: True)
+    monkeypatch.setattr(friends.shutil, "which", lambda _name: None)
+    monkeypatch.delenv("AF_NO_HTTP_DISCOVERY", raising=False)
+    args = build_parser().parse_args(["run", str(_artifact(tmp_path)), *options])
+    return friends.resolve_friends(args, registry, None, [])
+
+
 def test_global_model_is_recorded_as_the_invocation_source(monkeypatch, tmp_path):
     resolved = _resolve(monkeypatch, tmp_path, "--model", "invocation-model")
 
@@ -118,6 +135,25 @@ def test_static_adapter_model_is_recorded_as_an_adapter_default(monkeypatch, tmp
     assert resolved.specs[0].model_source == "adapter-default"
 
 
+def test_static_adapter_model_makes_an_http_provider_auto_discoverable(monkeypatch, tmp_path):
+    resolved = _resolve_static_ollama(monkeypatch, tmp_path)
+
+    assert [(spec.cli, spec.model, spec.model_source) for spec in resolved.specs] == [
+        ("ollama", "static-model", "adapter-default")
+    ]
+
+
+def test_static_adapter_model_makes_an_http_roster_entry_dispatchable(monkeypatch, tmp_path):
+    roster = tmp_path / "roster.toml"
+    roster.write_text('[[friend]]\nname = "ollama-ops"\ncli = "ollama"\nlens = "ops"\n')
+
+    resolved = _resolve_static_ollama(monkeypatch, tmp_path, "--roster", str(roster))
+
+    assert [(spec.cli, spec.model, spec.model_source) for spec in resolved.specs] == [
+        ("ollama", "static-model", "adapter-default")
+    ]
+
+
 def test_provenance_survives_capacity_effort_and_host_marking(monkeypatch, tmp_path):
     resolved = _resolve(
         monkeypatch,
@@ -153,9 +189,6 @@ def test_resume_provenance_is_validated_and_old_rosters_are_not_misattributed():
 
     assert _validated_roster_entries([row])[0]["model_source"] == "explicit-friend"
     assert (
-        _validated_roster_entries([{**row, "model": None}])[0]["model_source"] == "explicit-friend"
-    )
-    assert (
         _validated_roster_entries(
             [{key: value for key, value in row.items() if key != "model_source"}]
         )[0]["model_source"]
@@ -169,3 +202,31 @@ def test_resume_provenance_is_validated_and_old_rosters_are_not_misattributed():
     )
     with pytest.raises(UsageError, match="model_source"):
         _validated_roster_entries([{**row, "model_source": "invented"}])
+
+
+@pytest.mark.parametrize(
+    ("model_source", "model"),
+    [
+        ("cli-default", "recorded-model"),
+        ("recorded-unknown", None),
+        ("invocation", None),
+        ("explicit-friend", None),
+        ("roster", None),
+        ("provider-setting", None),
+        ("adapter-default", None),
+    ],
+)
+def test_resume_rejects_model_source_combinations_that_cannot_be_true(model_source, model):
+    row = {
+        "name": "codex-ops",
+        "cli": "codex",
+        "lens": "ops",
+        "model": model,
+        "effort": None,
+        "scope": "doc",
+        "timeout": 30,
+        "model_source": model_source,
+    }
+
+    with pytest.raises(UsageError, match="model_source"):
+        _validated_roster_entries([row])

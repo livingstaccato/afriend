@@ -190,8 +190,9 @@ def resolve(
         rejected = []
         for spec in override_specs:
             row = readiness[spec.cli]
-            roster_model_makes_ready = (
-                row.state is ReadinessState.REACHABLE_UNCONFIGURED and spec.model is not None
+            adapter_default = registry[spec.cli].default_model
+            roster_model_makes_ready = row.state is ReadinessState.REACHABLE_UNCONFIGURED and (
+                spec.model is not None or adapter_default is not None
             )
             if not row.ready and not roster_model_makes_ready:
                 rejected.append(f"{spec.name} ({spec.cli}): {row.reason}")
@@ -200,7 +201,7 @@ def resolve(
                 spec.model,
                 spec.model_source,
                 row.model,
-                registry[spec.cli].default_model,
+                adapter_default,
             )
             specs.append(replace(spec, model=model, model_source=source))
         if not specs:
@@ -210,7 +211,15 @@ def resolve(
         selected, _dropped = apply_capacity(specs, max_friends)
         return mark_host_role(selected, host)
 
-    available = [name for name, row in readiness.items() if row.ready]
+    available = [
+        name
+        for name, row in readiness.items()
+        if row.ready
+        or (
+            row.state is ReadinessState.REACHABLE_UNCONFIGURED
+            and registry[name].default_model is not None
+        )
+    ]
     if not available:
         raise NoFriendsError(
             "no usable friends found. Install a second agent CLI "
