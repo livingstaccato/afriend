@@ -167,7 +167,21 @@ def _model_source_label(friend: dict[str, Any]) -> str:
     return "recorded model; selection source unavailable"
 
 
-def _model_display(friend: dict[str, Any]) -> object:
+def _codex_user_config_may_apply(run_meta: dict[str, Any]) -> bool:
+    """Whether the persisted authority could have omitted Codex's denial argv."""
+    policy = run_meta.get("external_tool_policy")
+    if policy == "deny":
+        return False
+    if policy == "allow":
+        return True
+    if policy == "scoped-allow":
+        grants = run_meta.get("external_tool_grants")
+        return not isinstance(grants, list) or "codex" in grants or "*" in grants
+    # Legacy metadata cannot prove that --ignore-user-config was supplied.
+    return True
+
+
+def _model_display(friend: dict[str, Any], run_meta: dict[str, Any]) -> object:
     """Do not turn an absent model record into a claim of inheritance."""
     model = friend.get("model")
     if model:
@@ -175,6 +189,11 @@ def _model_display(friend: dict[str, Any]) -> object:
     if friend.get("model_source") == "cli-default":
         cli = friend.get("cli")
         if isinstance(cli, str) and cli:
+            if cli == "codex" and _codex_user_config_may_apply(run_meta):
+                return (
+                    "Codex CLI selection (no --model passed; user configuration may apply; "
+                    "exact model not verified)"
+                )
             provider = _PROVIDER_DISPLAY_NAMES.get(cli, cli.title())
             return f"{provider} CLI default (no --model passed; exact model not verified)"
         return "CLI default (no --model passed; exact model not verified)"
@@ -583,7 +602,7 @@ def render(
             f"| {_escape_cell(friend['name'])} | "
             f"{_escape_cell(role)} | "
             f"{_escape_cell(independent)} | "
-            f"{_escape_cell(_model_display(friend))} | "
+            f"{_escape_cell(_model_display(friend, run_meta))} | "
             f"{_escape_cell(_model_source_label(friend))} | "
             f"{_escape_cell(friend['effort'] or 'inherited')} | "
             f"{_escape_cell(transport)} | "

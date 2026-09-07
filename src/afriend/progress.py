@@ -131,7 +131,9 @@ class Progress:
     def note(self, text: str) -> None:
         self._emit(f"afriend: {text}")
 
-    def resolved_roster(self, specs: list[FriendSpec]) -> None:
+    def resolved_roster(
+        self, specs: list[FriendSpec], *, codex_user_config_may_apply: bool = False
+    ) -> None:
         """Name the model requested for this invocation's actual roster.
 
         This is intentionally human-only progress, not a lifecycle event:
@@ -147,8 +149,14 @@ class Progress:
         for spec in specs:
             source = _MODEL_SOURCE_LABELS[spec.model_source]
             if spec.model is None:
-                display = _PROVIDER_DISPLAY_NAMES.get(spec.cli, spec.cli.title())
-                model = f"{display} CLI default (no --model passed; exact model not verified)"
+                if spec.cli == "codex" and codex_user_config_may_apply:
+                    model = (
+                        "Codex CLI selection (no --model passed; user configuration may apply; "
+                        "exact model not verified)"
+                    )
+                else:
+                    display = _PROVIDER_DISPLAY_NAMES.get(spec.cli, spec.cli.title())
+                    model = f"{display} CLI default (no --model passed; exact model not verified)"
             else:
                 model = spec.model
             self._emit(f"afriend:   {spec.name} ({spec.cli}) -- model: {model} [{source}]")

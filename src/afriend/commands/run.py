@@ -16,6 +16,7 @@ from typing import Any
 import uuid
 
 from ..adapters import independent_friend_keys
+from ..authority import ExternalToolPolicy
 from ..ceilings import (
     Budget,
     derive_max_calls,
@@ -225,6 +226,12 @@ def cmd_run(args: argparse.Namespace) -> int:
                 warning_seen = True
 
         repo_root, specs = reconcile_snapshot_scope(artifact, snapshot, specs, downgrades)
+        reporter.resolved_roster(
+            specs,
+            codex_user_config_may_apply=(
+                authority_policy.for_provider("codex") is ExternalToolPolicy.ALLOW
+            ),
+        )
         reporter.run_started(
             args.mode,
             str(getattr(args, "profile", "legacy") or "legacy"),

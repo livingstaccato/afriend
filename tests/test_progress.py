@@ -104,7 +104,7 @@ def test_resolved_roster_is_printed_once_per_reporter_before_dispatch():
         FriendSpec("codex-ops-0", "codex", "ops", None, None, "doc", 900),
     ]
 
-    reporter.resolved_roster(specs)
+    reporter.resolved_roster(specs, codex_user_config_may_apply=False)
     reporter.resolved_roster(specs)
 
     assert _lines(stream) == [
@@ -112,6 +112,21 @@ def test_resolved_roster_is_printed_once_per_reporter_before_dispatch():
         "afriend:   codex-ops-0 (codex) -- model: Codex CLI default "
         "(no --model passed; exact model not verified) [CLI default]",
     ]
+
+
+def test_allowed_codex_roster_does_not_claim_its_builtin_default():
+    stream = io.StringIO()
+    reporter = progress.Progress(stream=stream)
+
+    reporter.resolved_roster(
+        [FriendSpec("codex-ops-0", "codex", "ops", None, None, "doc", 900)],
+        codex_user_config_may_apply=True,
+    )
+
+    line = _lines(stream)[-1]
+    assert "Codex CLI default" not in line
+    assert "user configuration may apply" in line
+    assert "exact model not verified" in line
 
 
 def test_a_finished_friend_is_named_with_its_outcome_and_duration():

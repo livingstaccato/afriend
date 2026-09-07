@@ -441,10 +441,41 @@ def test_report_names_each_provider_when_a_cli_default_model_was_requested():
         ]
     )
 
-    out = render([claim("c-0001@1")], [], m)
+    out = render([claim("c-0001@1")], [], {**m, "external_tool_policy": "deny"})
 
     assert "Codex CLI default (no --model passed; exact model not verified)" in out
     assert "OpenCode CLI default (no --model passed; exact model not verified)" in out
+
+
+def test_allowed_codex_report_does_not_claim_its_builtin_default():
+    friend = {
+        "name": "codex-ops",
+        "cli": "codex",
+        "model": None,
+        "model_source": "cli-default",
+        "effort": None,
+        "readonly": True,
+        "scope": "repo",
+        "status": "ok",
+    }
+    denied = render(
+        [claim("c-0001@1")],
+        [],
+        meta(friends=[friend], external_tool_policy="deny"),
+    )
+    allowed = render(
+        [claim("c-0001@1")],
+        [],
+        meta(
+            friends=[friend],
+            external_tool_policy="scoped-allow",
+            external_tool_grants=["codex"],
+        ),
+    )
+
+    assert "Codex CLI default (no --model passed; exact model not verified)" in denied
+    assert "Codex CLI default" not in allowed
+    assert "user configuration may apply" in allowed
 
 
 def test_empty_friends_list_does_not_crash():

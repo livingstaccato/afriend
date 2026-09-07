@@ -394,7 +394,6 @@ def dispatch_round(
             dispatch_specs = [s for s in specs if s.name in cwd_for]
             if not dispatch_specs:
                 return DispatchRoundOutcome([])
-            report.resolved_roster(dispatch_specs)
             # Bounded: see ceilings.DEFAULT_MAX_CONCURRENCY. Futures are read
             # in `dispatch_specs` order, so aggregation remains stable.
             workers = max(1, min(max_concurrency, len(dispatch_specs)))

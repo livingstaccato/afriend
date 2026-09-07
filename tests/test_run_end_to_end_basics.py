@@ -107,6 +107,9 @@ def test_report_run_prints_model_roster_to_stderr_and_keeps_stdout_path_only(tmp
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == str(next((tmp_path / "runs").iterdir()))
     assert result.stderr.count("afriend: friends ready:\n") == 1
+    assert result.stderr.index("afriend: friends ready:") < result.stderr.index(
+        "afriend: warning: doc scope only"
+    )
     assert "afriend:   fake-good-0 (fake) -- model: gpt-6-astra [invocation]" in result.stderr
     meta = json.loads((next((tmp_path / "runs").iterdir()) / "run.json").read_text())
     assert meta["friends"][0]["model_source"] == "invocation"
