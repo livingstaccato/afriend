@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.7.1
+
+Model selection is visible and auditable before a review begins.
+
+- Shows each resolved friend's requested model and selection source before
+  dispatch, so the selected review configuration is visible before any provider
+  starts.
+- Describes provider defaults truthfully: an omitted model is the provider CLI
+  default rather than a verified backend identity, including OpenCode's generic
+  CLI default.
+- Persists requested models and their selection sources in both `run.json` and
+  the report's friend table, preserving audit provenance after the run.
+- Adds installation and troubleshooting guidance to the shipped Claude
+  marketplace documentation, including provider readiness and model-selection
+  diagnostics.
+
 ## 0.7.0
 
 Context-aware review composition makes a review, plan, and related repository

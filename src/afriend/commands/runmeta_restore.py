@@ -23,12 +23,12 @@ from .runmeta import (
     JUDGING_MODES,
     _frozen_host_context,
     _normalize_saved_grants,
-    _normalized_checkpoint,
     _validate_saved_grant,
     _validate_saved_setting,
     _validated_roster_entries,
     migrate_meta,
 )
+from .runmeta_checkpoint import _normalized_checkpoint
 
 
 def _find_run_dir(run_id: str, out: str | None) -> Path:
