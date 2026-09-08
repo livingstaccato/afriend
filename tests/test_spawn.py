@@ -338,10 +338,42 @@ def test_abort_event_terminates_promptly_instead_of_waiting_out_the_timeout():
     )
 
 
+def _abort_once_pidfile_appears(
+    pidfile: Path, event: threading.Event, timeout: float = 30.0
+) -> None:
+    """Signal `event` once the fake friend has recorded its child's pid.
+
+    A fixed timer races the descendant. `fake_friend.py` must finish Python
+    interpreter startup, spawn its own child, and write the pidfile, and
+    under full-suite load that costs well over the 0.3s a fixed timer
+    allowed. When the abort won that race the process group was reaped
+    correctly, but the pidfile never appeared and the test failed with
+    FileNotFoundError while reporting nothing about the reaping it exists to
+    check -- the same race `fake_friend._await_pidfile` documents for the
+    descendant-side modes, seen here from the caller's side.
+
+    Waiting does not weaken the test: the descendant is alive and inside the
+    process group at the moment the abort fires, which is the condition
+    under test. The cap keeps a genuine failure to spawn from hanging the
+    suite instead of failing it.
+    """
+
+    def _watch() -> None:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            with contextlib.suppress(OSError):
+                if pidfile.read_text().strip():
+                    break
+            time.sleep(0.01)
+        event.set()
+
+    threading.Thread(target=_watch, daemon=True).start()
+
+
 def test_abort_event_reaps_the_whole_process_group(tmp_path):
     pidfile = tmp_path / "child.pid"
     abort_event = threading.Event()
-    threading.Timer(0.3, abort_event.set).start()
+    _abort_once_pidfile_appears(pidfile, abort_event)
     result = spawn.run_process(
         [sys.executable, FAKE, "hang", str(pidfile)],
         None,
