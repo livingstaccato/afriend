@@ -56,3 +56,34 @@ def test_known_policy_is_accepted(policy: str):
 def test_unknown_policy_is_refused():
     with pytest.raises(UsageError, match="qualification policy"):
         qualify([], "invented")
+
+
+@pytest.mark.parametrize("label", ["fast", "thorough", "default", "unknown", "auto", "inherit"])
+def test_distinct_models_rejects_label_strings_as_identities(label: str):
+    """Design contract: a label is not a model identity.
+
+    `trust.MODEL_RE` accepts these strings verbatim, and an explicit
+    `--friend codex:red:fast` records `model_source="explicit-friend"`, which
+    is a concrete source. Without an explicit denylist the roster would be
+    admitted and the report would claim two distinct exact model identities
+    for what are really two labels.
+    """
+    specs = [_worker("a", "codex", label), _worker("b", "codex", "gpt-b")]
+
+    result = qualify(specs, "distinct-models")
+
+    assert result.qualified is False
+    assert label in (result.reason or "")
+
+
+def test_distinct_models_label_check_is_case_insensitive():
+    specs = [_worker("a", "codex", "Default"), _worker("b", "codex", "gpt-b")]
+
+    assert qualify(specs, "distinct-models").qualified is False
+
+
+def test_distinct_models_still_accepts_real_identities_containing_a_label_word():
+    """`gpt-5.3-codex-spark` must not be rejected for containing a word."""
+    specs = [_worker("a", "codex", "gpt-5.3-codex-spark"), _worker("b", "codex", "gpt-5.5")]
+
+    assert qualify(specs, "distinct-models").qualified is True
