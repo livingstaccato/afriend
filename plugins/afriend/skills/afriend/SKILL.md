@@ -56,8 +56,13 @@ Codex work. Do not use this skill to generate a first review of code.
 
 ## Session preflight and feedback
 
-On the first review request in a host task, and before every requested new
-loop iteration, resolve review context from host-visible explicit evidence
+On the first review request in a host task, ask only any unanswered setup
+questions before resolving context: **Review target** (artifact, review, plan,
+implementation/diffs, or comparison), **Evidence scope** (artifact only,
+repository plus selected changes, or named paths), and **Judgment goal**
+(report or a judging mode). Reuse the answers for ordinary follow-up work.
+Before every requested new loop iteration, restate the short preflight because
+the target, scope, or policy may have changed. Resolve review context from host-visible explicit evidence
 under its selected session window. An explicit supplied artifact remains
 authoritative. Combine evidence only when `afriend context show` reports
 enabled review context and automatic combining, the relation is unambiguous,
@@ -81,7 +86,8 @@ copies. Then pause before dispatch and state the resolved run:
 > About to start afriend to `<intent>` with plan `<plan|none>`, review
 > `<review|none>`, and changes `<every selected member>`, in repository
 > `<root>`. Profile/mode: `<profile>/<mode>`. Friends:
-> `<name, provider, lens, role>`; downgrade: `<none|reason>`; external tools:
+> `<name, provider, requested model, lens, role>`; qualification policy:
+> `<cross-provider|distinct-sessions|distinct-models>`; downgrade: `<none|reason>`; external tools:
 > `<denied|explicit grant>`.
 >
 > You can cancel, changes only, review only, plan only, or change the profile or mode before dispatch.
@@ -223,6 +229,17 @@ admission rule, `--require-friends` participation, judging quorum, gate
 clearance, or loop convergence. Judging modes therefore need two independent
 non-host friends in addition to any host; `report` may run host-only as a
 recorded downgrade.
+
+When a judging roster has only one qualifying worker, say so before dispatch
+and offer only feasible choices: start another same-provider worker under a
+task-only `distinct-sessions` or `distinct-models` policy; start a fresh
+worker from a different provider (including a fresh Claude worker beside
+Codex); include the current Claude harness as an advisory reviewer; configure
+another provider; or continue with a one-friend report. The current harness
+never qualifies. A fresh worker from the host's provider is separate execution
+but must disclose host-family correlation. A distinct-models policy accepts
+only different exact requested model identifiers; this is not proof of the
+backend model that answered.
 
 Non-Codex hosts remain excluded by default. `--include-self` and
 `--exclude-self` are mutually exclusive per-run overrides. An explicit

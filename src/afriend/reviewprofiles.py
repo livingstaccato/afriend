@@ -8,6 +8,7 @@ from typing import Final
 from .cliargs import RUN_MODES
 from .errors import UsageError
 from .presets import PRESETS
+from .qualification import QUALIFICATION_POLICIES
 
 
 def _empty_settings() -> Mapping[str, object]:
@@ -36,6 +37,7 @@ SAFE_FIELDS: Final[frozenset[str]] = frozenset(
         "max_calls",
         "max_wall_clock",
         "max_loop_iterations",
+        "qualification_policy",
     }
 )
 
@@ -121,6 +123,12 @@ def validate_safe_setting(field: str, value: object) -> object:
         ):
             raise UsageError("profile lenses must be a non-empty list of names")
         return tuple(value)
+    if field == "qualification_policy":
+        if value not in QUALIFICATION_POLICIES:
+            raise UsageError(
+                f"profile qualification_policy must be one of {list(QUALIFICATION_POLICIES)}"
+            )
+        return value
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
         raise UsageError(f"profile {field} must be a positive integer")
     return value

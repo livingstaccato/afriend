@@ -47,7 +47,11 @@ def mark_host_role(specs: list[FriendSpec], host: str | None) -> list[FriendSpec
     if host is None:
         return specs
     return [
-        replace(spec, independent=False, host_self_review=True) if spec.cli == host else spec
+        (
+            spec
+            if spec.cli != host or spec.fresh_host_worker
+            else replace(spec, independent=False, host_self_review=True)
+        )
         for spec in specs
     ]
 

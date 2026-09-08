@@ -30,6 +30,7 @@ from typing import TextIO
 from .adapters import FriendSpec
 from .errors import UsageError
 from .events import EventRecord, EventWriter
+from .qualification import Qualification
 
 # How often the heartbeat names what is still in flight. Thirty seconds is
 # chosen against the thing being waited on: friends take minutes, so a
@@ -132,7 +133,11 @@ class Progress:
         self._emit(f"afriend: {text}")
 
     def resolved_roster(
-        self, specs: list[FriendSpec], *, codex_user_config_may_apply: bool = False
+        self,
+        specs: list[FriendSpec],
+        *,
+        codex_user_config_may_apply: bool = False,
+        qualification: Qualification | None = None,
     ) -> None:
         """Name the model requested for this invocation's actual roster.
 
@@ -163,6 +168,12 @@ class Progress:
             else:
                 model = spec.model
             self._emit(f"afriend:   {spec.name} ({spec.cli}) -- model: {model} [{source}]")
+        if qualification is not None:
+            state = "qualified" if qualification.qualified else "not qualified"
+            self._emit(
+                f"afriend: qualification policy: {qualification.policy} ({state}); "
+                f"provider families: {', '.join(qualification.provider_families) or 'none'}"
+            )
 
     def _event(self, event_type: str, payload: dict[str, object]) -> None:
         """Best-effort telemetry that cannot change review execution."""

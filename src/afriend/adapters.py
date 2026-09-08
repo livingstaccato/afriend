@@ -217,6 +217,7 @@ class FriendSpec:
     independent: bool = True
     host_self_review: bool = False
     model_source: ModelSource = "cli-default"
+    fresh_host_worker: bool = False
 
 
 _MAX_CAPABILITY_PROBE_ARGS = 32

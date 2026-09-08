@@ -22,6 +22,7 @@ from ..errors import UsageError
 from ..failures import RepeatTracker
 from ..ledger import Claim
 from ..presets import PRESETS
+from ..qualification import DEFAULT_QUALIFICATION_POLICY, QUALIFICATION_POLICIES, Qualification
 from ..readiness import can_be_host_provider
 from ..report import render
 from ..reviewcompleteness import from_friends
@@ -75,6 +76,7 @@ _RESUMABLE_ARGS = (
     "max_friends",
     "require_friends",
     "keep",
+    "qualification_policy",
 )
 
 # Invocation-local authority grants are recorded for audit and continuity,
@@ -88,7 +90,15 @@ _SECURITY_GRANTS: dict[str, tuple[type, object]] = {
     "pass_env": (list, []),
 }
 
-_OPTIONAL_STRINGS = {"preset", "profile", "host_provider", "model", "effort", "roster"}
+_OPTIONAL_STRINGS = {
+    "preset",
+    "profile",
+    "host_provider",
+    "model",
+    "effort",
+    "roster",
+    "qualification_policy",
+}
 _STRING_SETTINGS = {"mode", "merge"}
 _BOOL_SETTINGS = {"attributed", "keep"}
 _OPTIONAL_BOOLS = {"include_self"}
@@ -126,6 +136,7 @@ def _base_meta(
     detected_host: str | None = None,
     effective_include_self: bool | None = None,
     repository_scope_mode: str | None = "automatic",
+    qualification: Qualification | None = None,
 ) -> dict[str, Any]:
     """run.json's common fields.
 
@@ -180,6 +191,14 @@ def _base_meta(
         ],
         "produced_new_themes": produced_new_themes,
     }
+    if qualification is not None:
+        meta["qualification"] = {
+            "policy": qualification.policy,
+            "qualified": qualification.qualified,
+            "qualifying_names": list(qualification.qualifying_names),
+            "provider_families": list(qualification.provider_families),
+            "reason": qualification.reason,
+        }
     if repository_scope_mode is not None:
         meta["repository_scope_mode"] = repository_scope_mode
     if effective_include_self is not None:
@@ -334,7 +353,7 @@ def _validated_roster_entries(
             raise UsageError(
                 "cannot resume: saved roster field 'model_source' conflicts with its model value"
             )
-        for field_name in ("independent", "host_self_review"):
+        for field_name in ("independent", "host_self_review", "fresh_host_worker"):
             if field_name in candidate and type(candidate[field_name]) is not bool:
                 raise UsageError(
                     f"cannot resume: saved roster field {field_name!r} must be a boolean"
@@ -345,7 +364,8 @@ def _validated_roster_entries(
             and ("independent" not in candidate or "host_self_review" not in candidate)
         )
         if host_context_known:
-            expected_host = candidate["cli"] == detected_host
+            fresh_host_worker = candidate.get("fresh_host_worker", False)
+            expected_host = candidate["cli"] == detected_host and not fresh_host_worker
             expected_independent = not expected_host
             for field_name, expected in (
                 ("independent", expected_independent),
@@ -371,11 +391,13 @@ def _validated_roster_entries(
             {
                 key: item
                 for key, item in candidate.items()
-                if key not in {"independent", "host_self_review", "model_source"}
+                if key
+                not in {"independent", "host_self_review", "model_source", "fresh_host_worker"}
             }
         )
         candidate.setdefault("independent", True)
         candidate.setdefault("host_self_review", False)
+        candidate.setdefault("fresh_host_worker", False)
         validated.append(candidate)
     return validated
 
@@ -457,6 +479,10 @@ def validate_run_args(args: argparse.Namespace) -> tuple[argparse.Namespace, Pat
         args = _restore_args(args)
     else:
         _resolve_fresh_profile(args)
+    if getattr(args, "qualification_policy", None) is None:
+        args.qualification_policy = DEFAULT_QUALIFICATION_POLICY
+    if args.qualification_policy not in QUALIFICATION_POLICIES:
+        raise UsageError(f"unknown qualification policy {args.qualification_policy!r}")
     for name in (
         "timeout",
         "max_friends",

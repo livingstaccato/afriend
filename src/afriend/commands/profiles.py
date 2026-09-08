@@ -17,6 +17,7 @@ _SETTING_NAMES = (
     "max_calls",
     "max_wall_clock",
     "max_loop_iterations",
+    "qualification_policy",
 )
 
 

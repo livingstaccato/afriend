@@ -20,7 +20,7 @@ from ..runstore import default_root
 from ..secureio import secure_open_directory, secure_read_bytes, secure_regular_exists
 from ..verdicts import CONTESTED, INCOMPLETE, SETTLED_REFUTED, TERMINAL_STATES, UNPROVEN
 
-STATUS_SCHEMA_VERSION = 3
+STATUS_SCHEMA_VERSION = 4
 _POLL_S = 0.25
 _MAX_LEDGER_BYTES = 128 * 1024 * 1024
 _CLAIM_STATES = TERMINAL_STATES | {CONTESTED, UNPROVEN, INCOMPLETE}
@@ -521,6 +521,12 @@ def summarize(run_dir: Path, *, root: Path) -> dict[str, object]:
             profile = started.payload["profile"]
     state, outcome, reported_action = _state(meta, events)
     downgrades = meta.get("downgrades")
+    raw_qualification = meta.get("qualification")
+    qualification: dict[str, object] | None = None
+    if isinstance(raw_qualification, dict):
+        keys = {"policy", "qualified", "qualifying_names", "provider_families", "reason"}
+        if set(raw_qualification) == keys and isinstance(raw_qualification["policy"], str):
+            qualification = {key: raw_qualification[key] for key in keys}
     friends = _friends(meta, events)
     saved_friends = meta.get("friends")
     review_completeness = from_friends(saved_friends if isinstance(saved_friends, list) else [])
@@ -548,6 +554,7 @@ def summarize(run_dir: Path, *, root: Path) -> dict[str, object]:
         "rounds": _rounds(meta, events, state),
         "friends": friends,
         "review_completeness": review_completeness,
+        "qualification": qualification,
         "downgrades": list(downgrades)
         if isinstance(downgrades, list) and all(isinstance(item, str) for item in downgrades)
         else [],
@@ -639,6 +646,11 @@ def _render(summary: dict[str, object]) -> str:
     rounds = summary["rounds"]
     if isinstance(rounds, dict):
         lines.append(f"rounds: current={rounds['current']} final={rounds['final']}")
+    qualification = summary.get("qualification")
+    if isinstance(qualification, dict):
+        lines.append(
+            f"qualification: {qualification['policy']} qualified={qualification['qualified']}"
+        )
     friends = summary["friends"]
     if isinstance(friends, dict) and isinstance(friends.get("rows"), list):
         for row in friends["rows"]:

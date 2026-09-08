@@ -7,7 +7,7 @@ from typing import Any
 from ..errors import UsageError
 from . import resumevalidation
 
-CURRENT_SCHEMA_VERSION = 3
+CURRENT_SCHEMA_VERSION = 4
 
 
 def migrate_meta(raw: Mapping[str, Any]) -> dict[str, Any]:
@@ -49,5 +49,11 @@ def migrate_meta(raw: Mapping[str, Any]) -> dict[str, Any]:
                 invocation["allow_external_tools"] = migrated_grants
         if migrated_grants is not None:
             meta.setdefault("external_tool_grants", migrated_grants)
+    if version < 4:
+        roster = meta.get("roster")
+        if isinstance(roster, list):
+            for entry in roster:
+                if isinstance(entry, dict):
+                    entry.setdefault("fresh_host_worker", False)
     meta["schema_version"] = CURRENT_SCHEMA_VERSION
     return meta

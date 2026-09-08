@@ -565,6 +565,23 @@ def render(
         )
     lines.extend(_repository_snapshot_lines(run_meta))
     lines.extend(_external_authority_lines(run_meta))
+    qualification = run_meta.get("qualification")
+    if isinstance(qualification, dict):
+        policy = qualification.get("policy")
+        qualified = qualification.get("qualified")
+        families = qualification.get("provider_families")
+        if isinstance(policy, str) and type(qualified) is bool and isinstance(families, list):
+            outcome = "qualified" if qualified else "not qualified"
+            suffix = "; not cross-provider" if qualified and policy != "cross-provider" else ""
+            lines.extend(
+                [
+                    "## Qualification",
+                    "",
+                    f"Roster is {outcome} under `{_escape_cell(policy)}`{suffix}.",
+                    "Provider families: " + ", ".join(_escape_cell(str(name)) for name in families),
+                    "",
+                ]
+            )
     review_completeness = from_friends(run_meta.get("friends", []))
     if review_completeness is not None:
         message = review_completeness["message"]
@@ -594,6 +611,8 @@ def render(
         independent = friend.get("independent", True)
         if friend.get("host_self_review", False):
             role = "host-self-review (advisory)"
+        elif friend.get("fresh_host_worker", False):
+            role = "fresh host-provider worker"
         elif not independent:
             role = "legacy role unknown (advisory)"
         else:

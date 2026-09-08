@@ -28,6 +28,7 @@ from ..errors import NoFriendsError, UsageError
 from ..ids import validate_friend_name
 from ..presets import default_preset, effort_for, no_effort_note, unverifiable_note
 from ..prompt import available_lenses
+from ..qualification import DEFAULT_QUALIFICATION_POLICY, Qualification, qualify
 from ..readiness import (
     DenyProbeResult,
     ReadinessState,
@@ -45,6 +46,7 @@ class ResolvedRoster:
     source: str | None = None
     detected_host: str | None = None
     effective_include_self: bool | None = None
+    qualification: Qualification | None = None
 
 
 def _selected_model(
@@ -195,6 +197,15 @@ def resolve_friends(
     explicit = bool(args.friend)
     if explicit:
         specs = _specs_from_flags(args.friend, args.timeout, registry, bool(fake_cmd))
+        if getattr(args, "fresh_host_worker", False):
+            if host is None or not any(spec.cli == host for spec in specs):
+                raise UsageError(
+                    "--fresh-host-worker requires --host-provider and an explicit matching --friend"
+                )
+            specs = [
+                replace(spec, fresh_host_worker=True) if spec.cli == host else spec
+                for spec in specs
+            ]
         if host is not None and not include_host:
             specs = [spec for spec in specs if spec.cli != host]
         if args.roster:
@@ -388,8 +399,11 @@ def roster_for_run(
             if adapter is not None:
                 enforce(adapter, authority_policy.for_provider(spec.cli))
 
-    independent_specs = [spec for spec in specs if spec.independent]
-    if len(independent_specs) < 2:
+    qualification = qualify(
+        specs, getattr(args, "qualification_policy", None) or DEFAULT_QUALIFICATION_POLICY
+    )
+    resolved.qualification = qualification
+    if not qualification.qualified:
         # §8.3. --friend REPLACES the roster rather than augmenting
         # discovery (see cliargs._specs_from_flags), so a single --friend
         # flag -- or discovery itself resolving to one friend -- produces a
@@ -404,12 +418,12 @@ def roster_for_run(
         # for every mode until a crossexam of this file found the exit-0
         # gate and the DEGRADED_MODES constant that was wired to nothing.
         if args.mode not in DEGRADED_MODES:
-            names = ", ".join(spec.name for spec in independent_specs) or "none"
+            names = ", ".join(qualification.qualifying_names) or "none"
+            families = ", ".join(qualification.provider_families) or "none"
             raise NoFriendsError(
-                f"only {len(independent_specs)} independent friend(s) ({names}) "
-                f"resolved, and mode {args.mode!r} needs at least two independent friends "
-                "(§8.3). Install a second agent CLI, add a local model "
-                "(`--friend ollama:<lens>:<model>`), or use --mode report "
+                f"roster does not satisfy qualification policy {qualification.policy!r}: "
+                f"workers ({names}); provider families ({families}); "
+                f"{qualification.reason}. Add a qualifying worker or use --mode report "
                 "for a single reviewer's opinion."
             )
         if len(specs) == 1:

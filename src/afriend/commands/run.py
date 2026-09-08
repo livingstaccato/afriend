@@ -214,6 +214,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             codex_user_config_may_apply=(
                 authority_policy.for_provider("codex") is ExternalToolPolicy.ALLOW
             ),
+            qualification=resolved.qualification,
         )
         reporter.run_started(
             args.mode,
@@ -261,6 +262,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 detected_host=resolved.detected_host,
                 effective_include_self=resolved.effective_include_self,
                 repository_scope_mode=repository_scope_mode,
+                qualification=resolved.qualification,
             )
             if review_context is not None:
                 meta["review_context"] = review_context

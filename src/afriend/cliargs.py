@@ -18,6 +18,7 @@ from .ceilings import (
 from .errors import UsageError
 from .ids import validate_friend_name
 from .presets import PRESETS
+from .qualification import QUALIFICATION_POLICIES
 from .resolutions import DISPOSITIONS, resolve_form_error
 from .trust import MODEL_RE
 
@@ -136,6 +137,13 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="NAME",
         help="use a built-in review profile for this run",
     )
+    run_p.add_argument(
+        "--qualification-policy",
+        choices=list(QUALIFICATION_POLICIES),
+        default=None,
+        action=_ExplicitProfileSettingAction,
+        help="evidence rule for judging modes; defaults to cross-provider",
+    )
     # §10.1: the default depends on the mode (gate defaults to thorough), so
     # it is resolved after parsing rather than baked in here -- None means
     # "the operator did not say".
@@ -157,6 +165,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="NAME",
         help="explicitly identify the provider hosting this run",
+    )
+    run_p.add_argument(
+        "--fresh-host-worker",
+        action="store_true",
+        help="treat explicitly named host-provider friends as fresh workers, not advisory host review",
     )
     run_p.add_argument(
         "--enable-provider",
@@ -485,6 +498,9 @@ def build_parser() -> argparse.ArgumentParser:
         profile_p.add_argument("--base", default=None, metavar="NAME")
         profile_p.add_argument("--mode", choices=list(RUN_MODES), default=None)
         profile_p.add_argument("--preset", choices=list(PRESETS), default=None)
+        profile_p.add_argument(
+            "--qualification-policy", choices=list(QUALIFICATION_POLICIES), default=None
+        )
         profile_p.add_argument("--lens", action="append", default=None, metavar="NAME")
         profile_p.add_argument("--max-friends", type=int, default=None, metavar="N")
         profile_p.add_argument("--require-friends", type=int, default=None, metavar="N")

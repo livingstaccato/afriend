@@ -10,7 +10,7 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 [![Dependencies](https://img.shields.io/badge/runtime%20deps-none-brightgreen)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-2340-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2348-brightgreen)](tests/)
 
 It automates a workflow you may already do by hand: run a review, paste the
 findings into a different model, ask whether they hold up, carry the argument
@@ -201,10 +201,17 @@ current session material.
 The host is the orchestrator. In Codex, Codex remains the orchestrator and is
 included as a friend by default. The report labels it
 `host-self-review (advisory)`, `independent=false`: it contributes findings
-and advisory verdicts, but cannot satisfy two-independent-friend admission,
+and advisory verdicts, but cannot satisfy a qualifying-worker admission,
 `--require-friends` participation, judging quorum, gate clearance, or loop
-convergence. Judging modes need two independent non-host friends in addition
-to any host; a `report` can be host-only. Non-Codex hosts are excluded by
+convergence. By default, judging modes need two fresh workers from different
+provider families; a `report` can be host-only. A task or review profile can
+instead select `--qualification-policy distinct-sessions` for two fresh
+workers, or `distinct-models` for two fresh workers with different exact
+requested models. The latter records provider requests, not proof of the
+backend models that answered. A fresh worker from the host provider can be
+explicitly selected with `--fresh-host-worker`; it is separate from the
+current advisory harness and its host-family correlation remains disclosed.
+Non-Codex hosts are excluded by
 default. `--include-self` and `--exclude-self` are mutually exclusive
 overrides.
 

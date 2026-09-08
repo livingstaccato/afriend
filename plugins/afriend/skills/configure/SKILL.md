@@ -56,11 +56,17 @@ afriend profiles set-default focused
 ```
 
 Custom profiles inherit a built-in or custom base and can hold only review-safe
-mode, preset, lenses, `max_friends`, `require_friends`, timeout, and
+mode, preset, lenses, `max_friends`, `require_friends`, timeout,
+`qualification_policy`, and
 round/iteration ceilings. They cannot encode a provider, `--friend`, model,
 credential, environment forwarding, external-tool authority, unsafe arguments,
 or sandbox exception. Make a persistent change only for the exact
 user-requested selection; use `--profile NAME` for a per-run choice.
+
+Qualification policy is review evidence, not provider authority: the default
+`cross-provider` needs two provider families; `distinct-sessions` accepts two
+fresh workers; `distinct-models` accepts two fresh workers with different
+exact requested models. The last is not verification of provider backends.
 
 ## Review-context policy
 
