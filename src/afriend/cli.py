@@ -25,10 +25,12 @@ from .commands.doctor import cmd_doctor
 # tests and external callers reach into cli.py's namespace directly.
 from .commands.environment import _resolve_repo_root
 from .commands.init import cmd_init
+from .commands.plan import cmd_plan
 from .commands.profiles import cmd_profiles
 from .commands.providers import cmd_providers
 from .commands.resolve import cmd_resolve
 from .commands.run import cmd_run
+from .commands.runs import cmd_runs
 from .commands.status import cmd_status
 from .dispatch import (
     _FAKE_CAPABILITY,
@@ -60,10 +62,12 @@ __all__ = [
     "cmd_context",
     "cmd_doctor",
     "cmd_init",
+    "cmd_plan",
     "cmd_profiles",
     "cmd_providers",
     "cmd_resolve",
     "cmd_run",
+    "cmd_runs",
     "cmd_status",
     "main",
 ]
@@ -83,6 +87,10 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_doctor(args)
         if args.command == "status":
             return cmd_status(args)
+        if args.command == "plan":
+            return cmd_plan(args)
+        if args.command == "runs":
+            return cmd_runs(args)
         if args.command == "providers":
             return cmd_providers(args)
         if args.command == "profiles":

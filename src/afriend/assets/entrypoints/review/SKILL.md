@@ -69,3 +69,11 @@ independent-friend, judging, gate, or loop requirements. Provider selection
 follows effective configured defaults. External tools are denied by default and require explicit
 `--allow-external-tools=PROVIDER` or the explicit global `*` authority; never
 infer that authority from provider selection or sandboxing.
+
+When this review finishes, report the result and the next action immediately;
+do not leave a completed worker as an implied queue. The host owns delegation,
+edits, commits, merges, and its permission policy. `--allow-external-tools`
+grants a selected friend/provider's managed tools for this review only; it
+never grants the host permission to launch a worker or bypass its classifier.
+For implementation, request an isolated worker that returns a diff and test
+results and says: "Do not commit, push, or merge."

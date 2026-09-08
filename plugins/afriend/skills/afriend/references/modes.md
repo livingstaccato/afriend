@@ -439,9 +439,26 @@ tools, unsafe arguments, or sandbox exceptions.
 
 `afriend status <run-id-or-path>` is read-only inspection. It reports mode,
 scope, profile, lifecycle state, friends, rounds, claims, downgrades, and a
-recommended next action. `--json` returns a versioned machine view; `--watch`
+recommended next action. Its final triage projects canonical finding state and
+safe report, ledger, and parsed-evidence paths without reading or printing
+captured prompts, raw output, or stderr. `--json` returns a versioned machine view; `--watch`
 follows new `events.jsonl` records until the terminal event and treats an
 unterminated tail as still being written.
+
+`afriend runs list` inventories retained run records without dispatching or
+reading transcripts. `afriend runs prune --older-than DAYS` is an explicit
+preview; only adding `--confirm` removes selected old terminal runs. Retention
+is otherwise indefinite because run directories are audit evidence. Pruning
+uses root-bounded, no-follow access and serializes cooperating afriend writers
+and pruners; a detected path change safely fails and can leave a private staged
+residue. It is not a security boundary against an uncooperative same-user
+process mutating the run root.
+
+`afriend plan <run-id-or-path>` writes one durable `PLAN.md` inside a complete
+terminal run. It contains a deterministic checklist linked to unresolved
+canonical claims and their safe evidence paths. It never dispatches friends,
+edits repository code, resolves claims, or verifies fixes; the host reviews
+and accepts or rejects the proposal.
 
 `afriend resolve <run-id> --list` shows unresolved claims without writing.
 `--next` shows a claim only when the highest-priority choice is unique. A

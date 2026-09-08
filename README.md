@@ -10,7 +10,7 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 [![Dependencies](https://img.shields.io/badge/runtime%20deps-none-brightgreen)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-2306-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2340-brightgreen)](tests/)
 
 It automates a workflow you may already do by hand: run a review, paste the
 findings into a different model, ask whether they hold up, carry the argument
@@ -325,11 +325,22 @@ or authority grants. After the run, inspect it without dispatching anything:
 afriend status <run-id-or-path>
 afriend status <run-id-or-path> --watch
 afriend status <run-id-or-path> --json
+afriend runs list
+afriend runs prune --older-than 30                 # preview only
+afriend runs prune --older-than 30 --confirm       # explicit deletion
+afriend plan <run-id-or-path>                      # writes that run's PLAN.md
 ```
 
 `--watch` prints only new lifecycle events until the terminal event and treats
 an unterminated final event line as still being written. Runs without an event
 stream remain inspectable from `run.json`, `claims.jsonl`, and `report.md`.
+`status` includes a transcript-safe final triage: canonical finding state and
+paths to the report, ledger, and parsed evidence, never captured prompt/raw/
+stderr contents. `runs list` retains all audit records by default. `runs prune`
+selects only old terminal records and is a preview unless `--confirm` is also
+given; it never performs automatic retention cleanup. `plan` writes one
+durable, claim-linked `PLAN.md` for a complete terminal run. It is a proposal
+for the host to review, not a resolution, code edit, or verification record.
 
 ---
 

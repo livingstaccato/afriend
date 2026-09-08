@@ -25,6 +25,7 @@ RUN_MODES = ("report", "crossexam", "gate", "loop")
 MERGE_CHOICES = ("exact", "orchestrator")
 REVIEW_CONTEXT_SOURCES = ("current-task", "recent-session")
 REVIEW_CONTEXT_AMBIGUITIES = ("ask", "newest", "refuse")
+MAX_PRUNE_AGE_DAYS = 365_000
 
 
 class _ExplicitModeAction(argparse.Action):
@@ -72,6 +73,15 @@ def _resolve_form_error(args: argparse.Namespace) -> str | None:
         evidence=getattr(args, "evidence", None),
         author=getattr(args, "author", None),
     )
+
+
+def _nonnegative_days(value: str) -> int:
+    if not value.isascii() or not value.isdecimal():
+        raise argparse.ArgumentTypeError("must be a non-negative whole number of days")
+    days = int(value)
+    if days > MAX_PRUNE_AGE_DAYS:
+        raise argparse.ArgumentTypeError(f"must be no more than {MAX_PRUNE_AGE_DAYS} days")
+    return days
 
 
 class _AfArgumentParser(argparse.ArgumentParser):
@@ -432,6 +442,23 @@ def build_parser() -> argparse.ArgumentParser:
     status_p.add_argument("--json", action="store_true", help="machine-readable output")
     status_p.add_argument(
         "--watch", action="store_true", help="follow lifecycle events until finished"
+    )
+
+    plan_p = sub.add_parser("plan")
+    plan_p.add_argument("run_id", metavar="RUN_ID_OR_PATH")
+    plan_p.add_argument("--out", default=None, help="run root, if not the default")
+
+    runs_p = sub.add_parser("runs")
+    runs_sub = runs_p.add_subparsers(dest="runs_command", required=True)
+    runs_list_p = runs_sub.add_parser("list")
+    runs_list_p.add_argument("--out", default=None, help="run root, if not the default")
+    runs_list_p.add_argument("--json", action="store_true", help="machine-readable output")
+    runs_prune_p = runs_sub.add_parser("prune")
+    runs_prune_p.add_argument("--older-than", required=True, type=_nonnegative_days, metavar="DAYS")
+    runs_prune_p.add_argument("--out", default=None, help="run root, if not the default")
+    runs_prune_p.add_argument("--json", action="store_true", help="machine-readable output")
+    runs_prune_p.add_argument(
+        "--confirm", action="store_true", help="remove selected terminal runs"
     )
 
     providers_p = sub.add_parser("providers")

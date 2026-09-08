@@ -14,14 +14,16 @@ from ..errors import UsageError
 from ..events import EventRecord, read_events
 from ..ids import FRIEND_NAME_RE
 from ..jsonio import MAX_JSON_FILE_BYTES, decode_json_object
-from ..ledger import Claim, Resolution, record_from_dict
+from ..ledger import Alias, Claim, Resolution, record_from_dict
 from ..reviewcompleteness import from_friends
 from ..runstore import default_root
 from ..secureio import secure_open_directory, secure_read_bytes, secure_regular_exists
+from ..verdicts import CONTESTED, INCOMPLETE, SETTLED_REFUTED, TERMINAL_STATES, UNPROVEN
 
-STATUS_SCHEMA_VERSION = 2
+STATUS_SCHEMA_VERSION = 3
 _POLL_S = 0.25
 _MAX_LEDGER_BYTES = 128 * 1024 * 1024
+_CLAIM_STATES = TERMINAL_STATES | {CONTESTED, UNPROVEN, INCOMPLETE}
 
 
 def _as_root(value: str | None) -> Path:
@@ -97,8 +99,8 @@ def _read_events(path: Path, *, root: Path) -> list[EventRecord]:
         raise UsageError(f"cannot read lifecycle events {path}: {exc}") from exc
 
 
-def _read_ledger(path: Path, *, root: Path) -> list[Claim | Resolution]:
-    """Read the two record types status needs without constructing a Ledger.
+def _read_ledger(path: Path, *, root: Path) -> list[Claim | Alias | Resolution]:
+    """Read the ledger records status needs without constructing a Ledger.
 
     ``Ledger`` deliberately initializes its parent for writers, which is the
     wrong abstraction here: a status command must not chmod or create any
@@ -110,7 +112,7 @@ def _read_ledger(path: Path, *, root: Path) -> list[Claim | Resolution]:
         return []
     except OSError as exc:
         raise UsageError(f"cannot read ledger {path}: {exc}") from exc
-    records: list[Claim | Resolution] = []
+    records: list[Claim | Alias | Resolution] = []
     for line_no, raw in enumerate(payload.splitlines(), start=1):
         if not raw.strip():
             continue
@@ -119,24 +121,198 @@ def _read_ledger(path: Path, *, root: Path) -> list[Claim | Resolution]:
             record = record_from_dict(parsed)
         except (json.JSONDecodeError, UsageError, TypeError, ValueError) as exc:
             raise UsageError(f"{path}:{line_no}: invalid ledger record: {exc}") from exc
-        if isinstance(record, (Claim, Resolution)):
+        if isinstance(record, (Claim, Alias, Resolution)):
             records.append(record)
     return records
 
 
-def _claim_counts(records: Iterable[Claim | Resolution]) -> dict[str, object]:
+def _claim_counts(records: Iterable[Claim | Alias | Resolution]) -> dict[str, object]:
     claims: dict[str, Claim] = {}
     resolutions: dict[str, Resolution] = {}
     for record in records:
         if isinstance(record, Claim):
             claims[record.id] = record
-        else:
+        elif isinstance(record, Resolution):
             resolutions[record.claim_id] = record
     counts = Counter(
         resolutions[claim_id].disposition if claim_id in resolutions else "pending"
         for claim_id in claims
     )
     return {"total": len(claims), "by_status": dict(sorted(counts.items()))}
+
+
+def _safe_regular_path(path: Path, *, root: Path) -> str | None:
+    """Return a known regular artifact path without reading its contents."""
+    try:
+        return str(path) if secure_regular_exists(path, root=root) else None
+    except OSError:
+        return None
+
+
+def _claim_states(meta: dict[str, Any]) -> dict[str, str]:
+    """Return a complete validated persisted state map, or no state evidence.
+
+    An old run has no claim-state checkpoint.  A malformed one is likewise
+    not a source of triage conclusions, so status retains the conservative
+    unresolved result instead of surfacing an invented state.
+    """
+    value = meta.get("claim_states")
+    if type(value) is not dict or any(
+        type(claim_id) is not str or type(state) is not str or state not in _CLAIM_STATES
+        for claim_id, state in value.items()
+    ):
+        return {}
+    return dict(value)
+
+
+def _evidence_paths(
+    meta: dict[str, Any], claims: Iterable[Claim], *, run_dir: Path, root: Path
+) -> list[str]:
+    """Project known parsed-result paths for claims' recorded origins.
+
+    Claim text and evidence are untrusted prose, while raw output, prompts, and
+    stderr are transcripts.  Neither belongs in status.  A frozen roster lets
+    us map a ledger identity back to the corresponding parsed ``.json``
+    artifact, if it exists, without opening any result content.
+    """
+    roster = meta.get("roster")
+    if not isinstance(roster, list):
+        return []
+    paths: list[str] = []
+    for claim in claims:
+        for entry in roster:
+            if not isinstance(entry, dict):
+                continue
+            name = entry.get("name")
+            cli = entry.get("cli")
+            lens = entry.get("lens")
+            model = entry.get("model")
+            effort = entry.get("effort")
+            if (
+                not isinstance(name, str)
+                or FRIEND_NAME_RE.fullmatch(name) is None
+                or not isinstance(cli, str)
+                or FRIEND_NAME_RE.fullmatch(cli) is None
+                or not isinstance(lens, str)
+                or FRIEND_NAME_RE.fullmatch(lens) is None
+                or (model is not None and not isinstance(model, str))
+                or (effort is not None and not isinstance(effort, str))
+            ):
+                continue
+            identity = f"{cli}/{lens}"
+            if model:
+                identity += f"@{model}"
+            if effort:
+                identity += f"+{effort}"
+            # Older ledgers recorded the roster name rather than the current
+            # cli/lens identity. Both are safe only after the roster name itself
+            # has passed the path-name validation above.
+            if identity not in claim.origin and name not in claim.origin:
+                continue
+            path = _safe_regular_path(run_dir / f"round-{claim.round}" / f"{name}.json", root=root)
+            if path is not None and path not in paths:
+                paths.append(path)
+    return paths
+
+
+def _contributing_claims(
+    final_claim: Claim, claims: dict[str, Claim], aliases: Iterable[Alias]
+) -> list[Claim]:
+    """Recover every ledger claim whose parsed result supports a final finding.
+
+    Both a duplicate alias and an amended successor preserve a relationship to
+    an earlier claim, but each source claim's round remains authoritative for
+    its result path.  Traverse those relationships backwards, then retain the
+    append-only ledger order for stable presentation.
+    """
+    sources_by_target: dict[str, list[str]] = {}
+    for claim in claims.values():
+        if claim.supersedes is not None:
+            sources_by_target.setdefault(claim.id, []).append(claim.supersedes)
+    for alias in aliases:
+        sources_by_target.setdefault(alias.canonical, []).append(alias.duplicate)
+
+    contributing_ids: set[str] = set()
+
+    def collect(claim_id: str) -> None:
+        if claim_id in contributing_ids:
+            return
+        contributing_ids.add(claim_id)
+        for source_id in sources_by_target.get(claim_id, []):
+            if source_id in claims:
+                collect(source_id)
+
+    collect(final_claim.id)
+    return [claim for claim_id, claim in claims.items() if claim_id in contributing_ids]
+
+
+def _triage(
+    records: Iterable[Claim | Alias | Resolution],
+    meta: dict[str, Any],
+    *,
+    run_dir: Path,
+    root: Path,
+) -> dict[str, object]:
+    """Build a transcript-safe final-findings projection from ledger metadata."""
+    claims: dict[str, Claim] = {}
+    aliased_ids: set[str] = set()
+    aliases: list[Alias] = []
+    superseded: set[str] = set()
+    resolutions: dict[str, Resolution] = {}
+    claim_states = _claim_states(meta)
+    for record in records:
+        if isinstance(record, Claim):
+            claims[record.id] = record
+            if record.supersedes is not None:
+                superseded.add(record.supersedes)
+        elif isinstance(record, Alias):
+            aliased_ids.add(record.duplicate)
+            aliases.append(record)
+        else:
+            resolutions[record.claim_id] = record
+
+    final_claims = [
+        claims[claim_id]
+        for claim_id in sorted(claims)
+        if claim_id not in aliased_ids and claim_id not in superseded
+    ]
+    findings: list[dict[str, object]] = []
+    evidence_paths: list[str] = []
+    unresolved_ids: list[str] = []
+    for claim in final_claims:
+        resolution = resolutions.get(claim.id)
+        finding_paths = _evidence_paths(
+            meta,
+            _contributing_claims(claim, claims, aliases),
+            run_dir=run_dir,
+            root=root,
+        )
+        if resolution is None:
+            finding_status = claim_states.get(claim.id, "unresolved")
+            if finding_status != SETTLED_REFUTED:
+                unresolved_ids.append(claim.id)
+        else:
+            finding_status = resolution.disposition
+        findings.append(
+            {
+                "id": claim.id,
+                "severity": claim.severity,
+                "status": finding_status,
+                "evidence_paths": finding_paths,
+            }
+        )
+        for path in finding_paths:
+            if path not in evidence_paths:
+                evidence_paths.append(path)
+    return {
+        "final_claim_ids": [claim.id for claim in final_claims],
+        "final_findings": findings,
+        "unresolved_claim_ids": unresolved_ids,
+        "unresolved_count": len(unresolved_ids),
+        "report_path": _safe_regular_path(run_dir / "report.md", root=root),
+        "ledger_path": _safe_regular_path(run_dir / "claims.jsonl", root=root),
+        "evidence_paths": evidence_paths,
+    }
 
 
 def _roster_rows(meta: dict[str, Any]) -> dict[str, dict[str, object]]:
@@ -333,7 +509,8 @@ def summarize(run_dir: Path, *, root: Path) -> dict[str, object]:
     events = _latest_invocation(_read_events(run_dir / "events.jsonl", root=root))
     if not has_metadata and not events:
         raise UsageError(f"{run_dir} is not a run directory: no run.json or valid lifecycle events")
-    claims = _claim_counts(_read_ledger(run_dir / "claims.jsonl", root=root))
+    ledger_records = _read_ledger(run_dir / "claims.jsonl", root=root)
+    claims = _claim_counts(ledger_records)
     started = next((event for event in events if event.type == "run_started"), None)
     mode = meta.get("mode") if isinstance(meta.get("mode"), str) else None
     profile = meta.get("profile") if isinstance(meta.get("profile"), str) else None
@@ -366,6 +543,7 @@ def summarize(run_dir: Path, *, root: Path) -> dict[str, object]:
         "mode": mode,
         "profile": profile,
         "claims": claims,
+        "triage": _triage(ledger_records, meta, run_dir=run_dir, root=root),
         "scope": scope,
         "rounds": _rounds(meta, events, state),
         "friends": friends,
@@ -440,8 +618,24 @@ def _render(summary: dict[str, object]) -> str:
         f"{summary['run_id']}: {summary['state']}{outcome}",
         f"mode: {summary['mode'] or 'unknown'}  profile: {summary['profile'] or 'legacy'}  scope: {summary['scope']}",
         f"claims: {claims['total']} ({claim_text})",
-        f"next: {summary['next_action']}",
     ]
+    triage = summary.get("triage")
+    if isinstance(triage, dict):
+        findings = triage.get("final_findings")
+        unresolved = triage.get("unresolved_count")
+        if isinstance(findings, list) and isinstance(unresolved, int):
+            rendered_findings: list[str] = []
+            for finding in findings:
+                if not isinstance(finding, dict):
+                    continue
+                claim_id = finding.get("id")
+                severity = finding.get("severity")
+                finding_status = finding.get("status")
+                if all(isinstance(value, str) for value in (claim_id, severity, finding_status)):
+                    rendered_findings.append(f"{claim_id} [{severity}, {finding_status}]")
+            detail = "; ".join(rendered_findings) if rendered_findings else "none"
+            lines.append(f"final findings: {detail}  unresolved={unresolved}")
+    lines.append(f"next: {summary['next_action']}")
     rounds = summary["rounds"]
     if isinstance(rounds, dict):
         lines.append(f"rounds: current={rounds['current']} final={rounds['final']}")

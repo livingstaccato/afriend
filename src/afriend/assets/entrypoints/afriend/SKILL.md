@@ -106,6 +106,21 @@ next action is to inspect, resolve, resume, fix configuration, retry, or start
 another iteration. Do not call a failed, incomplete, downgraded, or
 single-friend run a completed independent review.
 
+Do not leave a completed worker as an implied queue. When a friend, delegated
+worker, or afriend run finishes, immediately report its outcome and name the
+next action. Continue the declared workflow when that action is already
+authorized; otherwise state the exact user decision or host permission needed.
+The host, not afriend, owns worker lifecycle, edits, commits, merges, and
+permission settings. A provider grant such as `--allow-external-tools=PROVIDER`
+only permits that provider's managed tools for this run; it does not grant the
+host authority to launch a worker or bypass a host permission classifier.
+
+For investigation, ask the host to use a read-only worker that returns
+evidence. For implementation, ask it to use an isolated worker that returns a
+diff and test results: "Do not commit, push, or merge." If the host refuses an
+autonomous edit-and-commit worker, split the work that way rather than claiming
+afriend can override the refusal.
+
 ## Running it
 
 ```bash
@@ -364,11 +379,20 @@ To inspect a named run without dispatching or changing anything, use:
 afriend status <run-id-or-path>
 afriend status <run-id-or-path> --watch
 afriend status <run-id-or-path> --json
+afriend runs list
+afriend runs prune --older-than 30
+afriend runs prune --older-than 30 --confirm
+afriend plan <run-id-or-path>
 ```
 
 `status` reports identity, mode, scope, profile, lifecycle state, friend
 completion or failure, current round, claim states, downgrades, and a next
-action. `--watch` tails new lifecycle events until the terminal event; an
+action. It includes transcript-safe final triage and links to the report,
+ledger, and parsed evidence without copying captured transcript content.
+`runs list` inventories audit records; retain-all is the default. `runs prune`
+is preview-only without `--confirm` and never runs automatically. `plan` writes
+one durable, non-mutating, claim-linked `PLAN.md` for a complete terminal run;
+it is a proposal for the host to review, not a resolution or code edit. `--watch` tails new lifecycle events until the terminal event; an
 unterminated final JSONL line is simply still being written. Existing runs
 without `events.jsonl` remain inspectable from their saved artifacts.
 
