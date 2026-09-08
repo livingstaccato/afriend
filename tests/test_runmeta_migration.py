@@ -26,7 +26,7 @@ from afriend.snapshots import SnapshotIdentity
 def test_v020_terminal_meta_is_readable_and_marks_unknowns():
     migrated = migrate_meta(load_fixture("run_meta_v020_terminal.json"))
 
-    assert migrated["schema_version"] == CURRENT_SCHEMA_VERSION == 3
+    assert migrated["schema_version"] == CURRENT_SCHEMA_VERSION == 4
     assert migrated["external_tool_policy"] == "legacy-unknown"
     assert migrated["started_at"] is None
     assert migrated["finished_at"] is None
@@ -47,13 +47,13 @@ def test_v020_halt_preserves_budget_tracker_and_snapshot():
     assert migrated["external_tool_policy"] == "legacy-unknown"
 
 
-@pytest.mark.parametrize("version", [True, False, "2", 0, -1, 4])
+@pytest.mark.parametrize("version", [True, False, "2", 0, -1, 5])
 def test_invalid_or_unsupported_schema_versions_are_refused(version):
     with pytest.raises(UsageError, match=rf"unsupported run metadata schema {version!r}"):
         migrate_meta({"schema_version": version})
 
 
-@pytest.mark.parametrize("version", [1, 2, 3])
+@pytest.mark.parametrize("version", [1, 2, 3, 4])
 def test_migration_always_returns_a_deep_copy(version):
     raw = {
         "schema_version": version,

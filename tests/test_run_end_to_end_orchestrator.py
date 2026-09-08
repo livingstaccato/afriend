@@ -117,7 +117,7 @@ def test_a_halted_run_is_still_readable(tmp_path):
     _halt(tmp_path, "judge_uphold_a", "judge_uphold_b")
     meta = _run_json(tmp_path)
     assert meta["invocation"]["mode"] == "report"
-    assert meta["schema_version"] == 3
+    assert meta["schema_version"] == 4
     assert meta["lifecycle_state"] == "waiting-for-orchestrator"
     assert "finished_at" not in meta
     assert "exit_code" not in meta

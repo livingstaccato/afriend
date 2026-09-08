@@ -103,7 +103,7 @@ def test_status_json_is_versioned_and_uses_legacy_artifacts_when_events_are_abse
     assert status.cmd_status(_args("run-status", out=root, json_output=True)) == 0
 
     payload = json.loads(capsys.readouterr().out)
-    assert payload["version"] == 3
+    assert payload["version"] == 4
     assert payload["state"] == "terminal"
     assert payload["mode"] == "report"
     assert payload["profile"] == "quick"

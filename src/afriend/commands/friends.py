@@ -424,7 +424,8 @@ def roster_for_run(
                 f"roster does not satisfy qualification policy {qualification.policy!r}: "
                 f"workers ({names}); provider families ({families}); "
                 f"{qualification.reason}. Add a qualifying worker or use --mode report "
-                "for a single reviewer's opinion."
+                "for a single reviewer's opinion. Judging needs at least two independent "
+                "friends under the selected policy."
             )
         if len(specs) == 1:
             downgrades.append(
