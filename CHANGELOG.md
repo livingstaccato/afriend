@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.7.2
+
+Run evidence is easier to retain, inspect, and turn into an explicitly
+reviewed follow-up without exposing raw friend transcripts.
+
+- Adds `afriend runs list` and confirmation-gated `afriend runs prune` for
+  retained terminal runs. Retention remains the default; pruning previews
+  candidates unless `--confirm` is supplied and refuses unsafe, active, or
+  malformed runs.
+- Adds transcript-safe status triage that follows final claim lineage,
+  preserves recorded resolutions, and links only report, ledger, and parsed
+  evidence artifacts.
+- Adds `afriend plan RUN`, which writes one durable, claim-linked `PLAN.md`
+  proposal for unresolved terminal-run claims without dispatching friends,
+  editing repository code, or changing review state.
+- Makes the host/worker boundary explicit in the shipped skills: a completed
+  worker reports its outcome and next action instead of becoming an implied
+  queue, while host authority remains separate from provider tool grants.
+
 ## 0.7.1
 
 Model selection is visible and auditable before a review begins.
