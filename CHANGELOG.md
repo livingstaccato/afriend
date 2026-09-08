@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.8.0
+
+A judging run now states the rule that makes its evidence independent, and
+enforces it before dispatch instead of implying it afterwards.
+
+- Adds qualification policies for judging modes. `cross-provider` (two fresh
+  workers from different provider families) is the default; a run or review
+  profile may select `distinct-sessions` (two fresh workers) or
+  `distinct-models` (two fresh workers with different exact requested model
+  identities). An unmet policy is refused before a run directory exists, and
+  the selected policy is frozen into the run so a resume cannot be
+  retroactively qualified by a later preference change.
+- **Behavior change:** judging modes previously admitted any two independent
+  friends regardless of provider. Two same-provider workers now need an
+  explicit `--qualification-policy`.
+- States what each policy did not verify. `distinct-sessions` checks only that
+  invocations were separate, so the report says provider family and model were
+  not compared rather than letting the policy name imply more.
+- Refuses selection labels such as `fast`, `default`, and `unknown` as model
+  identities under `distinct-models`; an accepted identifier remains a recorded
+  provider request, not proof of the backend model that answered.
+- Keeps an explicitly requested fresh worker on the host's own provider family
+  in the roster. It stays independent and is disclosed as sharing the host's
+  family, which is what lets a Claude-hosted task qualify beside Codex.
+- Carries a next action on each worker completion event, so a host consuming
+  the stream is told what a finished worker means for it rather than inferring
+  that from the single run-level event at the end.
+- Isolates the test suite from the developer's own environment and runs it in
+  parallel.
+
 ## 0.7.2
 
 Run evidence is easier to retain, inspect, and turn into an explicitly
