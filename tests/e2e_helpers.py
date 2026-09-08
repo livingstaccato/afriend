@@ -48,6 +48,7 @@ def _safe_path_dir() -> Path:
 def _env(extra=None):
     env = {
         "PATH": str(_safe_path_dir()),
+        "XDG_CONFIG_HOME": tempfile.mkdtemp(prefix="af-safe-config-"),
         "AF_FAKE_FRIEND": f"{sys.executable} {FAKE}",
         # The safe PATH keeps real agent CLIs out of discovery, but an
         # HTTP friend is found by probing an endpoint, not by PATH -- so a

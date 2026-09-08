@@ -100,12 +100,13 @@ def test_doctor_text_uses_the_same_readiness_state_and_reason(tmp_path):
     assert "reason=" in result.stdout
 
 
-def test_doctor_preserves_http_discovery_opt_out(monkeypatch, capsys):
+def test_doctor_preserves_http_discovery_opt_out(monkeypatch, capsys, tmp_path):
     import argparse
 
     from afriend.commands import doctor as doctor_module
 
     probes: list[str] = []
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     monkeypatch.setenv("AF_NO_HTTP_DISCOVERY", "1")
     monkeypatch.setattr(doctor_module.shutil, "which", lambda _name: None)
     monkeypatch.setattr(
