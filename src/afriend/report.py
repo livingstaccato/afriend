@@ -29,7 +29,7 @@ wrapping the field in a code block of its own.
 
 from collections import Counter
 import re
-from typing import Any
+from typing import Any, Final
 import unicodedata
 
 from .dispatch import sanitize_display
@@ -525,6 +525,24 @@ def _artifact_label(value: object) -> str:
     return f"`{''.join(bounded)}`"
 
 
+# A policy name compresses a claim about independence, and the compression is
+# where overclaiming hides. Each result is printed next to the limit of what
+# that policy actually checked, so a reader never has to infer it.
+_QUALIFICATION_LIMITS: Final[dict[str, str]] = {
+    "cross-provider": (
+        "Verified two distinct provider families; model identities were not compared."
+    ),
+    "distinct-sessions": (
+        "Verified separate worker invocations only; provider family and model were "
+        "not compared."
+    ),
+    "distinct-models": (
+        "Verified two distinct exact requested model identities; a requested model is "
+        "a recorded provider request, not proof of the backend model that answered."
+    ),
+}
+
+
 def render(
     review: ReviewState,
     run_meta: dict[str, Any],
@@ -579,6 +597,8 @@ def render(
                     "",
                     f"Roster is {outcome} under `{_escape_cell(policy)}`{suffix}.",
                     "Provider families: " + ", ".join(_escape_cell(str(name)) for name in families),
+                    "",
+                    _QUALIFICATION_LIMITS.get(policy, ""),
                     "",
                 ]
             )
