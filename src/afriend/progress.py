@@ -279,6 +279,13 @@ class Progress:
                 "round": record.round_no if record else 1,
                 "duration_s": elapsed_s,
                 "status": "succeeded" if succeeded else "failed",
+                # Per-worker, so a host reading the stream is told what this
+                # worker's outcome means for it rather than inferring that
+                # from the single run-level event at the end. A worker that
+                # answered is evidence to read; one that failed is the only
+                # thing a retry could change, since the run continues around
+                # it either way.
+                "next_action": "inspect_report" if succeeded else "retry",
             },
         )
 

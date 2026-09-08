@@ -48,8 +48,12 @@ _NEXT_ACTIONS: Final = frozenset(
 _MODE_VALUES: Final = frozenset({"report", "crossexam", "gate", "loop"})
 _FIELDS: Final[dict[str, frozenset[str]]] = {
     "run_started": frozenset({"mode", "profile", "status", "scope", "repository_scope_mode"}),
-    "friend_finished": frozenset({"friend", "provider", "lens", "round", "duration_s", "status"}),
-    "friend_failed": frozenset({"friend", "provider", "lens", "round", "duration_s", "status"}),
+    "friend_finished": frozenset(
+        {"friend", "provider", "lens", "round", "duration_s", "status", "next_action"}
+    ),
+    "friend_failed": frozenset(
+        {"friend", "provider", "lens", "round", "duration_s", "status", "next_action"}
+    ),
     "round_finished": frozenset({"round", "status"}),
     "run_finished": frozenset({"duration_s", "status", "next_action"}),
 }

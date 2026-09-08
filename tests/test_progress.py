@@ -289,3 +289,33 @@ def test_final_human_summary_respects_progress_setting():
     quiet = progress.Progress(stream=io.StringIO(), enabled=False)
     quiet.run_finished("halted", "resume", duration_s=0.1)
     assert quiet.stream.getvalue() == ""
+
+
+def test_a_worker_completion_event_carries_its_final_state_and_next_action(tmp_path):
+    """Design contract: the host receives a completion event per worker that
+    includes its final state and the next action.
+
+    `run_finished` already carries `next_action`, but that arrives once, at
+    the end. A host reading the stream per worker had the worker's status and
+    no statement of what to do about it, which is what lets a finished worker
+    keep reading as outstanding work.
+    """
+    store = RunStore(tmp_path / "runs", "run-progress-next-action")
+    reporter = progress.Progress(event_writer=store.events_writer())
+    reporter.friend_dispatched("fake-ops-0", 900, provider="fake", lens="ops")
+    reporter.friend_finished("fake-ops-0", "answered with 2 claims", succeeded=True)
+    reporter.friend_dispatched("fake-ops-1", 900, provider="fake", lens="ops")
+    reporter.friend_finished("fake-ops-1", "failed: exit 1", succeeded=False)
+    reporter.close()
+
+    events = {
+        event.payload["friend"]: event
+        for event in read_events(store.events_path(), root=store.root)
+        if event.type in {"friend_finished", "friend_failed"}
+    }
+
+    assert events["fake-ops-0"].payload["status"] == "succeeded"
+    assert events["fake-ops-0"].payload["next_action"] == "inspect_report"
+    assert events["fake-ops-1"].payload["status"] == "failed"
+    assert events["fake-ops-1"].payload["next_action"] == "retry"
+
