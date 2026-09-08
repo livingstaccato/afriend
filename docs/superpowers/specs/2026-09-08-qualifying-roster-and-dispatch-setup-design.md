@@ -22,19 +22,22 @@ friend, or invent a model identity for a provider that cannot report one.
 
 ## Evidence model
 
-Each roster entry has three separately reported properties:
+Each review participant has four separately reported properties:
 
 | Property | Meaning |
 | --- | --- |
 | execution | A fresh, separately launched worker session, distinct from every other worker session in the run. |
 | provider family | The provider/adapter family that produced the worker, such as `codex` or `claude`. |
-| model identity | The exact configured and launch-recorded model identifier for that worker.  Labels such as `fast`, `thorough`, `default`, or `unknown` are not model identities. |
+| model request identity | The exact model identifier selected for and passed to that worker.  Labels such as `fast`, `thorough`, `default`, or `unknown` are not model identities.  It is a recorded provider request, not proof of the backend model that answered. |
+| host relationship | Either the invoking harness itself (`advisory`) or a fresh worker process (`worker`).  A worker may use the same provider family as the harness without being the harness. |
 
-The host is always `advisory`: it may contribute findings and context but is
-not a qualifying friend under any policy.  This applies even when the host is
-Claude and the only independent worker is Codex.  The report must call this
-out as session-correlated reasoning, not portray it as a second independent
-review.
+The invoking host is always `advisory`: it may contribute findings and context
+but is not a qualifying friend under any policy.  This applies even when the
+host is Claude and the only worker is Codex.  In contrast, an explicitly
+requested fresh Claude worker is a separate worker and can qualify beside
+Codex under `cross-provider`; the report still discloses that it shares the
+host's provider family.  The report must never portray the host's own
+reasoning as a second independent review.
 
 ## Qualification policies
 
@@ -45,21 +48,23 @@ downgrade.
 
 | Policy | Qualifying minimum | Does not qualify |
 | --- | --- | --- |
-| `cross-provider` | Two non-host workers from distinct provider families | Two Codex workers, regardless of model; a host reviewer |
-| `distinct-sessions` | Two non-host fresh worker sessions | Reuse of a worker/session; a host reviewer |
-| `distinct-models` | Two non-host fresh worker sessions with distinct, exact model identities | A missing, implicit, label-only, or `unknown` model identity; a host reviewer |
+| `cross-provider` | Two fresh workers from distinct provider families | Two Codex workers, regardless of model; the current harness |
+| `distinct-sessions` | Two fresh worker sessions | Reuse of a worker/session; the current harness |
+| `distinct-models` | Two fresh worker sessions with distinct, exact model request identities | A missing, implicit, label-only, or `unknown` model request identity; the current harness |
 
 All policies require two qualifying workers for `crossexam`, `gate`, and
 `loop`.  `report` remains useful with one worker and records that it is a
 single-friend review.  A policy is evidence admission, not a security grant:
 it cannot make a blocked provider runnable or relax sandbox/tool restrictions.
 
-For `distinct-models`, afriend must present the exact model identifiers before
-dispatch and require an affirmative selection/confirmation for each one.  A
-provider default may be used only if the adapter can record its concrete model
-identifier; otherwise it is eligible for reports but not to satisfy this
-policy.  The user may choose different Codex or Claude model identifiers, but
-the report must still disclose that the provider family is shared where it is.
+For `distinct-models`, afriend must present the exact model request identifiers
+before dispatch and require an affirmative selection/confirmation for each
+one.  A provider default may be used only if the adapter can record a concrete
+model request identifier; otherwise it is eligible for reports but not to
+satisfy this policy.  The request is not represented as a verified backend
+identity.  The user may choose different Codex or Claude model identifiers,
+but the report must still disclose that the provider family is shared where it
+is.
 
 ## First-dispatch setup
 
@@ -98,8 +103,11 @@ options.  With a Claude host and one ready Codex worker, for example:
 >
 > - Start another Codex worker using an exact selected model, then use
 >   `distinct-sessions` or `distinct-models` for this run.
-> - Include this Claude host as an advisory reviewer.  It contributes a
->   perspective but cannot satisfy a judging policy.
+> - Start a fresh Claude worker.  Together with Codex it qualifies under
+>   `cross-provider`, while the report records that Claude is this host's
+>   provider family.
+> - Include this current Claude harness as an advisory reviewer.  It
+>   contributes a perspective but cannot satisfy a judging policy.
 > - Use both of those additions.
 > - Configure a different provider.
 > - Continue as a one-friend report.
