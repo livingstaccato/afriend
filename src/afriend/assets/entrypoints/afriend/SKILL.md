@@ -241,8 +241,15 @@ Codex); include the current Claude harness as an advisory reviewer; configure
 another provider; or continue with a one-friend report. The current harness
 never qualifies. A fresh worker from the host's provider is separate execution
 but must disclose host-family correlation. A distinct-models policy accepts
-only different exact requested model identifiers; this is not proof of the
-backend model that answered.
+only different exact requested model identifiers; a selection label such as
+`fast`, `default`, or `unknown` is refused because it is not an identity, and
+an accepted identifier is still not proof of the backend model that answered.
+
+Presenting those identifiers and obtaining confirmation before dispatch is
+your obligation as the host, not something the CLI enforces. `afriend run
+--qualification-policy distinct-models` does not prompt, so an unattended
+caller can dispatch without any confirmation ever being sought. Do not
+describe that confirmation as a guarantee the tool provides.
 
 Non-Codex hosts remain excluded by default. `--include-self` and
 `--exclude-self` are mutually exclusive per-run overrides. An explicit
