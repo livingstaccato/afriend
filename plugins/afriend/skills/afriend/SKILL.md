@@ -224,11 +224,14 @@ directory path to stdout; `--json` prints the saved run metadata instead. Read
 The host is the orchestrator. In Codex, Codex remains the orchestrator and is
 included as a friend by default. Its report row is labeled
 `host-self-review (advisory)` with `independent=false`. It may contribute
-findings and advisory verdicts, but cannot satisfy the two-independent-friend
+findings and advisory verdicts, but cannot satisfy the qualifying-worker
 admission rule, `--require-friends` participation, judging quorum, gate
-clearance, or loop convergence. Judging modes therefore need two independent
-non-host friends in addition to any host; `report` may run host-only as a
-recorded downgrade.
+clearance, or loop convergence. Judging modes default to two fresh workers
+from different provider families; `report` may run host-only as a recorded
+downgrade. A task or review profile may explicitly choose
+`distinct-sessions` (two fresh workers) or `distinct-models` (two fresh
+workers with different exact requested models). Neither alternative proves a
+provider's backend model identity.
 
 When a judging roster has only one qualifying worker, say so before dispatch
 and offer only feasible choices: start another same-provider worker under a

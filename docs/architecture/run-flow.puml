@@ -41,7 +41,8 @@ partition "Resolve the roster" {
     :discover only ready providers\nround-robin a lens to each;
   endif
   :for each provider, enforce deny-by-default\nexternal-tool policy or require its\nexplicit scoped grant;
-  :mark any host friend advisory\nand independent=false;
+  :mark the current host harness advisory\nand independent=false;
+  :an explicitly selected fresh host-provider\nworker remains independent but is disclosed;
   if (any friends?) then (no)
     :exit 3 — no usable friends;
     stop
@@ -51,7 +52,8 @@ partition "Resolve the roster" {
       :report: record one-friend downgrade;<<#FFE0B2>>
     endif
   else (judging)
-    if (fewer than two independent\nnon-host friends?) then (yes)
+    :project selected qualification policy\n(default: two provider families);
+    if (policy not satisfied?) then (yes)
       :judging mode: exit 3 before run directory;
       stop
     endif

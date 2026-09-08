@@ -22,12 +22,19 @@ but remains advisory: its row is `host-self-review (advisory)` and
 `independent=false`. Its findings remain visible, while its verdicts cannot
 settle claims.
 
-`crossexam`, `gate`, and `loop` require at least two independent non-host
-friends in addition to any host. With fewer, they refuse with exit 3 before a
-run directory is created. The host cannot satisfy admission,
+`crossexam`, `gate`, and `loop` default to two fresh workers from different
+provider families. A task or review profile can explicitly choose
+`--qualification-policy distinct-sessions` for two fresh workers, or
+`distinct-models` for two fresh workers that requested different exact model
+identifiers. The latter records model requests, not proof of the backend model
+that answered. With an unsatisfied policy, judging refuses with exit 3 before
+a run directory is created. The current host harness cannot satisfy admission,
 `--require-friends` participation, judging quorum, gate clearance, or loop
-convergence. This preflight rule prevents an advisory or single-reviewer
-judging run from leaving artifacts that look resumable or authoritative.
+convergence. A separately launched host-provider worker can be made a fresh
+worker only with explicit `--fresh-host-worker`, and its host-family
+correlation remains disclosed. This preflight rule prevents an advisory or
+single-reviewer judging run from leaving artifacts that look resumable or
+authoritative.
 
 ## Cross-examination
 
@@ -496,7 +503,7 @@ every command in this build:
 | `0` | success | a run that reached terminal states with nothing blocked; `afriend doctor` when at least one provider is ready |
 | `1` | gate blocked, or run incomplete | every dispatched friend failed; a `crossexam` that left claims undecided or lost a required friend mid-round; or a `gate` with claims still needing a resolution |
 | `2` | usage/config error | a missing artifact, a malformed `--friend` value, an unknown `cli` in `--friend`, an invalid model in a `cli:lens:model` value, `--max-rounds 1` with a judging mode, a `--resume` naming a run that does not exist or did not halt for the orchestrator, an existing `--out` directory, or an `afriend resolve` naming no location / an unknown claim / a `fixed` without verifiably changed evidence |
-| `3` | no usable friends for the requested mode | `afriend run` when discovery finds nothing usable, or when `crossexam`, `gate`, or `loop` resolves fewer than two independent non-host friends; `afriend doctor` when no provider is ready |
+| `3` | no usable friends for the requested mode | `afriend run` when discovery finds nothing usable, or when `crossexam`, `gate`, or `loop` cannot meet the selected qualification policy; `afriend doctor` when no provider is ready |
 | `10` | needs orchestrator | `--merge orchestrator` halting for merge adjudication; resume with `afriend run --resume` |
 | `11` | ceiling hit | a judging mode hitting `--max-calls`, `--max-rounds` budget, `--max-wall-clock`, or `--max-loop-iterations` |
 | `12` | below quorum | `--require-friends N` set, and fewer than `N` friends produced a usable answer this run |

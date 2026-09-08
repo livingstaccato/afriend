@@ -13,7 +13,7 @@ rectangle "/afriend\nsole router" as router
 rectangle "host-session resolver\nexplicit evidence / session window" as resolver #FFF8E1
 rectangle "CLI composer\nafriend context compose" as composer #E8F5E9
 rectangle "deterministic, content-bound composite + manifest" as composite #F3E5F5
-rectangle "session preflight\nfirst review or new loop iteration" as preflight #FFF8E1
+rectangle "session preflight\ntarget, scope, judgment goal,\nand qualifying roster" as preflight #FFF8E1
 rectangle "review" as review
 rectangle "status" as status
 rectangle "configure" as configure
@@ -34,7 +34,7 @@ resolver --> composer : approved unambiguous chain
 composer --> composite
 composite --> preflight
 router --> preflight : standalone artifact
-preflight --> review : accept or task-only choice
+preflight --> review : confirm or change target, scope,\nmode, or qualification policy
 router --> status : explicit status
 router --> configure : explicit configuration
 router --> resolve : explicit resolution
@@ -53,5 +53,7 @@ note bottom of router
   Conversational operation words route skills.
   They are not executable CLI aliases.
   Preflight is descriptive, not an authority grant.
+  Default judging evidence is cross-provider; explicit alternatives
+  are distinct sessions or exact requested model identities.
 end note
 @enduml

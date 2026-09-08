@@ -613,7 +613,8 @@ def test_shipped_docs_state_the_one_friend_mode_contract_exactly():
     assert "exactly one resolved friend?" in diagram
     assert "report: record one-friend downgrade" in diagram
     assert "judging mode: exit 3 before run directory" in diagram
-    assert "fewer than two independent\\nnon-host friends" in diagram
+    assert "project selected qualification policy" in diagram
+    assert "policy not satisfied?" in diagram
 
 
 def test_rendered_run_flow_shows_the_one_friend_mode_contract():
@@ -622,7 +623,8 @@ def test_rendered_run_flow_shows_the_one_friend_mode_contract():
     assert "exactly one resolved friend?" in visible
     assert "report: record one-friend downgrade" in visible
     assert "judging mode: exit 3 before run directory" in visible
-    assert "fewer than two independent non-host friends" in visible
+    assert "project selected qualification policy" in visible
+    assert "policy not satisfied?" in visible
 
 
 def test_live_docs_describe_scope_based_isolation_and_exec_environment_filtering():

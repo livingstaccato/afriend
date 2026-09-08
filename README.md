@@ -584,7 +584,7 @@ provider configuration.
 | `0` | the run reached terminal states with nothing blocked |
 | `1` | a `gate` still has claims needing a resolution, or every dispatched friend failed |
 | `2` | usage error — bad flag, unknown CLI, missing artifact |
-| `3` | no usable friends found, or a judging mode resolved fewer than two independent non-host friends; refused before a run directory |
+| `3` | no usable friends found, or a judging mode could not meet its selected qualification policy; refused before a run directory |
 | `10` | `--merge orchestrator` is waiting for you to adjudicate merges |
 | `11` | a ceiling was hit — including natural `--max-loop-iterations` exhaustion without convergence; the run was truncated, not decided |
 | `12` | `--require-friends N` was set and fewer than `N` friends answered |
