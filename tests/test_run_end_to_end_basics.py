@@ -227,6 +227,8 @@ def test_a_two_friend_gate_blocks_rather_than_passing(tmp_path):
             str(AF),
             "run",
             str(artifact),
+            "--qualification-policy",
+            "distinct-sessions",
             "--mode",
             "gate",
             "--out",

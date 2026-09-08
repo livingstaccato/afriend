@@ -271,6 +271,8 @@ def test_loop_successor_reconciles_scope_when_symlink_retargets_outside(monkeypa
         [
             "run",
             str(link),
+            "--qualification-policy",
+            "distinct-sessions",
             "--mode",
             "loop",
             "--out",
@@ -335,6 +337,8 @@ def test_loop_reports_doc_scope_warning_once_when_scope_drops_after_first_iterat
         [
             "run",
             str(link),
+            "--qualification-policy",
+            "distinct-sessions",
             "--mode",
             "loop",
             "--out",
@@ -558,6 +562,8 @@ def test_explicit_repo_scope_stays_unbound_when_a_loop_restores_an_old_artifact(
             str(artifact),
             "--repo",
             str(repo),
+            "--qualification-policy",
+            "distinct-sessions",
             "--mode",
             "loop",
             "--out",

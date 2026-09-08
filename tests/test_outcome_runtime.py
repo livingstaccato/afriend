@@ -161,6 +161,8 @@ def test_resumed_judging_dispatch_stop_terminalizes_with_partial_evidence(
         [
             "run",
             str(artifact),
+            "--qualification-policy",
+            "distinct-sessions",
             "--mode",
             "crossexam",
             "--friend",

@@ -155,6 +155,8 @@ def test_advisory_host_novelty_cannot_block_independent_convergence(monkeypatch,
         [
             "run",
             str(_artifact(tmp_path)),
+            "--qualification-policy",
+            "distinct-sessions",
             "--mode",
             "loop",
             "--out",
