@@ -3,10 +3,9 @@
 import json
 
 import pytest
+from test_status import _args, _event, _run
 
 from afriend.commands import status
-
-from test_status import _args, _event, _run
 
 
 def test_status_and_watch_use_only_the_latest_lifecycle_invocation(tmp_path, capsys):
