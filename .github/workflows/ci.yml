@@ -89,7 +89,7 @@ jobs:
 
       # Tests
       - name: pytest
-        run: uv run pytest
+        run: uv run pytest -n 4
 
       # Fail if the containment tests silently skipped -- the whole point of
       # installing bwrap above is that this path is actually exercised.

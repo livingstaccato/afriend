@@ -15,7 +15,7 @@ type-check: ## Run mypy strict
 	uv run mypy src
 
 test: ## Run the test suite
-	uv run pytest
+	uv run pytest -n 4
 
 max-loc: ## Enforce 777-line per-file cap
 	python3 scripts/check_max_loc.py
