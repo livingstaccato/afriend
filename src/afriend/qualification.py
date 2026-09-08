@@ -16,6 +16,15 @@ DEFAULT_QUALIFICATION_POLICY = "cross-provider"
 CONCRETE_MODEL_SOURCES = frozenset(
     {"invocation", "explicit-friend", "roster", "provider-setting", "adapter-default"}
 )
+# A concrete *source* is not the same as a concrete *identity*. `MODEL_RE`
+# admits any of these words, and `--friend codex:red:fast` records them as
+# explicitly requested, so without this set `distinct-models` would admit two
+# labels and the report would call them two exact model identities. Matched
+# whole and casefolded, so a real id that merely contains one of these words
+# (`gpt-5.3-codex-spark`) is unaffected.
+NON_IDENTITY_MODEL_LABELS = frozenset(
+    {"fast", "thorough", "default", "unknown", "auto", "inherit", "none", "latest"}
+)
 
 
 @dataclass(frozen=True)
@@ -37,12 +46,7 @@ def qualify(specs: Sequence[FriendSpec], policy: str) -> Qualification:
         )
     workers = [spec for spec in specs if spec.independent and not spec.host_self_review]
     names = tuple(spec.name for spec in workers)
-    # ``fake`` is a test-only transport with no provider family.  Preserve
-    # existing end-to-end fixtures by giving each fake invocation a synthetic
-    # family; this value can never occur in a real discovered roster.
-    families = tuple(
-        dict.fromkeys(spec.name if spec.cli == "fake" else spec.cli for spec in workers)
-    )
+    families = tuple(dict.fromkeys(spec.cli for spec in workers))
     if policy == "cross-provider":
         qualified = len(families) >= 2
         reason = None if qualified else _family_reason(families)
@@ -50,14 +54,31 @@ def qualify(specs: Sequence[FriendSpec], policy: str) -> Qualification:
         qualified = len(names) >= 2
         reason = None if qualified else "fewer than two fresh worker invocations"
     else:
+        labelled = sorted(
+            {
+                spec.model
+                for spec in workers
+                if spec.model is not None and spec.model.casefold() in NON_IDENTITY_MODEL_LABELS
+            }
+        )
         concrete = [
             spec
             for spec in workers
-            if spec.model is not None and spec.model_source in CONCRETE_MODEL_SOURCES
+            if spec.model is not None
+            and spec.model_source in CONCRETE_MODEL_SOURCES
+            and spec.model.casefold() not in NON_IDENTITY_MODEL_LABELS
         ]
         models = {spec.model for spec in concrete}
         qualified = len(concrete) >= 2 and len(models) >= 2
-        reason = None if qualified else "two distinct exact model requests are required"
+        if qualified:
+            reason = None
+        elif labelled:
+            reason = (
+                f"{', '.join(labelled)} names a selection label, not an exact model "
+                "identity; distinct-models needs two different requested model ids"
+            )
+        else:
+            reason = "two distinct exact model requests are required"
     return Qualification(policy, qualified, names, families, reason)
 
 

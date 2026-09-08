@@ -88,6 +88,8 @@ def test_advisory_host_verdict_is_persisted_but_cannot_settle(monkeypatch, tmp_p
         [
             "run",
             str(_artifact(tmp_path)),
+            "--qualification-policy",
+            "distinct-sessions",
             "--mode",
             "crossexam",
             "--out",
@@ -140,6 +142,8 @@ def test_advisory_host_omission_does_not_make_judging_incomplete(monkeypatch, tm
         [
             "run",
             str(_artifact(tmp_path)),
+            "--qualification-policy",
+            "distinct-sessions",
             "--mode",
             "crossexam",
             "--out",

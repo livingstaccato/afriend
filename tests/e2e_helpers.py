@@ -64,7 +64,25 @@ def _env(extra=None):
     return env
 
 
-def run_af(tmp_path, artifact, *extra, env_extra=None, mode="report"):
+def run_af(
+    tmp_path,
+    artifact,
+    *extra,
+    env_extra=None,
+    mode="report",
+    qualification_policy="distinct-sessions",
+):
+    """Dispatch a run for an end-to-end test.
+
+    These tests exercise orchestration -- rounds, judging, ceilings, resume,
+    isolation -- using two `fake:` friends, which are one provider family and
+    so cannot satisfy the `cross-provider` default. They opt into the weakest
+    policy explicitly rather than having `qualify()` special-case the `fake`
+    transport: a policy that answers differently for test friends than for
+    real ones is not the policy under test. Cases that *are* about evidence
+    admission pass their own value (or None to exercise the real default).
+    """
+    policy = ["--qualification-policy", qualification_policy] if qualification_policy else []
     return subprocess.run(
         [
             sys.executable,
@@ -75,6 +93,7 @@ def run_af(tmp_path, artifact, *extra, env_extra=None, mode="report"):
             mode,
             "--out",
             str(tmp_path / "runs"),
+            *policy,
             *extra,
         ],
         capture_output=True,

@@ -128,6 +128,8 @@ def test_advisory_host_refutation_cannot_clear_gate(monkeypatch, tmp_path):
         [
             "run",
             str(repo / "spec.md"),
+            "--qualification-policy",
+            "distinct-sessions",
             "--mode",
             "gate",
             "--out",
