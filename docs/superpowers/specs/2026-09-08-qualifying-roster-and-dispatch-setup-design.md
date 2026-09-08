@@ -129,13 +129,20 @@ by default.
 
 ## Configuration and compatibility
 
-Existing behavior is the default: `cross-provider` requires two non-host
-provider families, and a host self-review remains advisory.  Existing
-single-friend reports continue to run as recorded downgrades.  The setup and
-policy may be supplied by an existing named profile/default, a task-only
-choice, or explicit CLI arguments; precedence follows the existing explicit
-invocation over profile/default pattern.  A run never inherits a later
-configuration change on resume.
+`cross-provider` is the default and requires two non-host provider families;
+a host self-review remains advisory.  This is a deliberate change in
+behavior, not a restatement of the existing one: judging admission previously
+counted independent friends without regard to provider, so any two
+independent workers qualified.  Two same-provider workers now need an
+explicit `distinct-sessions` or `distinct-models` selection.  The stronger
+default is chosen because correlated reviewers agreeing is the failure this
+tool exists to surface, and there are no existing installations to migrate.
+
+Existing single-friend reports continue to run as recorded downgrades.  The
+setup and policy may be supplied by an existing named profile/default, a
+task-only choice, or explicit CLI arguments; precedence follows the existing
+explicit invocation over profile/default pattern.  A run never inherits a
+later configuration change on resume.
 
 ## Error handling
 

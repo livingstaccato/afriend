@@ -10,6 +10,30 @@ Tech Stack: Python 3.11+ standard library, argparse, dataclasses, pytest, Markdo
 
 ---
 
+## Outcome (2026-09-08, executed)
+
+Shipped in v0.8.0. The plan below is kept as the historical record; where it
+disagrees with the code, the code is correct. Three things went differently:
+
+- **The default is `cross-provider`, not `distinct-sessions`.** Revision note
+  item 1 argued for the compatible default on the strength of not breaking
+  existing rosters. There are no existing installations, which removed the
+  only argument for the weaker default, so the design's original choice
+  stands. `distinct-sessions` and `distinct-models` are explicit selections.
+  The end-to-end suite names its policy at each judging dispatch instead of
+  `qualify()` special-casing the `fake` transport.
+- **`fresh_host_worker` is not added to `trust.ROSTER_KEYS`.** Revision note
+  item 3 had that backwards. The field is stripped before
+  `validate_roster_entry` in `_validated_roster_entries` instead, which keeps
+  a derived runtime field out of the user-authorable roster-file surface.
+- **Task 0 was unnecessary.** The near-cap files were never grown, so no
+  split was needed; `max-loc` passes with `report.py` the tightest at 758.
+
+Work not in the original task list, found while executing: `--fresh-host-worker`
+was entirely non-functional, because the advisory-host filter deleted the spec
+that had just been marked fresh. It shipped with no tests, which is why it
+survived review.
+
 ## Revision note (2026-09-08)
 
 This plan was revised after three independent pre-implementation reviews (a
