@@ -318,4 +318,3 @@ def test_a_worker_completion_event_carries_its_final_state_and_next_action(tmp_p
     assert events["fake-ops-0"].payload["next_action"] == "inspect_report"
     assert events["fake-ops-1"].payload["status"] == "failed"
     assert events["fake-ops-1"].payload["next_action"] == "retry"
-

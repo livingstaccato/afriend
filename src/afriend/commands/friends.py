@@ -210,9 +210,7 @@ def resolve_friends(
             # This filter exists to drop the *advisory* host, so it must not
             # reach a worker that was just marked fresh: that spec is a
             # separately launched execution, not the invoking harness.
-            specs = [
-                spec for spec in specs if spec.cli != host or spec.fresh_host_worker
-            ]
+            specs = [spec for spec in specs if spec.cli != host or spec.fresh_host_worker]
         if args.roster:
             downgrades.append(
                 "both --friend and --roster were given; --friend replaces the "

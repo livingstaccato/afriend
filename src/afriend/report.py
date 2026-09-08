@@ -533,8 +533,7 @@ _QUALIFICATION_LIMITS: Final[dict[str, str]] = {
         "Verified two distinct provider families; model identities were not compared."
     ),
     "distinct-sessions": (
-        "Verified separate worker invocations only; provider family and model were "
-        "not compared."
+        "Verified separate worker invocations only; provider family and model were not compared."
     ),
     "distinct-models": (
         "Verified two distinct exact requested model identities; a requested model is "
