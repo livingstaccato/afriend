@@ -90,6 +90,28 @@ Short flags also collide across CLIs — confirmed against each CLI's own
 flags long for exactly this reason — see `test_no_adapter_uses_short_flags`
 in `tests/test_adapters.py`, which enforces it.
 
+## A named model is rejected
+
+A named model is a requested value passed to the provider, not a value
+afriend validates against a known list (`SKILL.md` "Model selection
+provenance"). If the provider rejects it — unknown slug, wrong account tier,
+deprecated name — do not guess a replacement or fall back to a value from
+training data or memory: names, gating, and defaults change over time and per
+account. List that provider's *actual current* models first, then pick from
+the returned list.
+
+| CLI | List command |
+|---|---|
+| `codex` | `codex debug models` (JSON catalog; filter with `jq '.models[] \| {slug, display_name, supported_in_api}'` — some entries are `supported_in_api: false` and only work via `codex exec -m <slug>`, not the generic API path) |
+| `agy` | `agy models` |
+| `opencode` | `opencode models [provider]` |
+| `ollama` | `ollama list` (locally pulled models only; `ollama pull <name>` for one not yet local) |
+| `claude` | no listing subcommand found; `--model` takes a known alias (`sonnet`, `opus`, `haiku`) or a full model id — check current aliases rather than assuming one from memory |
+
+Confirm a rejected model against the list before retrying, and before wiring
+it into `--friend cli:lens:model`, `afriend providers set-model`, or an
+adapter default.
+
 ## A friend times out
 
 The default is 900s (`--timeout` to change it). Reviewing a long document
