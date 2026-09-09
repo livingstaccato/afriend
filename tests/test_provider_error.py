@@ -41,6 +41,18 @@ def test_an_error_event_is_never_spliced_into_the_answer():
     assert unwrap_envelope(USAGE_LIMIT, _codex_envelope()) is None
 
 
+def test_an_answer_rule_is_never_read_as_an_error():
+    """The separation runs both ways: error_rules must not feed the answer,
+    and the answer's own rules must not be reported as a failure. codex's
+    answer arrives as an `item.completed` event, which must extract nothing
+    here however normal it is."""
+    answer_stream = (
+        '{"type":"item.completed","item":{"type":"agent_message","text":"the real answer"}}\n'
+    )
+    assert envelope_error(answer_stream, _codex_envelope()) is None
+    assert unwrap_envelope(answer_stream, _codex_envelope()) == "the real answer"
+
+
 def test_an_adapter_that_declares_no_error_rules_extracts_nothing():
     envelope = load_adapters(ADAPTER_DIR)["opencode"].envelope
     assert envelope is not None

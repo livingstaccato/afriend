@@ -52,6 +52,20 @@ def test_a_quota_failure_is_not_an_auth_failure():
     assert classify(_outcome(provider_error=QUOTA_TEXT), _codex()) != AUTH
 
 
+def test_quota_wins_when_both_markers_match():
+    """The ordering claim, isolated. Every other test here matches one marker
+    or the other, so the order between them is unobserved -- and getting it
+    wrong reads an exhausted allowance as a credential problem and aborts a
+    run that had friends left to hear from.
+
+    codex declares both: `usage limit` in its error message and `401
+    Unauthorized` in stderr. A provider can emit both at once.
+    """
+    outcome = _outcome(provider_error=QUOTA_TEXT, stderr="401 Unauthorized")
+
+    assert classify(outcome, _codex()) == QUOTA
+
+
 def test_the_real_auth_message_still_classifies_as_auth():
     outcome = _outcome(stderr="401 Unauthorized")
     assert classify(outcome, _codex()) == AUTH

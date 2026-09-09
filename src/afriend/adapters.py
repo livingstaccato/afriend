@@ -363,6 +363,34 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
             for value in access_failure_stderr
         ):
             raise UsageError(f"{path}: sandbox access failure markers must be nonempty strings")
+        stdin_template = data.get("stdin_template", "")
+        if not isinstance(stdin_template, str):
+            raise UsageError(f"{path}: stdin_template must be a string")
+        if stdin_template:
+            # A template that never names the placeholder would send the CLI
+            # a well-formed message with no artifact in it. The friend would
+            # answer something, and the run would record a review that
+            # reviewed nothing -- so this is refused at load rather than
+            # discovered in a report.
+            if data.get("prompt_mode", "stdin") != "stdin":
+                raise UsageError(f"{path}: stdin_template requires prompt_mode = 'stdin'")
+            placed = stdin_template.count(PROMPT_PLACEHOLDER)
+            if placed != 1:
+                raise UsageError(
+                    f"{path}: stdin_template must contain {PROMPT_PLACEHOLDER} exactly once, "
+                    f"found {placed}"
+                )
+            probe = stdin_template.replace(PROMPT_PLACEHOLDER, json.dumps("probe"))
+            try:
+                json.loads(probe)
+            except ValueError as exc:
+                raise UsageError(
+                    f"{path}: stdin_template must be valid JSON once the prompt is "
+                    f"substituted: {exc}"
+                ) from exc
+        models_format = data.get("models_format", "lines")
+        if models_format not in {"lines", "tsv"}:
+            raise UsageError(f"{path}: models_format must be 'lines' or 'tsv'")
         readonly = data.get("readonly")
         self_confines = data.get("self_confines")
         sandbox_confine = sandbox_data.get("os_confine", False)
