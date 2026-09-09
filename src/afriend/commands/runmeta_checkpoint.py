@@ -8,10 +8,10 @@ from ..outcomes import MAX_JSON_SAFE_INTEGER
 from ..themes import ThemeProposal
 from . import resumevalidation
 from .checkpoint import (
-    legacy_successful_friend_ids,
     normalize_friend_rows,
     normalize_repeat_tracker,
     normalize_resume_report_state,
+    successful_friend_ids_from_audit,
 )
 
 
@@ -48,14 +48,13 @@ def _checkpoint_successes(
     roster_roles: dict[str, tuple[bool, bool]],
 ) -> list[str]:
     if "successful_friend_ids" not in meta:
-        successes = legacy_successful_friend_ids(friends, critique_round)
-    else:
-        value = meta["successful_friend_ids"]
-        if type(value) is not list or not all(type(item) is str and item for item in value):
-            raise UsageError(
-                "cannot resume: saved successful_friend_ids must be a list of nonempty strings"
-            )
-        successes = list(value)
+        raise UsageError("cannot resume: saved successful_friend_ids is required")
+    value = meta["successful_friend_ids"]
+    if type(value) is not list or not all(type(item) is str and item for item in value):
+        raise UsageError(
+            "cannot resume: saved successful_friend_ids must be a list of nonempty strings"
+        )
+    successes = list(value)
     if len(successes) != len(set(successes)):
         raise UsageError("cannot resume: saved successful_friend_ids must be unique")
     recorded_count = meta.get("succeeded_friends", len(successes))
@@ -64,6 +63,15 @@ def _checkpoint_successes(
     if any(friend not in roster_roles for friend in successes):
         raise UsageError(
             "cannot resume: saved successful_friend_ids contains a friend outside the roster"
+        )
+    # The audit rows are the durable record of what actually ran, and this
+    # list decides quorum. It used to be derived from those rows only when it
+    # was absent, so a run.json that carried the field was believed about
+    # which friends succeeded -- including about a friend its own audit row
+    # records as failed.
+    if set(successes) != set(successful_friend_ids_from_audit(friends, critique_round)):
+        raise UsageError(
+            "cannot resume: saved successful_friend_ids disagrees with the friend audit rows"
         )
     return [friend for friend in successes if roster_roles[friend][0]]
 

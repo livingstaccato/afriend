@@ -155,6 +155,9 @@ def _host_resume_meta(mode: str, *, frozen_host: bool, roles: bool = False) -> d
             "status": "ok",
         },
     ]
+    # Quorum is cross-checked against these audit rows, so it moves with them.
+    meta["successful_friend_ids"] = ["codex-ops", "fake-security"]
+    meta["succeeded_friends"] = 2
     if frozen_host:
         meta["detected_host"] = "codex"
         meta["effective_include_self"] = True

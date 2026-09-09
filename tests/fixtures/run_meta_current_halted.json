@@ -109,5 +109,9 @@
   "snapshot_sha": "2222222222222222222222222222222222222222",
   "spent_calls": 4,
   "started_at": null,
-  "stop_reason": null
+  "stop_reason": null,
+  "succeeded_friends": 1,
+  "successful_friend_ids": [
+    "fake-ops-0"
+  ]
 }

@@ -110,7 +110,6 @@ class ResumedRun:
 # original rather than deleted: it is the operator's own written judgment,
 # and a run directory that discards it cannot be audited afterwards.
 CONSUMED_SUFFIX = ".applied"
-APPLYING_SUFFIX = ".applying"
 
 
 def _mark_response_consumed(store: RunStore, round_dir: Path, prepared: "PreparedResponse") -> None:
@@ -134,12 +133,10 @@ def _mark_response_consumed(store: RunStore, round_dir: Path, prepared: "Prepare
     written first, so a rename failure remains recoverable and must not be
     hidden while judging continues.
     """
-    applying = round_dir / f"RESPONSE.json{APPLYING_SUFFIX}"
     applied = round_dir / f"RESPONSE.json{CONSUMED_SUFFIX}"
-    # Never promote the mutable staging pathname.  The applied evidence is
-    # created from the exact bounded byte snapshot that passed semantic
-    # validation; a concurrent replacement of `.applying` therefore cannot
-    # change either the audit artifact or its checkpoint digest.
+    # The applied evidence is created from the exact bounded byte snapshot
+    # that passed semantic validation, never from a pathname that could be
+    # replaced between validation and this write.
     if not store.owned_regular_exists(applied):
         store.create_owned_bytes(applied, prepared.payload)
         store.fsync_owned_directory(round_dir)
@@ -154,11 +151,6 @@ def _mark_response_consumed(store: RunStore, round_dir: Path, prepared: "Prepare
                 "cannot resume: live response changed after validation; retained for audit"
             )
         store.unlink_owned(live)
-        store.fsync_owned_directory(round_dir)
-    # `.applying` is only a legacy crash artifact now.  It is never a source
-    # for the retained copy, so even a post-validation swap is safe to remove.
-    if store.owned_regular_exists(applying):
-        store.unlink_owned(applying)
         store.fsync_owned_directory(round_dir)
 
 
@@ -176,19 +168,21 @@ def _validated_response_checkpoint(
         return None
     if type(raw) is not dict:
         raise UsageError("cannot resume: saved applied_response has an invalid shape")
+    # request_sha256 is required. It used to be optional for a checkpoint
+    # already in `response-applied`, and the comparison below defaulted the
+    # missing key to the value it was being checked against -- so the one
+    # field binding a saved response to the request it answers was satisfied
+    # by being absent.
     keys = {"version", "round", "question", "request_sha256", "sha256", "records"}
-    legacy_keys = keys - {"request_sha256"}
-    if frozenset(raw) not in {frozenset(keys), frozenset(legacy_keys)}:
+    if frozenset(raw) != frozenset(keys):
         raise UsageError("cannot resume: saved applied_response has an invalid shape")
-    if "request_sha256" not in raw and meta.get("lifecycle_state") != "response-applied":
-        raise UsageError("cannot resume: prepared response is not bound to its request")
     digest = raw.get("sha256")
     records = raw.get("records")
     if (
         raw.get("version") != 1
         or raw.get("round") != round_no
         or raw.get("question") != question
-        or raw.get("request_sha256", request_digest) != request_digest
+        or raw["request_sha256"] != request_digest
         or type(records) is not int
         or records < 0
         or not isinstance(digest, str)
@@ -219,11 +213,9 @@ def _prepare_response(
 ) -> PreparedResponse:
     """Capture response bytes without mutating any lifecycle artifact."""
     live = round_dir / "RESPONSE.json"
-    applying = round_dir / f"RESPONSE.json{APPLYING_SUFFIX}"
     applied = live.with_suffix(live.suffix + CONSUMED_SUFFIX)
     try:
         live_exists = store.owned_regular_exists(live)
-        applying_exists = store.owned_regular_exists(applying)
         applied_exists = store.owned_regular_exists(applied)
     except OSError as exc:
         raise UsageError(f"cannot resume: response artifact must be a regular file: {exc}") from exc
@@ -234,13 +226,13 @@ def _prepare_response(
         request_digest=request_digest,
     )
     if checkpoint is None:
-        if (applied_exists or applying_exists) and not live_exists:
+        if applied_exists and not live_exists:
             raise UsageError(
-                "cannot resume: retained applying/applied response has no matching durable checkpoint"
+                "cannot resume: retained applied response has no matching durable checkpoint"
             )
         selected = live
     else:
-        selected = applied if applied_exists else applying if applying_exists else live
+        selected = applied if applied_exists else live
     if not store.owned_regular_exists(selected):
         if checkpoint is None:
             raise UsageError(
@@ -253,11 +245,7 @@ def _prepare_response(
     digest = _response_digest(payload)
     if checkpoint is not None and digest != checkpoint["sha256"]:
         raise UsageError("cannot resume: applied response artifact hash disagrees with checkpoint")
-    for sibling, exists in (
-        (live, live_exists),
-        (applying, applying_exists),
-        (applied, applied_exists),
-    ):
+    for sibling, exists in ((live, live_exists), (applied, applied_exists)):
         if exists and sibling != selected:
             sibling_payload = _read_owned_json_bytes(store, sibling, "orchestrator response")
             if _response_digest(sibling_payload) != digest:

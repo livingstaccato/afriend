@@ -39,6 +39,9 @@ def _write_resume_fixture(
         "roster": roster or [],
         "snapshot": snapshot,
         "snapshot_history": [snapshot],
+        # Quorum is cross-checked against the friend audit rows, so a fixture
+        # states it. Tests that supply audit rows override this.
+        "successful_friend_ids": [],
     }
     (tmp_path / "spec.md").write_text("# spec\n")
     round_dir = run_dir / "round-1"

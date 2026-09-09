@@ -42,9 +42,10 @@ def _success_status(status: str) -> bool:
 def _validate_status(index: int, row: dict[str, Any], status: str) -> None:
     """Validate status even when an attacker removes its supporting fields.
 
-    Safe legacy rows use the same compact ``ok``/``failed: reason`` grammar;
-    current rows additionally carry an exact diagnostics/path pair. Merely
-    omitting that pair must never disable validation of the remaining text.
+    A row written by this version always carries the diagnostics/path pair,
+    so a row without it has had those fields stripped. The compact
+    ``ok``/``failed: reason`` text is still validated on its own terms:
+    omitting the pair must never disable validation of what remains.
     """
     has_diagnostics = "diagnostics" in row or "diagnostics_path" in row
     orphan_suffix = " [orphans suspected]"
@@ -58,22 +59,22 @@ def _validate_status(index: int, row: dict[str, Any], status: str) -> None:
             return
         if body.startswith("failed: "):
             payload = body[len("failed: ") :]
-            legacy_marker = " (stderr: "
-            legacy_suffix = f"; full text in round-{row['round']}/{row['name']}.err)"
-            if legacy_marker in payload:
-                before_suffix, separator, trailing = payload.rpartition(legacy_suffix)
+            stderr_marker = " (stderr: "
+            stderr_suffix = f"; full text in round-{row['round']}/{row['name']}.err)"
+            if stderr_marker in payload:
+                before_suffix, separator, trailing = payload.rpartition(stderr_suffix)
                 if not separator or trailing:
-                    raise _friend_error(index, "legacy diagnostic reference is malformed")
-                reason, marker, legacy_diagnostics = before_suffix.partition(legacy_marker)
+                    raise _friend_error(index, "stderr diagnostic reference is malformed")
+                reason, marker, stderr_summary = before_suffix.partition(stderr_marker)
                 if not marker or not reason or failure_summary(reason) != reason:
                     raise _friend_error(index, "failure reason is not a bounded sanitized summary")
                 if (
-                    not legacy_diagnostics
-                    or len(legacy_diagnostics) > STDERR_TAIL_CHARS
-                    or _stderr_tail(legacy_diagnostics) != legacy_diagnostics
+                    not stderr_summary
+                    or len(stderr_summary) > STDERR_TAIL_CHARS
+                    or _stderr_tail(stderr_summary) != stderr_summary
                 ):
                     raise _friend_error(
-                        index, "legacy diagnostics is not a bounded sanitized summary"
+                        index, "stderr diagnostics is not a bounded sanitized summary"
                     )
                 return
             reason = payload
@@ -188,8 +189,8 @@ def normalize_friend_rows(
     return normalized
 
 
-def legacy_successful_friend_ids(rows: list[dict[str, Any]], critique_round: int) -> list[str]:
-    """Recover quorum only from the pending iteration's completed critique round."""
+def successful_friend_ids_from_audit(rows: list[dict[str, Any]], critique_round: int) -> list[str]:
+    """Derive quorum only from the pending iteration's completed critique round."""
     if rows and not any(row["round"] == critique_round for row in rows):
         raise UsageError("cannot resume: saved friends have no rows for the pending critique round")
     status_by_name: dict[str, str] = {}

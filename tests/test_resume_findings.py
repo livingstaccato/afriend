@@ -239,7 +239,6 @@ def test_a_consumed_response_is_renamed_so_a_second_resume_cannot_reapply_it(tmp
     response = round_dir / "RESPONSE.json"
     response.write_text("{}")
     payload = response.read_bytes()
-    store.create_owned_bytes(round_dir / "RESPONSE.json.applying", payload)
 
     _mark_response_consumed(
         store, round_dir, PreparedResponse(response, payload, _response_digest(payload), None)
@@ -275,7 +274,6 @@ def test_the_consumed_copy_is_kept_rather_than_deleted(tmp_path):
     response = round_dir / "RESPONSE.json"
     response.write_text('{"merges": []}')
     payload = response.read_bytes()
-    store.create_owned_bytes(round_dir / "RESPONSE.json.applying", payload)
     _mark_response_consumed(
         store, round_dir, PreparedResponse(response, payload, _response_digest(payload), None)
     )
