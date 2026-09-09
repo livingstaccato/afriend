@@ -54,8 +54,12 @@ def _argv_for(name: str, files):
 
 
 def test_a_trailing_arg_adapter_keeps_the_prompt_last(files):
-    """claude. The prompt IS the last element, so appending displaced it."""
-    adapter, argv = _argv_for("claude", files)
+    """opencode. The prompt IS the last element, so appending displaced it.
+
+    This used claude until claude moved to stdin (issue #4). The behaviour
+    under test belongs to the argv transport, not to a particular provider.
+    """
+    adapter, argv = _argv_for("opencode", files)
     placed = place_extra_args(argv, adapter, EXTRA)
     assert placed[-1] == "REVIEW THIS"
     assert placed[-3:-1] == EXTRA
@@ -85,7 +89,10 @@ def test_no_extra_args_leaves_argv_identical(files):
 def test_the_prompt_text_is_never_duplicated_or_dropped(files):
     """The failure this would show up as: a prompt appearing twice, or not at
     all, because it was moved rather than kept."""
-    for name in ("claude", "agy", "codex"):
+    # One adapter per prompt mode: trailing-arg, flag-value, stdin. claude is
+    # kept alongside codex because it changed modes (issue #4) and the
+    # invariant should hold for it in its new one.
+    for name in ("opencode", "agy", "codex", "claude"):
         adapter, argv = _argv_for(name, files)
         placed = place_extra_args(argv, adapter, EXTRA)
         assert placed.count("REVIEW THIS") == argv.count("REVIEW THIS")

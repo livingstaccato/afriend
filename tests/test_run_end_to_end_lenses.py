@@ -283,31 +283,35 @@ def test_unexpected_exception_in_one_friends_dispatch_does_not_end_the_run(monke
 
 
 def test_oversized_prompt_for_a_non_stdin_adapter_records_an_e2big_downgrade(tmp_path):
-    """claude places the whole prompt in one argv element (prompt_mode
+    """opencode places the whole prompt in one argv element (prompt_mode
     'trailing-arg'); Linux commonly caps a single argv element near 128KB
     (the limit varies by OS -- this test itself may run on macOS), so a
-    large artifact can make the real dispatch fail with E2BIG. This is detected
-    and recorded up front (see dispatch.PROMPT_ARGV_WARN_BYTES's check
-    inside cmd_run), not solved -- switching prompt modes is a design
-    change. The downgrade must appear regardless of whether the friend
-    dispatches. A tiny executable shim makes Claude pass explicit preflight;
-    the fake friend still provides the usable result this test needs."""
+    large artifact can make the real dispatch fail with E2BIG. This is
+    detected and recorded up front (see dispatch.PROMPT_ARGV_WARN_BYTES's
+    check inside cmd_run). The downgrade must appear regardless of whether
+    the friend dispatches. A tiny executable shim makes the provider pass
+    explicit preflight; the fake friend still provides the usable result
+    this test needs.
+
+    This covered claude until claude moved to stdin (issue #4): the warning
+    is about the argv transport, so it belongs on a provider that still uses
+    it rather than on whichever provider happened to when it was written."""
     artifact = tmp_path / "spec.md"
     artifact.write_text("# spec\n" + ("x" * 150_000) + "\n")
     binary_dir = tmp_path / "bin"
     binary_dir.mkdir()
-    claude = binary_dir / "claude"
-    claude.write_text("#!/bin/sh\nexit 1\n")
-    claude.chmod(0o755)
+    provider = binary_dir / "opencode"
+    provider.write_text("#!/bin/sh\nexit 1\n")
+    provider.chmod(0o755)
     result = run_af(
         tmp_path,
         artifact,
         "--friend",
-        "claude:ops",
+        "opencode:ops",
         "--friend",
         "fake:good",
         # This test targets the dispatch-time argv-size downgrade.
-        "--allow-external-tools=claude",
+        "--allow-external-tools=opencode",
         env_extra={"PATH": f"{binary_dir}{os.pathsep}{_safe_path_dir()}"},
     )
     assert result.returncode == 0, result.stderr
@@ -316,7 +320,7 @@ def test_oversized_prompt_for_a_non_stdin_adapter_records_an_e2big_downgrade(tmp
     assert any(
         "E2BIG" in note or "Argument list too long" in note for note in meta["downgrades"]
     ), meta["downgrades"]
-    assert any("claude" in note for note in meta["downgrades"])
+    assert any("opencode" in note for note in meta["downgrades"])
 
 
 def test_small_prompt_does_not_record_an_e2big_downgrade(tmp_path):

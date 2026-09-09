@@ -1,7 +1,15 @@
 name = "claude"
 binary = "claude"
 base_argv = ["--print", "--output-format", "json"]
-prompt_mode = "trailing-arg"
+# stdin, not trailing-arg. As one argv element the prompt hit Linux's ~128KB
+# single-argument cap, so any artifact past that never reached the model:
+# dispatch failed with E2BIG in 0s while codex, already on stdin, handled the
+# same 175,386-byte artifact in the same run. `claude --print` reads the
+# prompt from stdin (`--input-format text` is its documented default), and
+# stdin has no such limit. Verified 2026-09-08 against installed Claude Code:
+#   printf 'Reply with exactly the word: STDIN_OK' | claude --print --output-format json
+# returns the normal JSON envelope with stop_reason "end_turn".
+prompt_mode = "stdin"
 readonly_argv = ["--tools", "Read,Grep,Glob"]
 schema_flag = "--json-schema"
 # --json-schema takes the schema JSON itself, not a path. Passed a path,

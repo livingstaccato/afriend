@@ -4,6 +4,7 @@ import pytest
 
 from afriend import adapters, trust
 from afriend.authority import ExternalToolPolicy
+from afriend.dispatch import argv_size_warning
 from afriend.errors import UsageError
 
 
@@ -415,3 +416,25 @@ def test_path_schema_adapters_still_receive_the_path(registry, files):
         registry["codex"], spec(cli="codex", scope="repo"), prompt_file=prompt, schema_file=schema
     )
     assert str(schema) in argv
+
+
+def test_claude_reads_its_prompt_from_stdin():
+    """Issue #4: the whole prompt as one argv element caps the artifact size.
+
+    Linux caps a single argument near 128KB, so any artifact past that never
+    reached the model -- dispatch failed with E2BIG in 0s while codex handled
+    the same 175KB artifact in the same run. `claude --print` reads the
+    prompt from stdin, which has no such limit.
+    """
+    adapter = adapters.load_adapters(ADAPTER_DIR)["claude"]
+
+    assert adapter.prompt_mode == "stdin"
+
+
+def test_a_stdin_adapter_never_carries_an_argv_size_warning():
+    """The warning describes the argv transport, so stdin must retire it."""
+    adapter = adapters.load_adapters(ADAPTER_DIR)["claude"]
+
+    warning = argv_size_warning("claude-ops-0", adapter, "x" * 200_000)
+
+    assert warning is None
