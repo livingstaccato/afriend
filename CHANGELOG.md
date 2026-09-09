@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.9.0
+
+Every legacy compatibility path is gone. Each one was a second definition of
+what a run, a configuration or a snapshot is, and the older definition was
+completed with silent defaults -- which is where the defects were, because a
+check satisfied by an absent field is not a check.
+
+**Breaking.** A `run.json` or `session.json` written before 0.9.0 is refused
+rather than upgraded. A run directory is plain text, so `report.md`,
+`claims.jsonl` and the round transcripts stay readable without the CLI; a
+session configuration can be replaced by deleting it or rerunning `afriend
+setup`, which the refusal says.
+
+Three of the removed paths were reachable from an edited `run.json` and are
+fixed rather than merely deleted around:
+
+- Judging resume derived host roles from a frozen `detected_host` and
+  carried the saved authority state forward, so an advisory host could reach
+  a verdict. The refusal that protects this no longer treats a known host as
+  an exemption: the roles are derivable, but the authority state saved
+  beside them was computed under a host-role model this version cannot
+  confirm.
+- `applied_response.request_sha256` binds a saved response to the request it
+  answers. It was optional for a checkpoint already in `response-applied`,
+  and the comparison defaulted the missing key to the value it was being
+  checked against, so a response with no binding compared equal. It is
+  required now.
+- `successful_friend_ids` decides the participation floor and was derived
+  from the friend audit rows only when absent -- so a `run.json` carrying the
+  field was believed about which friends succeeded, including about one its
+  own audit row records as `failed`. It is required and cross-checked
+  against those rows.
+
+Also removed:
+
+- Run metadata migration. `run.json` matches schema 4 or is refused.
+- The flat `repo_root`/`snapshot_sha` snapshot mirror and the tree walk that
+  recovered a binding from a saved invocation path. The nested `snapshot` is
+  the only identity, and bindings are resolved once at snapshot creation.
+- `RESPONSE.json.applying`. Nothing wrote that pathname, but resume read it
+  and could select it as the response source.
+- Session configuration schemas 1 and 2, which loaded with review context
+  silently off.
+- The `legacy-unknown` sentinel. Where it marked something merely
+  unrecorded, the report now says `unrecorded` or `role unknown`; where a
+  resumed run's `external_tool_policy` was copied forward verbatim, the
+  audit summary is now always the policy actually in force.
+
 ## 0.8.1
 
 Fixes for evidence that did not survive being written down, and for an
