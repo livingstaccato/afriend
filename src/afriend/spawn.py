@@ -52,7 +52,7 @@ import warnings
 
 from .claimschema import CLAIM_CONTRACT
 from .contracts import PayloadContract
-from .envelopes import Envelope, answer_is_complete
+from .envelopes import Envelope, answer_is_complete, envelope_error
 from .normalize import NormalizeResult, normalize
 from .procgroup import _terminate_group
 from .procio import (
@@ -110,6 +110,12 @@ class SpawnResult:
     # reader comparing a short stdout against a long duration otherwise has
     # no way to tell truncation from a friend that simply said little.
     output_truncated: bool = False
+    # What the CLI itself said went wrong, taken from its declared envelope
+    # rather than from stderr. A provider that fails for a reason it states
+    # plainly -- a quota, a rejected model -- states it in its structured
+    # output, and the audit row used to fold in the stderr tail instead and
+    # leave the actual reason readable only in the raw capture.
+    provider_error: str | None = None
     # True only when dispatch successfully wrapped this executable in an OS
     # confinement command. Read-only CLI flags are a separate guarantee.
     os_confined: bool = False
@@ -432,6 +438,13 @@ def run_process(
         failure_reason = f"exit {process.returncode}"
     elif not result.succeeded:
         failure_reason = "; ".join(result.errors) or "unusable output"
+    # Only on the failure path: envelope_error must never turn a working
+    # answer into a failure.
+    provider_error = (
+        envelope_error(stdout, envelope)
+        if failure_reason is not None and envelope is not None
+        else None
+    )
     return SpawnResult(
         argv,
         process.returncode,
@@ -443,5 +456,6 @@ def run_process(
         failure_reason,
         orphans_suspected,
         stopped_after_answer=answered,
+        provider_error=provider_error,
         output_truncated=stderr_overflow.is_set() or stderr_failed.is_set(),
     )

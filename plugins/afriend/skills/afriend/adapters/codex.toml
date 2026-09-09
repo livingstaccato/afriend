@@ -90,6 +90,14 @@ doc_argv = ["--skip-git-repo-check"]
 kind = "ndjson"
 match_field = "type"
 
+# Where codex says why it failed, rather than what it answered. Captured
+# from a real quota exhaustion: `{"type":"error","message":"You've hit your
+# usage limit. ... try again at Sep 14th, 2026 6:51 PM."}` on stdout, while
+# stderr held only the "Reading prompt from stdin..." banner.
+[[envelope.error_rules]]
+type = "error"
+field = "message"
+
 [[envelope.rules]]
 type = "item.completed"
 # Both halves of what the note above describes. Matching on `type` alone

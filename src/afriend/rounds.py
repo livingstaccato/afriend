@@ -539,8 +539,16 @@ def persist_result(
     diagnostics_path = f"round-{round_no}/{spec.name}.err"
     failure_reason = failure_summary(outcome.failure_reason) if outcome.failure_reason else None
     status = "ok" if failure_reason is None else f"failed: {failure_reason or 'unusable output'}"
+    # What the CLI said beats what it printed on the way there. codex on a
+    # spent quota wrote its reason to stdout as a structured error and left
+    # "Reading prompt from stdin..." on stderr; folding the stderr tail in
+    # produced `failed: exit 1 (stderr: Reading prompt from stdin...)` and
+    # buried the one sentence a reader needed.
+    provider_error = _stderr_tail(outcome.provider_error) if outcome.provider_error else ""
     if outcome.failure_reason is None and diagnostics:
         status += f" (diagnostics: {diagnostics}; full text in {diagnostics_path})"
+    elif outcome.failure_reason is not None and provider_error:
+        status += f" (provider: {provider_error}; full text in {diagnostics_path})"
     elif outcome.failure_reason is not None and diagnostics:
         status += f" (stderr: {diagnostics}; full text in {diagnostics_path})"
     if outcome.orphans_suspected:
