@@ -9,7 +9,9 @@ reviewers.
 
 Use `/afriend` or `$afriend:afriend` for explicit product routing;
 the five selectable skills are `afriend`, `review`, `status`, `configure`,
-and `resolve`. Conversational `afriend review` and `afriend status` route to
+and `resolve`. `/areview` is a slash command that forwards to
+`$afriend:review`; it adds no behaviour, so read the skill, not the alias.
+Conversational `afriend review` and `afriend status` route to
 focused skills and are not executable aliases: use `afriend run <artifact>`
 for a review, `afriend status <run-id-or-path>` for a run, and `afriend doctor`
 for readiness. Use `afriend init --guided` for a no-write setup preview and
@@ -49,6 +51,8 @@ Two gates are especially easy to trip:
 
 - **`plugin-sync`** fails if the canonical entrypoint/runtime projection and
   the plugin differ. After editing `assets/`, run `make plugin-sync-copy`.
+  It governs `plugins/afriend/skills/` only; the manifests and
+  `plugins/afriend/commands/` are edited by hand.
 - **`version-sync`** fails if `VERSION` disagrees with plugin metadata or an
   exact dependency/version in either compatibility distribution. Bump the
   canonical package, plugins, and both compatibility projects together.
