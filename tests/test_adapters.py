@@ -94,9 +94,11 @@ def test_agy_takes_its_prompt_on_stdin_as_a_stream_json_message(registry, files)
     assert argv_contains_sequence(argv, ["--output-format", "stream-json"])
     assert argv_contains_sequence(argv, ["--agent", "afriend-reviewer"])
     assert "--disable-slash-commands" in argv
-    assert argv_contains_sequence(argv, ["--mode", "plan"])
+    # `--mode plan` is deliberately absent: agy warns that
+    # `--disable-slash-commands`, in the same list, makes it inert.
+    assert not argv_contains_sequence(argv, ["--mode", "plan"])
     assert "--sandbox" in argv
-    assert argv.count("--mode") == 1
+    assert argv.count("--mode") == 0
 
 
 def test_codex_takes_prompt_on_stdin(registry, files):

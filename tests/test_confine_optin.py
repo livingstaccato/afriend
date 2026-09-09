@@ -10,8 +10,15 @@ The opt-in is per adapter rather than blanket because confinement breaks a
 CLI whose credentials the sandbox cannot reach: claude keeps its own in the
 macOS Keychain and reports "Not logged in" under any profile that does not
 grant `~/Library/Keychains` -- and granting that would hand a friend every
-credential the operator has, which is worse than the gap it closes. agy is
-left out deliberately; provoking its re-authentication has cost a login before.
+credential the operator has, which is worse than the gap it closes. claude's
+own `--tools Read,Grep,Glob` allowlist was measured and does hold, so only
+the read gap remains there.
+
+agy was left out on the same reasoning until its flags were measured, and
+none of them restricted anything: it wrote files and read an absolute path
+outside its working directory. It opts in now, with `~/.gemini` granted read
+and write so its token refresh still succeeds -- withholding that is what
+would provoke the re-authentication that cost a login before.
 """
 
 from dataclasses import replace
@@ -111,8 +118,44 @@ def test_claude_does_not_opt_in():
     assert _registry()["claude"].sandbox_confine is False
 
 
-def test_agy_does_not_opt_in():
-    assert _registry()["agy"].sandbox_confine is False
+def test_agy_opts_in_because_none_of_its_own_flags_restrict_anything():
+    """Measured against installed agy 1.1.22, with the reviewer agent staged
+    exactly as dispatch stages it: it wrote a file (relocated by `--sandbox`
+    into ~/.gemini/antigravity-cli/scratch, not blocked) and read an absolute
+    path outside its working directory. `tools: []` in the agent did not stop
+    tool use, and `--mode plan` is inert -- agy itself warns that
+    `--disable-slash-commands`, in the same list, disables it.
+
+    So the non-empty `readonly_argv` that made this adapter "self-confining"
+    by inference bought real trust for nothing, and it was the one shipped
+    adapter running unconfined.
+    """
+    agy = _registry()["agy"]
+
+    assert agy.sandbox_confine is True
+    assert agy.is_self_confining is False
+    assert "--mode" not in agy.readonly_argv
+
+
+def test_agy_keeps_its_own_state_directory_reachable():
+    """The failure mode this guards is specific: a confined agy that cannot
+    refresh its OAuth token re-authenticates, and that has cost a login."""
+    agy = _registry()["agy"]
+
+    assert "~/.gemini" in agy.sandbox_read
+    assert "~/.gemini" in agy.sandbox_write
+    assert all(path != "~" for path in agy.sandbox_read)
+
+
+def test_claude_still_confines_itself_because_its_allowlist_holds():
+    """The distinction the derivation could not make: claude and agy had the
+    same shape -- a non-empty readonly_argv and nothing explicit -- but
+    claude's is a tool allowlist on the CLI's own flag, and it works."""
+    claude = _registry()["claude"]
+
+    assert claude.is_self_confining is True
+    assert claude.sandbox_confine is False
+    assert claude.readonly_argv == ["--tools", "Read,Grep,Glob"]
 
 
 def test_opting_in_is_off_by_default_for_a_new_adapter():

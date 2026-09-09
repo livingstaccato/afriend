@@ -3,6 +3,20 @@
 # in the middle of base_argv, with build_argv appending flags after it.
 name = "agy"
 binary = "agy"
+# §12.2. `readonly_argv` being non-empty used to make this adapter both
+# "read-only" and "self-confining" by inference, and inference was all it
+# was: none of the flags it declared actually restricted the friend. It was
+# therefore the one shipped adapter running with no OS confinement and no
+# real restriction of its own. Confinement is declared explicitly now, the
+# way codex declares it, and for the same reason codex gives: a CLI's own
+# read-only mode says nothing about what it may READ.
+#
+# `readonly` is declared rather than inferred, and it is only true BECAUSE of
+# the `[sandbox]` block below: `readonly_workdir` is what actually stops the
+# friend writing its working tree. The loader enforces that pairing, which is
+# how this file failed to load when confinement was added without it.
+readonly = true
+self_confines = false
 # stdin, not the value of --print. As one argv element the prompt hit the
 # same ~128KB single-argument cap on Linux that issue #4 documented for
 # claude, and afriend was reduced to warning about its own dispatch.
@@ -21,10 +35,22 @@ stdin_template = '{"event":"user","message":{"role":"user","content":[{"type":"t
 # Installed agy 1.1.22 documents these invocation-local controls in
 # `agy --help`. Order within this list is free: --print is satisfied by the
 # empty value in base_argv, and the prompt goes to stdin.
+#
+# NOT in this list, and deliberately: `--mode plan`. agy prints
+# `warning: --mode plan has no effect while slash command expansion is
+# disabled` on every run -- disabled by `--disable-slash-commands`, which is
+# in this same list. It was inert, and an inert flag in the list that decides
+# whether a friend is trusted to confine itself is worse than no flag at all.
+#
+# What remains here is defence in depth, not confinement. Measured against
+# installed agy 1.1.22 with the reviewer agent staged exactly as dispatch
+# stages it: the friend still wrote a file (relocated by `--sandbox` into
+# ~/.gemini/antigravity-cli/scratch rather than blocked), and still read an
+# absolute path outside its working directory. `tools: []` in the agent did
+# not prevent tool use. See `[sandbox]` below for what actually confines it.
 readonly_argv = [
   "--agent", "afriend-reviewer",
   "--disable-slash-commands",
-  "--mode", "plan",
   "--sandbox",
 ]
 schema_flag = "--json-schema"
@@ -53,6 +79,22 @@ external_tool_sources = ["tools", "slash commands", "MCP servers", "plugins"]
 source = "harnesses/agy/afriend-reviewer.md"
 target = ".agents/agents/afriend-reviewer/agent.md"
 sha256 = "947843c36fc8f9e3793a32dccb435037ff3be287d383b0a943f5965e493372ab"
+
+# §12.2. agy has no invocation-local flag that restricts either writes or
+# reads -- both were measured, both succeeded -- so it runs under the OS
+# confinement every non-self-confining friend gets.
+#
+# The allowances are agy's own state directory. It reads its credentials
+# from there (gemini-credentials.json, oauth_creds.json, and the
+# antigravity-cli oauth token) and writes logs, conversation state and its
+# scratch directory on every run. Withholding them is what risks provoking a
+# re-authentication, which has cost a login before -- so this is granted
+# whole, exactly as codex is granted ~/.codex.
+[sandbox]
+os_confine = true
+readonly_workdir = true
+read = ["~/.gemini"]
+write = ["~/.gemini"]
 
 [effort]
 low = ["--effort", "low"]

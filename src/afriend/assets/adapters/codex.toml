@@ -158,12 +158,20 @@ remediation = "run `codex login`, or set CODEX_HOME to a directory holding valid
 # ~/.ssh/id_ed25519 under read-only mode simply succeeds. Opting in adds the
 # read protection its own flag does not provide.
 #
-# Only codex opts in among the self-confining CLIs. claude keeps credentials
-# in the macOS Keychain and reports "Not logged in" under any profile that
-# does not grant ~/Library/Keychains -- and granting that would hand a friend
-# every credential the operator has, which is worse than the gap. agy is
-# untested here on purpose: provoking its re-authentication has already cost
-# one login.
+# claude is the one CLI still trusted to confine itself. Its `--tools
+# Read,Grep,Glob` allowlist was measured and does hold -- it reports no write
+# tool and creates nothing -- so only the read gap above remains, and closing
+# it is worse than the gap: claude keeps credentials in the macOS Keychain and
+# reports "Not logged in" under any profile that does not grant
+# ~/Library/Keychains, which would hand a friend every credential the operator
+# has.
+#
+# agy used to be listed here as untested, because provoking its
+# re-authentication had already cost one login. It has since been tested, and
+# none of its flags restricted anything: it wrote files and read an absolute
+# path outside its working directory. It is OS-confined now (see agy.toml),
+# with ~/.gemini granted read and write so its token refresh still works --
+# withholding that is what would have provoked the re-authentication.
 [sandbox]
 os_confine = true
 readonly_workdir = true

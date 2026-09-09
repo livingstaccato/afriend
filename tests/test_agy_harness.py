@@ -82,8 +82,7 @@ target = Path({TARGET!r})
 payload = target.read_bytes()
 argv = sys.argv[1:]
 assert hashlib.sha256(payload).hexdigest() == {expected_digest!r}
-assert argv.count('--mode') == 1
-assert argv[argv.index('--mode') + 1] == 'plan'
+assert argv.count('--mode') == 0
 assert argv[argv.index('--agent') + 1] == 'afriend-reviewer'
 assert '--disable-slash-commands' in argv
 assert '--sandbox' in argv
@@ -147,12 +146,19 @@ def test_agy_is_blocked_by_default_then_scoped_grant_stages_and_audits_agent(tmp
     assert not contact.exists()
     assert not (tmp_path / "runs").exists()
 
+    # `--allow-unsandboxed-friend` because the fake agy is a Python shim, and
+    # a Python shim cannot execute under Seatbelt with only this test's
+    # deliberately minimal PATH. agy is OS-confined now, so without this the
+    # run refuses before the CLI is ever contacted and this test would
+    # exercise that refusal instead of the staging it exists to check.
+    # Confinement itself is asserted in tests/test_confine_optin.py.
     allowed = run_af(
         tmp_path,
         artifact,
         "--friend",
         "agy:ops",
         "--allow-external-tools=agy",
+        "--allow-unsandboxed-friend",
         env_extra={"PATH": path},
     )
     assert allowed.returncode == 0, allowed.stderr
