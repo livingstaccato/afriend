@@ -10,7 +10,7 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 [![Dependencies](https://img.shields.io/badge/runtime%20deps-none-brightgreen)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-2445-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2439-brightgreen)](tests/)
 
 It automates a workflow you may already do by hand: run a review, paste the
 findings into a different model, ask whether they hold up, carry the argument
@@ -623,18 +623,15 @@ For setup checks and recovery from a missing marketplace file, see
 [installation and plugin troubleshooting](docs/installation-troubleshooting.md).
 
 Plugins package capabilities; the afriend plugin provides exactly
-five skills: `/afriend`, `review`, `status`, `configure`, and `resolve`,
-plus one slash command, `/areview`, which is a typing shortcut for
-`$afriend:review` and carries no rules of its own.
+five skills: `/afriend`, `review`, `status`, `configure`, and `resolve`.
 `/afriend` is the only router and short slash selector; direct qualified
 selection is `$afriend:afriend`. The CLI never runs automatically
 by itself. Generic “review this,” “poke holes,” “second opinion,” and
 architectural decision requests stay ordinary Codex work.
 
 The package must therefore be installed for the skill to work — `afriend
-doctor` is the check. `/areview` is the only executable alias; conversational
-forms such as `afriend review` are routing language and route to stable
-commands.
+doctor` is the check. Conversational forms route to stable commands; they are
+not executable aliases.
 
 ---
 
@@ -657,8 +654,8 @@ Two gates catch drift that is otherwise silent:
 - **`plugin-sync`** — `src/afriend/assets/` is canonical; its
   entrypoints project directly to plugin skills and runtime assets project
   beneath `skills/afriend/`. Edit assets, then `make plugin-sync-copy`.
-  It owns `plugins/afriend/skills/` and nothing else: the manifests and
-  `plugins/afriend/commands/` are hand-maintained plugin surface.
+  It owns `plugins/afriend/skills/` and nothing else: the plugin manifests
+  are hand-maintained.
 - **`version-sync`** — `VERSION` must match the `version` field in every
   plugin manifest.
 

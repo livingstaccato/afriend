@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+**Removed `/areview`.** It shipped in 0.10.0 as a shortcut for the review
+skill, on the belief that a plugin's `commands/` directory yields a bare
+slash command. It does not: plugin commands are namespaced by plugin, so it
+was only ever reachable as `/afriend:areview` -- no shorter than the
+`$afriend:review` it was meant to abbreviate, and a second surface with the
+same behaviour is a thing that can drift.
+
 ## 0.10.0
 
 **Security.** `claims.jsonl` was the one input a resume trusted, and it was
