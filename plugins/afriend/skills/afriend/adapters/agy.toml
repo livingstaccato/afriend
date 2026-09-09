@@ -1,4 +1,6 @@
-# --print takes the prompt as its VALUE, so it must come last (verified trap).
+# --print no longer carries the prompt. It did, and had to come last as a
+# result; the prompt now arrives on stdin and --print takes an empty value
+# in the middle of base_argv, with build_argv appending flags after it.
 name = "agy"
 binary = "agy"
 # stdin, not the value of --print. As one argv element the prompt hit the
@@ -17,8 +19,8 @@ base_argv = [
 prompt_mode = "stdin"
 stdin_template = '{"event":"user","message":{"role":"user","content":[{"type":"text","text":{prompt}}]}}'
 # Installed agy 1.1.22 documents these invocation-local controls in
-# `agy --help`. Keep every option here because --print consumes its next
-# token as the prompt value and therefore must remain last.
+# `agy --help`. Order within this list is free: --print is satisfied by the
+# empty value in base_argv, and the prompt goes to stdin.
 readonly_argv = [
   "--agent", "afriend-reviewer",
   "--disable-slash-commands",
@@ -76,6 +78,17 @@ terminal_event = "result"
 [[envelope.rules]]
 type = "result"
 field = "result.response"
+
+# The findings array, which agy carries BESIDE the prose response in the same
+# event. Under --json-schema the schema-conforming object arrives as the
+# `response` string and this rule matches nothing; when it does not, a
+# response full of unrelated prose used to fail the run with "no findings"
+# while the findings sat one key away in the object already being read. A
+# stream cannot rescan "one level up" the way the old json_path envelope
+# could, so the recovery has to be declared.
+[[envelope.rules]]
+type = "result"
+field = "result.findings"
 
 [[envelope.error_rules]]
 type = "result"

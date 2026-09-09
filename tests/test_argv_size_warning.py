@@ -56,7 +56,7 @@ def test_a_prompt_at_the_threshold_is_not_warned_about(tmp_path, mode, extra):
     assert argv_size_warning("argv-cli-ops-0", adapter, "x" * PROMPT_ARGV_WARN_BYTES) is None
 
 
-@pytest.mark.parametrize("name", ["agy", "claude", "codex", "opencode"])
+@pytest.mark.parametrize("name", sorted(load_adapters(ADAPTER_DIR)))
 def test_no_shipped_adapter_can_trip_the_warning(name):
     """Each of these reads its prompt from stdin, so the size of the prompt
     is not an argv question for any of them. This is the property the e2e

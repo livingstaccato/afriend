@@ -13,6 +13,7 @@ structurally unreachable by a plain brace-scan unless it is unwrapped first.
 normalize.py, which had grown past the then-current line cap.
 """
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 import json
 import re
@@ -206,36 +207,22 @@ def _unwrap_ndjson(raw: str, envelope: Envelope) -> str | None:
     best, so stream order handed it the progress line and lost the answer
     -- a high-severity finding, in the run that found this. Captured in
     tests/fixtures/codex_progress_then_findings.ndjson."""
-    cleaned = strip_ansi(raw)
-    extracted: list[str] = []
-    for line in cleaned.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            parsed = json.loads(line)
-        except _JSON_ERRORS:
-            continue
-        if not isinstance(parsed, dict):
-            continue
-        type_value = parsed.get(envelope.match_field)
-        for rule in envelope.rules:
-            if rule.match_value != type_value:
-                continue
-            if rule.where and _dotted_get(parsed, rule.where) != rule.equals:
-                continue
-            value = _dotted_get(parsed, rule.field)
-            if isinstance(value, str) and value.strip():
-                extracted.append(value)
+    extracted = list(_scan_ndjson(raw, envelope, envelope.rules))
     if not extracted:
         return None
     return "\n".join(reversed(extracted))
 
 
-def _ndjson_error(raw: str, envelope: Envelope) -> str | None:
-    if not envelope.error_rules:
-        return None
-    found: str | None = None
+def _scan_ndjson(raw: str, envelope: Envelope, rules: tuple[EnvelopeRule, ...]) -> Iterator[str]:
+    """Every nonempty value a rule set matches, in stream order.
+
+    One reader for both scans. They were near-verbatim copies differing only
+    in which rule tuple they walked and in how they reduced the matches, and
+    keeping eighteen duplicated lines in step was manual: the answer scan and
+    the error scan have to stay DISTINCT (an error read as an answer makes a
+    failed friend look like it replied), which is exactly the kind of
+    invariant that a silent divergence in the shared half would break.
+    """
     for line in strip_ansi(raw).splitlines():
         line = line.strip()
         if not line:
@@ -247,14 +234,41 @@ def _ndjson_error(raw: str, envelope: Envelope) -> str | None:
         if not isinstance(parsed, dict):
             continue
         type_value = parsed.get(envelope.match_field)
-        for rule in envelope.error_rules:
+        for rule in rules:
             if rule.match_value != type_value:
                 continue
             if rule.where and _dotted_get(parsed, rule.where) != rule.equals:
                 continue
             value = _dotted_get(parsed, rule.field)
-            if isinstance(value, str) and value.strip():
-                found = value.strip()
+            if isinstance(value, str):
+                if value.strip():
+                    yield value
+            elif isinstance(value, dict) and value:
+                yield json.dumps(value)
+            elif isinstance(value, list) and value:
+                # A rule may name structured data rather than a string. agy
+                # carries its findings array beside the prose `response` in
+                # the same `result` event, and a rule that could only take
+                # strings could not reach it -- so a run whose response was
+                # unrelated prose failed with "no findings" while the real
+                # findings sat one key away.
+                #
+                # A bare array is not an answer any consumer recognises, so
+                # it is re-keyed under the name the rule reached it by:
+                # `result.findings` yields {"findings": [...]}, which is the
+                # shape normalize is looking for. Everything downstream still
+                # receives answer TEXT.
+                yield json.dumps({rule.field.rsplit(".", 1)[-1]: value})
+
+
+def _ndjson_error(raw: str, envelope: Envelope) -> str | None:
+    """The last error a rule matched. Later events supersede earlier ones:
+    a stream that restates its failure has restated it, not reported two."""
+    if not envelope.error_rules:
+        return None
+    found: str | None = None
+    for value in _scan_ndjson(raw, envelope, envelope.error_rules):
+        found = value.strip()
     return found
 
 

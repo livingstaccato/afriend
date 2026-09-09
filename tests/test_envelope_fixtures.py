@@ -102,27 +102,29 @@ def test_agy_error_fixture_falls_back_and_reports_legibly():
     assert any("envelope path" in e for e in result.errors)
 
 
-def test_findings_beside_prose_are_out_of_the_fallbacks_reach_in_a_stream():
-    """The raw-text fallback cannot see inside an event, and this records it.
+def test_findings_beside_prose_are_recovered_by_a_declared_rule():
+    """Findings beside prose are recovered, by declaration rather than rescan.
 
     The original of this fixture was a single JSON object whose `response`
     held prose while the object ITSELF carried a valid `findings` array one
     level up. Committing to the unwrapped prose discarded it, so normalize()
-    learned to retry the scan against the untouched envelope, which parsed
-    and yielded the findings.
+    learned to retry the scan against the untouched envelope.
 
-    A stream has no "one level up" the scan can reach: it parses line by
-    line, and the line it reaches first is the `init` event. So the same
-    payload now fails, and says why -- structured JSON with no findings.
+    A stream has no "one level up" a raw rescan can reach: it parses line by
+    line, and the first line is the `init` event. Moving agy to stdin
+    therefore cost this recovery -- and the argument for accepting that loss
+    was that the shape does not arise under --json-schema, which is a claim
+    about agy's current behaviour rather than a guarantee.
 
-    Kept rather than deleted because it is the honest cost of moving agy to
-    stdin, and because the shape does not arise on the real path: under
-    --json-schema agy returns the schema-conforming object as the `response`
-    string, which agy_success_findings covers.
+    So the recovery is declared instead: `result.findings` is a second answer
+    rule on the event the adapter already matches, and a matched array is
+    re-keyed by the name the rule reached it by.
     """
     result = _normalize_fixture("agy", "agy_response_prose_with_top_level_findings.ndjson")
-    assert result.succeeded is False
-    assert any("no findings" in e for e in result.errors)
+
+    assert result.succeeded is True
+    assert result.payload is not None
+    assert result.payload["findings"][0]["claim"] == "missing rate limit on login endpoint"
 
 
 # --- opencode: captured ndjson envelope (the "error" event only) ----------

@@ -31,15 +31,15 @@ MUTATIONS = [
     (
         "ndjson error: first event wins instead of last",
         "src/afriend/envelopes.py",
-        "            if isinstance(value, str) and value.strip():\n                found = value.strip()\n    return found",
-        "            if isinstance(value, str) and value.strip():\n                return value.strip()\n    return found",
+        "        found = value.strip()\n    return found",
+        "        return value.strip()\n    return found",
         ["tests/test_provider_error.py"],
     ),
     (
         "ndjson error: error rules also feed the answer",
         "src/afriend/envelopes.py",
-        "        for rule in envelope.error_rules:\n            if rule.match_value != type_value:",
-        "        for rule in (*envelope.error_rules, *envelope.rules):\n            if rule.match_value != type_value:",
+        "    extracted = list(_scan_ndjson(raw, envelope, envelope.rules))",
+        "    extracted = list(_scan_ndjson(raw, envelope, (*envelope.rules, *envelope.error_rules)))",
         ["tests/test_provider_error.py", "tests/test_envelope_fixtures.py"],
     ),
     (
@@ -102,8 +102,8 @@ MUTATIONS = [
     (
         "quota: a spent quota aborts the run like auth",
         "src/afriend/rounds.py",
-        "            elif verdict == QUOTA:",
-        "            elif verdict == QUOTA and False:",
+        "        elif verdict == QUOTA:",
+        "        elif verdict == QUOTA and False:",
         ["tests/test_quota_wiring.py"],
     ),
     (
