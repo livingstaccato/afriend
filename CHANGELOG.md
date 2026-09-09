@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.8.1
+
+Fixes for evidence that did not survive being written down, and for an
+artifact size limit that silently excluded one provider.
+
+- Records the qualification policy a pre-0.8.0 run was actually admitted
+  under, rather than letting resume fill the gap with the current default. A
+  halted same-provider judging run created before 0.8.0 refused to resume,
+  because it was re-admitted under `cross-provider` -- a rule that did not
+  exist when it was accepted. Only the policy is recorded, never a verdict:
+  host role is assigned at resume from the current environment, so a verdict
+  computed during migration counts the advisory host as a worker.
+- Replays a run's frozen qualification on resume instead of re-deciding it,
+  so acceptance is a property of the run rather than of the binary reading
+  it. The payload is still validated as hostile input, and a replayed
+  verdict is still enforced: a run whose metadata says it never qualified
+  does not become judgeable by being resumed.
+- Stops stamping a literal schema version over terminal run metadata. Every
+  completed run recorded schema 2 regardless of the schema that produced it,
+  so a later migration would treat a new run as legacy.
+- Reads the `claude` prompt from stdin. As one argv element it hit Linux's
+  ~128KB single-argument cap, so any artifact past that failed to dispatch
+  with E2BIG while codex handled the same artifact in the same run (#4).
+
 ## 0.8.0
 
 A judging run now states the rule that makes its evidence independent, and
