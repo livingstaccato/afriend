@@ -1,6 +1,33 @@
 # Changelog
 
-## Unreleased
+## 0.10.1
+
+**agy ran unconfined on flags that restricted nothing.** An adapter counted
+as read-only and self-confining whenever it declared any `readonly_argv`, so
+the presence of flags stood in for evidence that they worked. Measured
+against installed agy 1.1.22, with the reviewer agent staged exactly as
+dispatch stages it, none of the four restricted anything: the friend wrote a
+file (relocated into `~/.gemini/antigravity-cli/scratch` by `--sandbox`
+rather than refused) and read an absolute path outside its working
+directory, with `tools: []` in the agent ignored. It was the one shipped
+adapter running under no OS confinement and no restriction of its own. agy
+is confined now, the way codex is, with `~/.gemini` granted read and write so
+its token refresh still works -- withholding that is what risks provoking a
+re-authentication. `--mode plan` is gone from its argv, having printed
+`--mode plan has no effect` on every run since `--disable-slash-commands`
+joined the same list.
+
+**An adapter must say whether its flags work, not merely that it has some.**
+`readonly` and `self_confines` are no longer derived from `readonly_argv`
+being non-empty, and an adapter that declares restriction flags without
+declaring both is now refused at load. The old inference could not
+distinguish agy's four inert flags from claude's `--tools Read,Grep,Glob`
+allowlist, which was measured and does hold -- asked to create a file, claude
+answers `NO_WRITE_TOOL` and creates nothing. Both adapters now record what
+was measured against the installed CLI, including claude's read gap, which
+stays open deliberately: its credentials live in the macOS Keychain, and the
+`~/Library/Keychains` grant that OS confinement would need hands a friend
+every credential the operator has.
 
 **Removed `/areview`.** It shipped in 0.10.0 as a shortcut for the review
 skill, on the belief that a plugin's `commands/` directory yields a bare
