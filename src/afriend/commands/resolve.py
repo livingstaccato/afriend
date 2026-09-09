@@ -83,12 +83,12 @@ def _load_meta(run_dir: Path) -> dict[str, Any]:
 
 
 def _claim_states(meta: dict[str, Any]) -> dict[str, str]:
-    """Read persisted claim states while accepting state-less legacy runs.
+    """Read persisted claim states, of which a run may honestly have none.
 
-    Before claim-state metadata existed, resolve treated every unresolved
-    non-advisory claim conservatively.  Keeping that behavior makes those
-    runs inspectable; a present but malformed state map is not legacy data
-    and must not be guessed at.
+    Only a run that adjudicated claims records states, so a report-mode run
+    has no map and every unresolved non-advisory claim is treated
+    conservatively. A map that is present but malformed is a different
+    thing, and must not be guessed at.
     """
     raw = meta.get("claim_states")
     if raw is None:

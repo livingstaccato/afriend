@@ -129,7 +129,7 @@ def test_latest_verdicts_are_reduced_per_judge():
     assert state.latest_verdicts_for(item.id) == [second]
 
 
-def test_reducer_matches_legacy_observables():
+def test_reducer_matches_the_direct_projections():
     item = claim("c-0004@1")
     duplicate = claim("c-0005@1")
     alias = Alias(item.id, duplicate.id, 1, "exact", "same")

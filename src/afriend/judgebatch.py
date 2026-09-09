@@ -64,20 +64,27 @@ def recover_judging_batch(
     shown_claim_ids: Sequence[str],
     prompt_text: str,
     *,
-    legacy_complete: bool = False,
+    verdicts_already_durable: bool = False,
 ) -> RecoveredJudgeBatch | None:
-    """Authenticate and return a complete captured batch, if one exists."""
+    """Authenticate and return a complete captured batch, if one exists.
+
+    A version-1 audit is the shape rounds.py writes for a friend result that
+    carried no judging batch. When the ledger already holds every verdict
+    this judge owes, finding one is expected and there is simply nothing to
+    recover; otherwise it is a judging round whose batch was never captured,
+    and replaying it from an unauthenticated file is refused.
+    """
     path = store.friend_audit_path(round_no, spec.name)
     if not store.owned_regular_exists(path):
         return None
     payload = store.read_owned_bytes(path, max_bytes=MAX_JSON_FILE_BYTES)
     data = decode_json_object(payload, path=path, label="persisted friend audit")
     if data.get("version") == 1:
-        if legacy_complete:
+        if verdicts_already_durable:
             return None
         raise UsageError(
-            "cannot recover judging: incomplete legacy judging audit has no "
-            "authenticated complete verdict batch"
+            "cannot recover judging: the persisted audit has no authenticated "
+            "complete verdict batch"
         )
     if data.get("version") != 2:
         return None

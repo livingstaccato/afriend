@@ -94,9 +94,7 @@ def test_status_summarizes_a_terminal_run_without_mutating(tmp_path, capsys):
     assert not (run / ".lock").exists()
 
 
-def test_status_json_is_versioned_and_uses_legacy_artifacts_when_events_are_absent(
-    tmp_path, capsys
-):
+def test_status_json_is_versioned_and_uses_run_artifacts_when_events_are_absent(tmp_path, capsys):
     root = tmp_path / "runs"
     _run(root, events=False)
 
@@ -358,10 +356,10 @@ def test_status_triage_uses_validated_claim_states_with_resolution_precedence(tm
     assert resolved["unresolved_count"] == 0
 
 
-def test_status_triage_keeps_empty_legacy_and_event_only_runs_unknown_or_absent(tmp_path, capsys):
+def test_status_triage_keeps_empty_and_event_only_runs_unknown_or_absent(tmp_path, capsys):
     root = tmp_path / "runs"
-    legacy = _run(root, events=False)
-    (legacy / "claims.jsonl").unlink()
+    eventless = _run(root, events=False)
+    (eventless / "claims.jsonl").unlink()
     event_only = root / "event-only"
     event_only.mkdir()
     (event_only / "events.jsonl").write_text(
@@ -369,7 +367,7 @@ def test_status_triage_keeps_empty_legacy_and_event_only_runs_unknown_or_absent(
         encoding="utf-8",
     )
 
-    legacy_summary = status.summarize(legacy, root=root)
+    eventless_summary = status.summarize(eventless, root=root)
     event_summary = status.summarize(event_only, root=root)
 
     expected = {
@@ -381,7 +379,7 @@ def test_status_triage_keeps_empty_legacy_and_event_only_runs_unknown_or_absent(
         "unresolved_claim_ids": [],
         "unresolved_count": 0,
     }
-    assert legacy_summary["triage"] == expected
+    assert eventless_summary["triage"] == expected
     assert event_summary["triage"] == expected
 
 
@@ -426,7 +424,7 @@ def test_status_ignores_nonlist_persisted_friends_for_completeness(tmp_path, cap
     assert json.loads(capsys.readouterr().out)["review_completeness"] is None
 
 
-def test_status_projects_safe_legacy_friend_metadata_without_events(tmp_path, capsys):
+def test_status_projects_safe_friend_metadata_without_events(tmp_path, capsys):
     root = tmp_path / "runs"
     run = _run(root, events=False)
     meta = json.loads((run / "run.json").read_text(encoding="utf-8"))

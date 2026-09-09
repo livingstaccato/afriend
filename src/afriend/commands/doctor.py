@@ -30,7 +30,7 @@ from ..runstore import default_root
 _DECLARATION_ONLY_STATES = frozenset({ReadinessState.DISABLED, ReadinessState.HOST_EXCLUDED})
 
 
-def _legacy_status(row: FriendReadiness, adapter: Adapter) -> str:
+def _compact_status(row: FriendReadiness, adapter: Adapter) -> str:
     if row.ready or row.state is ReadinessState.REACHABLE_UNCONFIGURED:
         return "found"
     if row.state is ReadinessState.UNAVAILABLE:
@@ -93,7 +93,7 @@ def _rows(
             rows.append(
                 {
                     "name": name,
-                    "status": _legacy_status(assessed, adapter),
+                    "status": _compact_status(assessed, adapter),
                     "state": assessed.state.value,
                     "reason": assessed.reason,
                     "schema": cap.schema,
@@ -111,7 +111,7 @@ def _rows(
             rows.append(
                 {
                     "name": name,
-                    "status": _legacy_status(assessed, adapter),
+                    "status": _compact_status(assessed, adapter),
                     "state": assessed.state.value,
                     "reason": assessed.reason,
                     "schema": cap.schema,
@@ -133,7 +133,7 @@ def _rows(
             rows.append(
                 {
                     "name": name,
-                    "status": _legacy_status(assessed, adapter),
+                    "status": _compact_status(assessed, adapter),
                     "state": assessed.state.value,
                     "reason": assessed.reason,
                     "schema": cap.schema,
@@ -165,7 +165,7 @@ def _rows(
         rows.append(
             {
                 "name": name,
-                "status": _legacy_status(assessed, adapter),
+                "status": _compact_status(assessed, adapter),
                 "state": assessed.state.value,
                 "reason": assessed.reason,
                 "schema": cap.schema,

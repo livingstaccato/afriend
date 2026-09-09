@@ -10,7 +10,7 @@ import sys
 from e2e_helpers import AF, _env, run_af
 import pytest
 
-from afriend import isolation, snapshots
+from afriend import snapshots
 from afriend.errors import UsageError
 from afriend.snapshots import SnapshotIdentity
 
@@ -119,58 +119,6 @@ def test_symlinked_source_persists_the_bound_target_path(tmp_path):
     assert SnapshotIdentity._from_dict(identity.to_dict()).verify(frozen) == identity
 
 
-def _legacy_symlink_identity(tmp_path, target: str = "docs/a.md"):
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    _git(repo, "init")
-    docs = repo / "docs"
-    docs.mkdir()
-    (docs / "a.md").write_bytes(b"# saved target A\n")
-    (docs / "b.md").write_bytes(b"# alternate target B\n")
-    source = repo / "spec.md"
-    source.symlink_to(target)
-    frozen = tmp_path / "frozen.md"
-    frozen.write_bytes((docs / "a.md").read_bytes())
-    digest = "sha256:" + hashlib.sha256(frozen.read_bytes()).hexdigest()
-    commit = isolation.snapshot_commit(repo)
-    legacy = {
-        "repo_root": str(repo),
-        "snapshot_sha": commit,
-        "artifact_path": str(source),
-        "artifact_hash": digest,
-    }
-    return repo, source, frozen, legacy
-
-
-def _legacy_component_symlink_identity(
-    tmp_path: Path,
-    links: dict[str, str],
-    invocation_path: str,
-):
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    _git(repo, "init")
-    docs = repo / "docs"
-    docs.mkdir()
-    (docs / "a.md").write_bytes(b"# saved target A\n")
-    (docs / "b.md").write_bytes(b"# alternate target B\n")
-    for path, target in links.items():
-        link = repo / path
-        link.parent.mkdir(parents=True, exist_ok=True)
-        link.symlink_to(target)
-    frozen = tmp_path / "frozen.md"
-    frozen.write_bytes((docs / "a.md").read_bytes())
-    digest = "sha256:" + hashlib.sha256(frozen.read_bytes()).hexdigest()
-    commit = isolation.snapshot_commit(repo)
-    legacy = {
-        "repo_root": str(repo),
-        "snapshot_sha": commit,
-        "artifact_path": str(repo / invocation_path),
-        "artifact_hash": digest,
-    }
-    return repo, frozen, legacy
-
-
 @pytest.mark.parametrize(
     "source_path",
     ["/etc/passwd", "../spec.md", ".", "nested/../spec.md", "nested//spec.md", "\0spec.md"],
@@ -184,7 +132,7 @@ def test_hostile_saved_source_binding_is_refused(source_path, tmp_path):
         SnapshotIdentity.from_meta({"snapshot": raw})
 
 
-def test_intermediate_legacy_binding_tamper_does_not_rewrite_resume_state(tmp_path):
+def test_symlinked_invocation_tamper_does_not_rewrite_resume_state(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
     subprocess.run(["git", "init", "-q"], cwd=repo, check=True)

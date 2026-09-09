@@ -635,7 +635,7 @@ def test_checkpoint_accepts_audited_success_and_skip_rows(tmp_path):
     assert successful_friend_ids_from_audit(normalized, 1) == ["friend-ops-0"]
 
 
-def test_checkpoint_accepts_exact_safe_legacy_failure_with_inline_stderr_reference():
+def test_checkpoint_accepts_an_exact_failure_status_with_inline_stderr_reference():
     diagnostics = "x" * 200
     row = {
         "name": "friend-ops-0",
@@ -650,7 +650,7 @@ def test_checkpoint_accepts_exact_safe_legacy_failure_with_inline_stderr_referen
     assert normalize_friend_rows([row], {"friend-ops-0"}) == [row]
 
 
-def test_legacy_failure_shape_does_not_legalize_hostile_stripped_current_status():
+def test_the_failure_shape_does_not_legalize_a_hostile_stripped_status():
     row = {
         "name": "friend-ops-0",
         "model": None,

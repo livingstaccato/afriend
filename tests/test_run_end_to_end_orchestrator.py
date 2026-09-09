@@ -32,13 +32,6 @@ def _write_run_json(tmp_path, meta):
     (_run_dir(tmp_path) / "run.json").write_text(json.dumps(meta, indent=2, sort_keys=True))
 
 
-def _downgrade_meta_to_legacy(tmp_path):
-    meta = _run_json(tmp_path)
-    meta.pop("snapshot", None)
-    meta.pop("snapshot_history", None)
-    _write_run_json(tmp_path, meta)
-
-
 def _ledger(tmp_path):
     text = (_run_dir(tmp_path) / "claims.jsonl").read_text()
     return [json.loads(line) for line in text.splitlines() if line.strip()]
@@ -402,10 +395,13 @@ def test_resume_does_not_require_the_live_source_artifact(tmp_path):
     assert resumed.returncode == 0, resumed.stderr
 
 
-def test_legacy_migration_waits_until_malformed_ledger_validation_succeeds(tmp_path):
+def test_a_malformed_ledger_refusal_does_not_rewrite_run_json(tmp_path):
+    """Resume re-records the verified snapshot, and that write must not land
+    before the rest of the run has been validated. This used to strip the
+    snapshot first to force a migration; the snapshot is now required, so
+    stripping it refused here instead of at the ledger under test."""
     _halt(tmp_path, "judge_uphold_a", "judge_uphold_b")
     _respond(tmp_path, [])
-    _downgrade_meta_to_legacy(tmp_path)
     with (_run_dir(tmp_path) / "claims.jsonl").open("a") as ledger:
         ledger.write("{malformed ledger\n")
     run_json = _run_dir(tmp_path) / "run.json"
@@ -448,9 +444,8 @@ def test_invalid_snapshot_history_does_not_rewrite_run_json(tmp_path):
     assert run_json.read_bytes() == before
 
 
-def test_legacy_migration_waits_until_response_validation_succeeds(tmp_path):
+def test_a_malformed_response_refusal_does_not_rewrite_run_json(tmp_path):
     _halt(tmp_path, "judge_uphold_a", "judge_uphold_b")
-    _downgrade_meta_to_legacy(tmp_path)
     (_run_dir(tmp_path) / "round-1" / "RESPONSE.json").write_text("{malformed response")
     run_json = _run_dir(tmp_path) / "run.json"
     before = run_json.read_bytes()

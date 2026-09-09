@@ -167,8 +167,8 @@ def test_every_shipped_transport_explicitly_declares_authority(registry):
 
 
 def test_missing_authority_declaration_defaults_to_unknown(tmp_path):
-    (tmp_path / "legacy.toml").write_text('name = "legacy"\nbinary = "legacy"\n')
-    adapter = load_adapters(tmp_path)["legacy"]
+    (tmp_path / "bare.toml").write_text('name = "bare"\nbinary = "bare"\n')
+    adapter = load_adapters(tmp_path)["bare"]
     assert adapter.external_tools == "unknown"
     assert adapter.deny_external_tools_argv == ()
     assert adapter.external_tool_sources == ()

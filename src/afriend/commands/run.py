@@ -218,7 +218,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         )
         reporter.run_started(
             args.mode,
-            str(getattr(args, "profile", "legacy") or "legacy"),
+            str(getattr(args, "profile", None) or "none"),
             "repo" if any(spec.scope == "repo" for spec in specs) else "doc",
             repository_scope_mode=repository_scope_mode,
             required=resume_meta is None,

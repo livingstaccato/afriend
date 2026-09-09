@@ -19,7 +19,7 @@ from afriend.commands.runmeta import (
     validated_meta,
 )
 from afriend.errors import UsageError
-from afriend.ledger import Claim, Ledger
+from afriend.ledger import Ledger
 from afriend.snapshots import SnapshotIdentity
 
 
@@ -197,7 +197,7 @@ def test_resume_rejects_explicit_repo_before_restoring_saved_arguments():
         validate_run_args(args)
 
 
-def _legacy_host_resume_meta(mode: str, *, frozen_host: bool) -> dict[str, object]:
+def _host_resume_meta(mode: str, *, frozen_host: bool) -> dict[str, object]:
     meta = _resume_meta()
     meta["repo_root"] = None
     meta["snapshot_sha"] = None
@@ -249,49 +249,6 @@ def _legacy_host_resume_meta(mode: str, *, frozen_host: bool) -> dict[str, objec
         meta["detected_host"] = "codex"
         meta["effective_include_self"] = True
     return meta
-
-
-def _legacy_judging_meta(mode: str) -> dict[str, object]:
-    meta = _legacy_host_resume_meta(mode, frozen_host=True)
-    meta["invocation"]["max_rounds"] = 3
-    meta["roster"].append(
-        {
-            "name": "fake-author",
-            "cli": "fake",
-            "lens": "author",
-            "model": None,
-            "effort": None,
-            "scope": "doc",
-            "timeout": 900,
-        }
-    )
-    meta["friends"].append(
-        {
-            "name": "fake-author",
-            "model": None,
-            "effort": None,
-            "round": 1,
-            "status": "ok",
-        }
-    )
-    return meta
-
-
-def _legacy_claim() -> Claim:
-    return Claim(
-        id="c-0001@1",
-        supersedes=None,
-        origin=["fake/author"],
-        lens="author",
-        round=1,
-        advisory=False,
-        severity="high",
-        claim="unsafe default",
-        location="src/app.py:1",
-        evidence="the guard is absent",
-        failure_scenario="the operation proceeds",
-        suggested_fix="add the guard",
-    )
 
 
 def _append_ledger(run_dir: Path, *records: object) -> None:
@@ -561,7 +518,7 @@ def test_snapshot_semantics_are_rejected_before_namespace(monkeypatch, tmp_path,
         runmeta._restore_args(_resume_args(run_dir))
 
 
-def test_migration_rejects_deep_metadata_before_copying():
+def test_deep_metadata_is_rejected_before_copying():
     raw: dict[str, object] = {}
     cursor = raw
     for _ in range(500):
@@ -575,7 +532,7 @@ def test_migration_rejects_deep_metadata_before_copying():
     assert "schema_version" not in raw
 
 
-def test_migration_rejects_wide_metadata_without_mutating_input():
+def test_wide_metadata_is_rejected_without_mutating_input():
     values = list(range(9_000))
     raw = {"wide": values}
 

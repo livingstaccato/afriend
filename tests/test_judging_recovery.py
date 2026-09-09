@@ -455,14 +455,12 @@ def test_recovered_verdict_refuses_a_tampered_audit_capture(tmp_path):
         )
 
 
-def test_incomplete_legacy_judging_audit_fails_closed_instead_of_redispatching(
-    monkeypatch, tmp_path
-):
+def test_an_incomplete_judging_audit_fails_closed_instead_of_redispatching(monkeypatch, tmp_path):
     spec = _spec("first-ops-0", "first")
     claim = _claim()
-    store = RunStore(tmp_path, "run-incomplete-legacy-audit")
+    store = RunStore(tmp_path, "run-incomplete-audit")
     store.ledger.append(claim)
-    store.write_sensitive(store.friend_prompt_path(2, spec.name), "legacy prompt")
+    store.write_sensitive(store.friend_prompt_path(2, spec.name), "captured prompt")
     result = SpawnResult(
         argv=["fake"],
         exit_code=0,
@@ -491,7 +489,7 @@ def test_incomplete_legacy_judging_audit_fails_closed_instead_of_redispatching(
         lambda *_args, **_kwargs: pytest.fail("incomplete prior call was redispatched"),
     )
 
-    with pytest.raises(UsageError, match="incomplete legacy judging audit"):
+    with pytest.raises(UsageError, match="no authenticated complete verdict batch"):
         run_rounds(
             [spec],
             [claim],

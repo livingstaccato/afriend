@@ -44,8 +44,8 @@ def test_terminal_metadata_keeps_the_current_schema_version():
     """`RunOutcome.apply` stamped a hardcoded 2 over the real version.
 
     Every completed run was therefore recorded as schema 2 regardless of the
-    schema it was actually written with, so a later migration would treat a
-    brand-new run as legacy and re-apply migrations it never needed.
+    schema it was actually written with, so a brand-new run described itself
+    as one this version cannot read.
     """
     base = {"schema_version": CURRENT_SCHEMA_VERSION, "lifecycle_state": "running"}
 

@@ -177,7 +177,7 @@ def _codex_user_config_may_apply(run_meta: dict[str, Any]) -> bool:
     if policy == "scoped-allow":
         grants = run_meta.get("external_tool_grants")
         return not isinstance(grants, list) or "codex" in grants or "*" in grants
-    # Legacy metadata cannot prove that --ignore-user-config was supplied.
+    # Metadata that records no policy cannot prove --ignore-user-config.
     return True
 
 
