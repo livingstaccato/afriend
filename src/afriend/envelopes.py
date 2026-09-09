@@ -95,6 +95,12 @@ class Envelope:
     # `failed: exit 1` with the stderr banner folded in, and the reason was
     # readable only by opening the raw capture.
     error_rules: tuple[EnvelopeRule, ...] = ()
+    # ndjson only: the `match_field` value carried by the event that ends the
+    # stream. It is what `answer_is_complete` needs to stop waiting on a CLI
+    # that has finished but not exited -- the same hang json_path solves by
+    # parsing a complete object, which an event stream cannot do because a
+    # later line may still carry the answer.
+    terminal_event: str = ""
 
 
 def parse_envelope(data: dict[str, Any] | None) -> "Envelope | None":
@@ -138,11 +144,13 @@ def parse_envelope(data: dict[str, Any] | None) -> "Envelope | None":
             for rule in data.get("error_rules", [])
             if isinstance(rule, dict) and rule.get("type") and rule.get("field")
         )
+        terminal_event = data.get("terminal_event", "")
         return Envelope(
             kind="ndjson",
             match_field=data.get("match_field", "type"),
             rules=rules,
             error_rules=error_rules,
+            terminal_event=terminal_event if isinstance(terminal_event, str) else "",
         )
     return None
 
@@ -305,6 +313,8 @@ def answer_is_complete(text: str, envelope: Envelope) -> bool:
     The cheap guard first: a complete object ends with `}`, so the parse is
     attempted only when the buffer looks finished rather than on every poll.
     """
+    if envelope.kind == "ndjson":
+        return _ndjson_stream_finished(text, envelope)
     if envelope.kind != "json_path":
         return False
     text = text.strip()
@@ -314,3 +324,27 @@ def answer_is_complete(text: str, envelope: Envelope) -> bool:
         return isinstance(json.loads(text), dict)
     except (ValueError, RecursionError):
         return False
+
+
+def _ndjson_stream_finished(text: str, envelope: Envelope) -> bool:
+    """Whether the stream's declared terminal event has arrived.
+
+    Only the last complete line is parsed. An event stream grows, and the
+    question is about its end, so walking the whole buffer on every poll
+    would make the check cost more the longer the friend runs.
+    """
+    if not envelope.terminal_event:
+        return False
+    for line in reversed(strip_ansi(text).splitlines()):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            parsed = json.loads(line)
+        except _JSON_ERRORS:
+            # A partial trailing line is the normal case mid-stream.
+            return False
+        return isinstance(parsed, dict) and (
+            parsed.get(envelope.match_field) == envelope.terminal_event
+        )
+    return False

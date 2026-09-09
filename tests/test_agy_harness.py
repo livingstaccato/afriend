@@ -87,10 +87,15 @@ assert argv[argv.index('--mode') + 1] == 'plan'
 assert argv[argv.index('--agent') + 1] == 'afriend-reviewer'
 assert '--disable-slash-commands' in argv
 assert '--sandbox' in argv
-assert argv.index('--agent') < argv.index('--print')
-assert argv.index('--disable-slash-commands') < argv.index('--print')
-assert argv.index('--mode') < argv.index('--print')
-assert argv.index('--sandbox') < argv.index('--print')
+# The prompt arrives on stdin as a stream-json message, so it is nowhere in
+# argv and no flag ordering around it matters any more.
+assert argv[argv.index('--input-format') + 1] == 'stream-json'
+assert argv[argv.index('--output-format') + 1] == 'stream-json'
+assert argv[argv.index('--print') + 1] == ''
+message = json.loads(sys.stdin.read().strip())
+assert message['event'] == 'user'
+prompt_text = message['message']['content'][0]['text']
+assert prompt_text.strip(), 'the prompt must reach the CLI on stdin'
 contact = Path({str(contact)!r})
 contact.write_text(json.dumps({{
     'argv': argv,
@@ -106,7 +111,14 @@ finding = {{
     'failure_scenario': 'n/a',
     'suggested_fix': 'n/a',
 }}
-print(json.dumps({{'response': json.dumps({{'findings': [finding]}})}}))
+print(json.dumps({{
+    'event': 'result',
+    'result': {{
+        'status': 'SUCCESS',
+        'response': json.dumps({{'findings': [finding]}}),
+        'error': '',
+    }},
+}}))
 """
     binary.write_text(script, encoding="utf-8")
     binary.chmod(0o755)
@@ -149,7 +161,10 @@ def test_agy_is_blocked_by_default_then_scoped_grant_stages_and_audits_agent(tmp
     assert observed["target"] == TARGET
     assert observed["digest"] == hashlib.sha256(payload).hexdigest()
     assert observed["content"].encode() == payload
-    assert observed["argv"][-2] == "--print"
+    # The prompt is no longer an argv element at all: --print carries an
+    # empty value and the message goes in on stdin, which the shim asserts.
+    assert observed["argv"][observed["argv"].index("--print") + 1] == ""
+    assert not any("spec" in arg for arg in observed["argv"] if arg.endswith(".md"))
 
     run_dir = _run_dir(tmp_path)
     run_meta = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))

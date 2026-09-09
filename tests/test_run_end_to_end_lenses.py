@@ -282,47 +282,6 @@ def test_unexpected_exception_in_one_friends_dispatch_does_not_end_the_run(monke
     assert fake_status == "ok"
 
 
-def test_oversized_prompt_for_a_non_stdin_adapter_records_an_e2big_downgrade(tmp_path):
-    """agy passes the whole prompt as the value of --print (prompt_mode
-    'flag-value'); Linux commonly caps a single argv element near 128KB (the
-    limit varies by OS -- this test itself may run on macOS), so a large
-    artifact can make the real dispatch fail with E2BIG. This is detected and
-    recorded up front (see dispatch.PROMPT_ARGV_WARN_BYTES's check inside
-    cmd_run). The downgrade must appear regardless of whether the friend
-    dispatches. A tiny executable shim makes the provider pass explicit
-    preflight; the fake friend still provides the usable result this test
-    needs.
-
-    The warning is about the argv transport, so this follows whichever
-    shipped provider still uses one: claude until issue #4, then opencode
-    until it was verified to read stdin, now agy."""
-    artifact = tmp_path / "spec.md"
-    artifact.write_text("# spec\n" + ("x" * 150_000) + "\n")
-    binary_dir = tmp_path / "bin"
-    binary_dir.mkdir()
-    provider = binary_dir / "agy"
-    provider.write_text("#!/bin/sh\nexit 1\n")
-    provider.chmod(0o755)
-    result = run_af(
-        tmp_path,
-        artifact,
-        "--friend",
-        "agy:ops",
-        "--friend",
-        "fake:good",
-        # This test targets the dispatch-time argv-size downgrade.
-        "--allow-external-tools=agy",
-        env_extra={"PATH": f"{binary_dir}{os.pathsep}{_safe_path_dir()}"},
-    )
-    assert result.returncode == 0, result.stderr
-    runs = sorted((tmp_path / "runs").iterdir())
-    meta = json.loads((runs[0] / "run.json").read_text())
-    assert any(
-        "E2BIG" in note or "Argument list too long" in note for note in meta["downgrades"]
-    ), meta["downgrades"]
-    assert any("agy" in note for note in meta["downgrades"])
-
-
 def test_small_prompt_does_not_record_an_e2big_downgrade(tmp_path):
     artifact = tmp_path / "spec.md"
     artifact.write_text("# spec\nshort\n")

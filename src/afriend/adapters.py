@@ -6,6 +6,7 @@ speculation — see the spec's "verified invocation traps" section.
 """
 
 from dataclasses import dataclass, field
+import json
 from pathlib import Path
 import tomllib
 from typing import Any, Literal
@@ -177,6 +178,13 @@ class Adapter:
     # flags, plus bounded markers expected in its help/version output.
     deny_external_tools_probe_argv: tuple[str, ...] = ()
     deny_external_tools_probe_markers: tuple[str, ...] = ()
+    # stdin only. A CLI that reads a prompt from stdin does not necessarily
+    # read it as plain text: agy accepts one under --input-format stream-json,
+    # which wants a JSON message per line. The template carries `{prompt}`
+    # exactly once and the prompt is substituted JSON-encoded, so nothing in
+    # an artifact can break out of the string it lands in. Empty means the
+    # prompt is written verbatim, which is what every other adapter wants.
+    stdin_template: str = ""
     workspace_assets: tuple[WorkspaceAsset, ...] = ()
     # An adapter may declare a static model that afriend should pass unless
     # a stronger source selects one. Shipped adapters intentionally leave
@@ -375,6 +383,7 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
             base_argv=list(data.get("base_argv", [])),
             prompt_mode=data.get("prompt_mode", "stdin"),
             prompt_flag=data.get("prompt_flag", ""),
+            stdin_template=data.get("stdin_template", ""),
             readonly_argv=list(data.get("readonly_argv", [])),
             schema_flag=data.get("schema_flag", ""),
             schema_inline=bool(data.get("schema_inline", False)),
@@ -479,12 +488,28 @@ def build_argv(
     capability = capability_from_authority(adapter, authority)
 
     if adapter.prompt_mode == "stdin":
-        return argv, prompt, capability
+        return argv, encode_stdin_prompt(adapter, prompt), capability
     if adapter.prompt_mode == "trailing-arg":
         return [*argv, prompt], None, capability
     if adapter.prompt_mode == "flag-value":
         return [*argv, adapter.prompt_flag, prompt], None, capability
     raise UsageError(f"unknown prompt_mode {adapter.prompt_mode!r}")
+
+
+PROMPT_PLACEHOLDER = "{prompt}"
+
+
+def encode_stdin_prompt(adapter: Adapter, prompt: str) -> str:
+    """Wrap the prompt in whatever shape this CLI reads on stdin.
+
+    `json.dumps` produces the quoted, escaped literal that replaces the
+    placeholder, so the template's own JSON stays well-formed whatever the
+    artifact contains -- an artifact holding a quote, a brace or a newline is
+    data, and cannot become structure.
+    """
+    if not adapter.stdin_template:
+        return prompt
+    return adapter.stdin_template.replace(PROMPT_PLACEHOLDER, json.dumps(prompt)) + "\n"
 
 
 def place_extra_args(argv: list[str], adapter: Adapter, extra_args: list[str]) -> list[str]:

@@ -76,10 +76,22 @@ def test_a_trailing_arg_adapter_keeps_the_prompt_last(files, tmp_path):
     assert placed[-3:-1] == EXTRA
 
 
-def test_a_flag_value_adapter_gets_them_before_the_prompt_flag(files):
-    """agy. The prompt is the VALUE of --print, so anything after it is a
-    positional rather than an option."""
-    adapter, argv = _argv_for("agy", files)
+def test_a_flag_value_adapter_gets_them_before_the_prompt_flag(files, tmp_path):
+    """The prompt is the VALUE of the prompt flag, so anything after it is a
+    positional rather than an option.
+
+    Synthetic for the same reason as the trailing-arg case above: agy was the
+    last shipped adapter in this mode and now reads stdin. The placement rule
+    is a property of the mode, which a user-authored TOML can still declare.
+    """
+    (tmp_path / "flagged.toml").write_text(
+        'name = "flagged"\nbinary = "flagged"\n'
+        'prompt_mode = "flag-value"\nprompt_flag = "--print"\n'
+        'external_tools = "none"\n'
+    )
+    registry = load_adapters(tmp_path)
+    adapter, argv = _argv_for("flagged", files, registry)
+    assert adapter.prompt_mode == "flag-value"
     placed = place_extra_args(argv, adapter, EXTRA)
     assert placed.index(EXTRA[0]) < placed.index(adapter.prompt_flag)
     assert placed[-1] == "REVIEW THIS"
@@ -87,7 +99,8 @@ def test_a_flag_value_adapter_gets_them_before_the_prompt_flag(files):
 
 def test_a_stdin_adapter_is_unchanged(files):
     """codex. The prompt never enters argv, so the end really is a flag
-    position and nothing needs to move."""
+    position and nothing needs to move. Now the shape of every shipped
+    adapter."""
     adapter, argv = _argv_for("codex", files)
     assert place_extra_args(argv, adapter, EXTRA) == [*argv, *EXTRA]
 

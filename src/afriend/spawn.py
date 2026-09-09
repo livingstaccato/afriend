@@ -259,13 +259,23 @@ def run_process(
     stdout_thread.start()
     stderr_thread.start()
 
-    # Hoisted out of the loop. `answer_is_complete` rejects every ndjson
-    # envelope unconditionally, so for those adapters the guard below could
-    # never succeed -- while `_buffer_looks_finished` is TRUE on almost every
-    # poll, since each NDJSON line ends with `}`. The whole buffer was
-    # therefore being joined ~20 times a second to answer a question already
-    # settled by the envelope kind.
-    early_envelope = envelope if envelope is not None and envelope.kind == "json_path" else None
+    # Hoisted out of the loop. An envelope that cannot answer "has it
+    # finished?" must not reach the guard below: `_buffer_looks_finished` is
+    # TRUE on almost every NDJSON poll, since each line ends with `}`, so the
+    # whole buffer would be joined ~20 times a second to answer a question
+    # the envelope kind had already settled.
+    #
+    # An ndjson envelope qualifies only once it declares the event that ends
+    # its stream. Then the check is real and cheap: only the last line is
+    # parsed.
+    early_envelope = (
+        envelope
+        if envelope is not None
+        and (
+            envelope.kind == "json_path" or (envelope.kind == "ndjson" and envelope.terminal_event)
+        )
+        else None
+    )
 
     deadline = started + timeout_s
     timed_out = False
