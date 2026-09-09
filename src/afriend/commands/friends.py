@@ -149,6 +149,49 @@ def _validated_selection_args(
     return enabled, disabled, host_provider, lenses
 
 
+SAME_PROVIDER_POLICY = "distinct-sessions"
+QUORUM_WORKERS = 2
+
+
+def _sessions_needed(args: argparse.Namespace) -> int:
+    """How many worker sessions discovery should build.
+
+    One per provider is the rule everywhere except the case that made this
+    function necessary: a judging mode whose policy accepts two sessions of
+    the SAME provider. Discovery iterates over providers, so on a machine
+    with one ready provider it built one friend and every judging mode
+    refused -- `distinct-sessions` was a policy nothing could satisfy except
+    hand-written --friend flags.
+
+    `report` is excluded deliberately. It applies no evidence rule, so a
+    second session would double the cost of every single-provider run to
+    satisfy a policy that is not being consulted.
+    """
+    policy = getattr(args, "qualification_policy", None) or DEFAULT_QUALIFICATION_POLICY
+    judging = args.mode not in DEGRADED_MODES
+    return QUORUM_WORKERS if judging and policy == SAME_PROVIDER_POLICY else 1
+
+
+def _note_same_provider_quorum(specs: list[FriendSpec], downgrades: list[str]) -> None:
+    """Say when a quorum came from one provider.
+
+    Reachable is not the same as equivalent: two sessions of one CLI share an
+    account, a model and a failure mode. Silence here would let the report
+    read as disagreement between independent reviewers.
+    """
+    workers = [spec for spec in specs if spec.independent and not spec.host_self_review]
+    families = {spec.cli for spec in workers}
+    if len(workers) > 1 and len(families) == 1:
+        note = (
+            f"all {len(workers)} judging sessions run on the same provider "
+            f"({families.pop()}) under the {SAME_PROVIDER_POLICY!r} policy; they share an "
+            "account, a model and a failure mode, so agreement between them is weaker "
+            "evidence than agreement across providers"
+        )
+        if note not in downgrades:
+            downgrades.append(note)
+
+
 def resolve_friends(
     args: argparse.Namespace,
     registry: dict[str, Adapter],
@@ -251,7 +294,9 @@ def resolve_friends(
                 provider_policy=provider_policy,
                 host_provider=host_provider,
                 authority_policy=authority_policy,
+                min_workers=_sessions_needed(args),
             )
+            _note_same_provider_quorum(specs, downgrades)
     if not specs:
         raise NoFriendsError(f"no usable friends for mode {args.mode!r}")
     if explicit:
@@ -361,6 +406,35 @@ def resolve_friends(
     )
 
 
+def _remedies(qualification: Qualification) -> str:
+    """What an operator can actually do about this refusal.
+
+    The reported case: a host with one ready provider was told to add a
+    qualifying worker or drop to `--mode report`, and worked out on its own
+    that naming two friends of the one provider it had would satisfy
+    `distinct-sessions`. That policy ships, validates and is documented; the
+    refusal simply never named it, while being constructed with the policy in
+    hand.
+
+    Only offered when it is genuinely available: a second session needs a
+    worker to clone and a second lens to name it with, since friend names are
+    lens-derived and become run-directory paths.
+    """
+    remedies = ["add a friend on a second provider"]
+    if (
+        qualification.policy != SAME_PROVIDER_POLICY
+        and qualification.qualifying_names
+        and len(available_lenses()) >= QUORUM_WORKERS
+    ):
+        remedies.append(
+            f"pass --qualification-policy {SAME_PROVIDER_POLICY} to accept "
+            f"{QUORUM_WORKERS} sessions of one provider as evidence (weaker: they share "
+            "an account, a model and a failure mode)"
+        )
+    remedies.append("use --mode report for a single reviewer's opinion")
+    return "Options: " + "; ".join(remedies) + "."
+
+
 def roster_for_run(
     args: argparse.Namespace,
     registry: dict[str, Adapter],
@@ -445,9 +519,8 @@ def roster_for_run(
             raise NoFriendsError(
                 f"roster does not satisfy qualification policy {qualification.policy!r}: "
                 f"workers ({names}); provider families ({families}); "
-                f"{qualification.reason}. Add a qualifying worker or use --mode report "
-                "for a single reviewer's opinion. Judging needs at least two independent "
-                "friends under the selected policy."
+                f"{qualification.reason}. Judging needs at least two independent "
+                f"friends under the selected policy. {_remedies(qualification)}"
             )
         if len(specs) == 1:
             downgrades.append(

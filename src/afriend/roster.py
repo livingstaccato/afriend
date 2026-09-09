@@ -112,6 +112,7 @@ def resolve(
     probe: Callable[[str], bool] | None = None,
     provider_policy: ProviderPolicy | None = None,
     max_friends: int | None = None,
+    min_workers: int = 1,
     host_provider: str | None = None,
     enforce: Callable[[Adapter], object] | None = None,
     authority_policy: AuthorityPolicy | None = None,
@@ -237,8 +238,29 @@ def resolve(
             "no lenses configured: at least one lens is required to assign to discovered friends."
         )
 
+    pairings = [(cli, lenses[index % len(lenses)]) for index, cli in enumerate(available)]
+    # This loop iterates over PROVIDERS, so a machine with one ready provider
+    # discovered exactly one friend however many lenses were configured --
+    # and every judging mode then refused before creating a run directory.
+    # `distinct-sessions` accepts two sessions of one provider as evidence,
+    # but nothing could BUILD such a roster: only hand-written --friend flags
+    # reached it. `min_workers` is how a caller says the run needs two
+    # sessions and its policy will accept same-provider ones.
+    #
+    # Only the sole-provider case fans out. Two providers already supply two
+    # sessions, and that pair is the stronger roster -- a third session would
+    # spend a friend to weaken the average. Extra sessions take further
+    # lenses, never a repeated one: names are lens-derived and become run
+    # directory paths (ids.py), so a repeat would collide rather than
+    # disagree.
+    if len(available) == 1:
+        sole = available[0]
+        for lens in lenses[1:]:
+            if len(pairings) >= min_workers:
+                break
+            pairings.append((sole, lens))
     specs = []
-    for index, cli in enumerate(available):
+    for cli, lens in pairings:
         adapter = registry[cli]
         scope = "repo" if adapter.is_readonly else NO_READONLY_DEFAULT_SCOPE
         model, source = _selected_model(
@@ -249,9 +271,9 @@ def resolve(
         )
         specs.append(
             FriendSpec(
-                name=f"{cli}-{lenses[index % len(lenses)]}",
+                name=f"{cli}-{lens}",
                 cli=cli,
-                lens=lenses[index % len(lenses)],
+                lens=lens,
                 model=model,
                 effort=None,
                 scope=scope,

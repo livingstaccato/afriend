@@ -444,3 +444,94 @@ def test_friend_count_not_cli_count_for_degraded_mode(registry):
 
 def test_degraded_modes_constant():
     assert frozenset({"report"}) == roster.DEGRADED_MODES
+
+
+def which_only(wanted):
+    """Discovery sees exactly one installed CLI -- the shape an operator with
+    a single agent CLI actually has, and the one that could not cross-examine
+    anything."""
+
+    def which(name):
+        return f"/usr/local/bin/{name}" if name == wanted else None
+
+    return which
+
+
+def _discover(registry, *, wanted="codex", min_workers=1, lenses=None):
+    return roster.resolve(
+        registry,
+        LENSES if lenses is None else lenses,
+        NO_HTTP,
+        which_only(wanted),
+        include_self=False,
+        min_workers=min_workers,
+    )
+
+
+def test_discovery_gives_one_friend_per_provider_by_default(registry):
+    specs = _discover(registry)
+
+    assert [spec.cli for spec in specs] == ["codex"]
+
+
+def test_a_sole_provider_is_fanned_across_lenses_when_two_sessions_are_needed(registry):
+    """The gap this closes: the loop that builds the roster iterates over
+    PROVIDERS, so one ready provider produced one friend no matter how many
+    lenses were configured. Every judging mode then refused before creating a
+    run directory, and `distinct-sessions` -- a policy this CLI ships,
+    validates and documents -- could not be satisfied by the CLI's own roster
+    builder. Only hand-written `--friend` flags could reach it.
+    """
+    specs = _discover(registry, min_workers=2)
+
+    assert [spec.cli for spec in specs] == ["codex", "codex"]
+    assert [spec.lens for spec in specs] == LENSES[:2]
+    assert len({spec.name for spec in specs}) == 2
+
+
+def test_the_fanned_sessions_are_both_independent_workers(registry):
+    """Fanning out is pointless unless the result qualifies: `qualify` counts
+    workers that are independent and not host self-review."""
+    from afriend.qualification import qualify
+
+    specs = _discover(registry, min_workers=2)
+
+    assert all(spec.independent and not spec.host_self_review for spec in specs)
+    assert qualify(specs, "distinct-sessions").qualified is True
+
+
+def test_fanning_out_does_not_make_a_sole_provider_cross_provider(registry):
+    """The evidence rule is not weakened, only reachable. Two sessions of one
+    CLI share an account, a model and a failure mode; the default policy must
+    still refuse them."""
+    from afriend.qualification import qualify
+
+    result = qualify(_discover(registry, min_workers=2), "cross-provider")
+
+    assert result.qualified is False
+    assert result.reason is not None
+
+
+def test_more_than_one_provider_is_never_fanned_out(registry):
+    """Two providers already satisfy the need for two sessions, and the
+    cross-provider pair is the stronger roster. Adding a third session would
+    spend a friend to weaken the average."""
+    specs = roster.resolve(
+        registry,
+        LENSES,
+        NO_HTTP,
+        which_all,
+        include_self=False,
+        min_workers=2,
+    )
+
+    assert len(specs) == len({spec.cli for spec in specs})
+
+
+def test_a_sole_provider_with_a_single_lens_is_not_fanned_out(registry):
+    """Names are lens-derived and become run-directory paths, so a second
+    session under the same lens would collide. One lens means one session,
+    reported honestly rather than duplicated."""
+    specs = _discover(registry, min_workers=2, lenses=["security"])
+
+    assert [spec.name for spec in specs] == ["codex-security"]
