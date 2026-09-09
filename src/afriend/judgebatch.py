@@ -57,6 +57,80 @@ def persist_judging_batch(
     store.write_sensitive_atomic(path, json.dumps(data, sort_keys=True))
 
 
+def durable_batch_claim_ids(store: RunStore, round_no: int, spec: FriendSpec) -> frozenset[str]:
+    """Claim ids this judge's persisted batch actually records a vote on.
+
+    Empty when there is no version-2 batch at all -- a missing audit file, or
+    the version-1 shape rounds.py writes for a friend result that carried no
+    judging batch.
+
+    Deliberately cheap and non-raising: this is corroboration for the
+    ledger, asked before the expensive reconstruction in
+    `recover_judging_batch`, and a malformed audit here must read as "no
+    corroboration" rather than as an error about a file the caller may never
+    have needed.
+    """
+    path = store.friend_audit_path(round_no, spec.name)
+    if not store.owned_regular_exists(path):
+        return frozenset()
+    try:
+        payload = store.read_owned_bytes(path, max_bytes=MAX_JSON_FILE_BYTES)
+        data = decode_json_object(payload, path=path, label="persisted friend audit")
+    except (UsageError, OSError):
+        return frozenset()
+    if data.get("version") != 2:
+        return frozenset()
+    judging = data.get("judging")
+    if type(judging) is not dict or judging.get("complete") is not True:
+        return frozenset()
+    if judging.get("judge") != friend_key(spec):
+        return frozenset()
+    raw_verdicts = judging.get("verdicts")
+    if type(raw_verdicts) is not list:
+        return frozenset()
+    return frozenset(
+        raw["claim_id"]
+        for raw in raw_verdicts
+        if type(raw) is dict and type(raw.get("claim_id")) is str
+    )
+
+
+def require_corroborated_verdicts(
+    store: RunStore, round_no: int, spec: FriendSpec, durable_claim_ids: Sequence[str]
+) -> None:
+    """Refuse a ledger verdict that no persisted batch stands behind.
+
+    Everything else a resume reads is treated as hostile input -- schema
+    version, roster roles, security grants, quorum, snapshot identity and
+    checkpoint counters are each validated or refused. claims.jsonl was the
+    exception, and it was the input deciding whether work happens: a judge is
+    given only the claims with no durable verdict, so forged verdicts for
+    every contested claim left that slice empty, the judge undispatched, and
+    the forgeries carried into the report as votes a friend had cast.
+
+    Corroboration rather than authentication, because there is no secret here
+    to authenticate with. A durable verdict may suppress dispatch only if the
+    judge's own version-2 batch records a vote on that claim, and that batch
+    binds the judge, the round, the prompt bytes and the parsed capture by
+    digest. crossexam writes it BEFORE its first ledger append, so a ledger
+    verdict with no batch behind it is not a state any real run reaches.
+
+    Refused rather than re-dispatched: the ledger is append-only, so a second
+    vote on an identity it already holds would leave two verdicts that later
+    resumes read as a conflict -- trading a silent suppression for a run that
+    cannot be recovered at all.
+    """
+    missing = sorted(set(durable_claim_ids) - durable_batch_claim_ids(store, round_no, spec))
+    if not missing:
+        return
+    raise UsageError(
+        f"cannot recover judging: the ledger records verdicts from {spec.name} in round "
+        f"{round_no} on {', '.join(missing)}, but that judge has no persisted batch "
+        "recording them. claims.jsonl is not authenticated, so it cannot be the only "
+        "evidence a judge already voted. Start a new run."
+    )
+
+
 def recover_judging_batch(
     store: RunStore,
     round_no: int,

@@ -134,6 +134,20 @@ MUTATIONS = [
         "    elif outcome.failure_reason is not None and provider_error and not diagnostics:",
         ["tests/test_round_audit.py", "tests/test_provider_error.py", "tests/test_quota_wiring.py"],
     ),
+    (
+        "ledger: an uncorroborated verdict may still suppress a judge",
+        "src/afriend/judgebatch.py",
+        "    if not missing:\n        return",
+        "    if not missing or True:\n        return",
+        ["tests/test_ledger_forgery.py"],
+    ),
+    (
+        "ledger: corroboration accepts a batch from any judge",
+        "src/afriend/judgebatch.py",
+        '    if judging.get("judge") != friend_key(spec):\n        return frozenset()',
+        '    if judging.get("judge") is None:\n        return frozenset()',
+        ["tests/test_ledger_forgery.py", "tests/test_judging_recovery.py"],
+    ),
 ]
 
 

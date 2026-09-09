@@ -26,7 +26,12 @@ from ..ceilings import BUDGET_EXHAUSTED, Budget, within_deadline
 from ..dispatch import argv_size_warning
 from ..errors import UsageError
 from ..failures import RepeatTracker
-from ..judgebatch import RecoveredJudgeBatch, persist_judging_batch, recover_judging_batch
+from ..judgebatch import (
+    RecoveredJudgeBatch,
+    persist_judging_batch,
+    recover_judging_batch,
+    require_corroborated_verdicts,
+)
 from ..judgeprompt import build_judge_prompt
 from ..ledger import Claim, Verdict
 from ..progress import Progress
@@ -275,6 +280,19 @@ def run_rounds(
                 if full_note:
                     prompt_downgrades_for.setdefault(spec.name, []).append(full_note)
                 continue
+            # No captured batch, so the ledger is the only thing claiming
+            # this judge already voted -- and claims.jsonl is not
+            # authenticated. See `require_corroborated_verdicts`.
+            require_corroborated_verdicts(
+                store,
+                round_no,
+                spec,
+                [
+                    claim.id
+                    for claim in full_slice
+                    if (claim.id, judge, round_no) in durable_verdicts
+                ],
+            )
             slice_ = [
                 claim for claim in full_slice if (claim.id, judge, round_no) not in durable_verdicts
             ]

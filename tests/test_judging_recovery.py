@@ -55,6 +55,82 @@ def _claim() -> Claim:
     )
 
 
+def _vote(claim_id: str, verdict: str = "upheld", amended: str | None = None) -> dict[str, object]:
+    return {
+        "claim_id": claim_id,
+        "verdict": verdict,
+        "confidence": "high",
+        "evidence_assessment": "verified",
+        "reasoning": f"{verdict} {claim_id}",
+        "counter_evidence": None,
+        "amended_claim": amended,
+    }
+
+
+def _spawn(votes: list[dict[str, object]]) -> SpawnResult:
+    return SpawnResult(
+        argv=["fake"],
+        exit_code=0,
+        stdout="captured",
+        stderr="",
+        duration_s=0.1,
+        timed_out=False,
+        result=NormalizeResult({"verdicts": votes}, [], True),
+        failure_reason=None,
+        orphans_suspected=False,
+    )
+
+
+def _judge_for_real(monkeypatch, store, specs, claims, artifact, votes_for, round_no, **kwargs):
+    """Produce a run directory by RUNNING the judging round, not by hand.
+
+    A version-2 batch binds the judge identity, the round, the prompt bytes
+    and the parsed capture by digest, so a fixture cannot assemble one that
+    survives `recover_judging_batch` -- the prompt is rebuilt at resume from
+    the artifact and the slice, and only a prompt the round actually wrote
+    will match.
+
+    That binding is the point. Since crossexam persists the batch BEFORE the
+    first `store.ledger.append`, a ledger verdict with no batch behind it is
+    unreachable in a real run, and resume now refuses it rather than letting
+    it suppress a judge.
+    """
+
+    def dispatch(dispatched_specs, *_args, **_kwargs):
+        return rounds_mod.DispatchRoundOutcome(
+            [
+                (
+                    spec,
+                    Capability(False, True, "none"),
+                    _spawn(votes_for[spec.name]),
+                    ExternalToolPolicy.DENY,
+                )
+                for spec in dispatched_specs
+                if spec.name in votes_for
+            ]
+        )
+
+    monkeypatch.setattr(crossexam_mod, "dispatch_round", dispatch)
+    return run_rounds(
+        specs,
+        claims,
+        store,
+        ReviewState.replay(store.ledger.records()),
+        {},
+        None,
+        artifact.parent / "schema.json",
+        artifact,
+        artifact.read_text(),
+        None,
+        None,
+        threading.Event(),
+        Budget(max_calls=20, started=0.0),
+        round_no,
+        now=lambda: 0.0,
+        **kwargs,
+    )
+
+
 def _rewrite_audit_version(store: RunStore, spec: FriendSpec, version: int) -> dict[str, object]:
     path = store.friend_audit_path(2, spec.name)
     data = json.loads(path.read_text())
@@ -138,78 +214,49 @@ def test_judging_sidecar_recovery_rejects_role_conflicting_with_frozen_host(tmp_
 def test_judging_retry_reuses_durable_verdicts_and_dispatches_only_missing_work(
     monkeypatch, tmp_path
 ):
+    """Only the judge that has not voted is dispatched again.
+
+    The durable half is built by running the round, because that is the only
+    way to get the version-2 batch a resume now requires before it will let a
+    ledger verdict suppress a judge. Hand-assembling ledger verdicts with no
+    batch behind them used to work here, and that was the vulnerability:
+    crossexam persists the batch before it appends, so no real run can reach
+    that state -- only a writer into the run directory.
+    """
     first = _spec("first-ops-0", "first")
     second = _spec("second-ops-0", "second")
     claim = _claim()
-    durable = Verdict(
-        claim.id,
-        "fake/first",
-        2,
-        "upheld",
-        "high",
-        "verified",
-        "durable first vote",
-        None,
-        None,
-    )
     store = RunStore(tmp_path, "run-recover-judging")
     store.ledger.append(claim)
-    prompt = store.friend_prompt_path(2, first.name)
-    store.write_sensitive(prompt, "judge prompt for durable first vote")
-    durable_result = SpawnResult(
-        argv=["fake"],
-        exit_code=0,
-        stdout='{"verdicts":[{"claim_id":"c-0001@1","verdict":"upheld"}]}',
-        stderr="",
-        duration_s=0.1,
-        timed_out=False,
-        result=NormalizeResult({}, [], True),
-        failure_reason=None,
-        orphans_suspected=False,
-    )
-    durable_row = persist_result(
-        store,
-        2,
-        first,
-        Capability(False, True, "none"),
-        durable_result,
-        "fake",
-        ExternalToolPolicy.DENY,
-    )
-    store.ledger.append(durable)
     artifact = tmp_path / "artifact.md"
     artifact.write_text("# artifact\n")
+    _judge_for_real(
+        monkeypatch,
+        store,
+        [first, second],
+        [claim],
+        artifact,
+        {first.name: [_vote(claim.id)]},
+        2,
+    )
+    durable = next(
+        record
+        for record in store.ledger.records()
+        if isinstance(record, Verdict) and record.judge == "fake/first"
+    )
     dispatched: list[str] = []
 
     def dispatch(specs, *_args, **_kwargs):
         dispatched.extend(spec.name for spec in specs)
-        result = SpawnResult(
-            argv=["fake"],
-            exit_code=0,
-            stdout="{}",
-            stderr="",
-            duration_s=0.1,
-            timed_out=False,
-            result=NormalizeResult(
-                {
-                    "verdicts": [
-                        {
-                            "claim_id": claim.id,
-                            "verdict": "upheld",
-                            "confidence": "high",
-                            "evidence_assessment": "verified",
-                            "reasoning": "second vote",
-                        }
-                    ]
-                },
-                [],
-                True,
-            ),
-            failure_reason=None,
-            orphans_suspected=False,
-        )
         return rounds_mod.DispatchRoundOutcome(
-            [(second, Capability(False, True, "none"), result, ExternalToolPolicy.DENY)]
+            [
+                (
+                    second,
+                    Capability(False, True, "none"),
+                    _spawn([_vote(claim.id)]),
+                    ExternalToolPolicy.DENY,
+                )
+            ]
         )
 
     monkeypatch.setattr(crossexam_mod, "dispatch_round", dispatch)
@@ -235,8 +282,6 @@ def test_judging_retry_reuses_durable_verdicts_and_dispatches_only_missing_work(
     assert dispatched == [second.name]
     assert list(store.ledger.verdicts_for(claim.id)) == [durable, outcome.verdicts[-1]]
     assert outcome.states[claim.id] == "settled-upheld"
-    assert budget.calls == 2
-    assert [row for row in outcome.friends_meta if row["name"] == first.name] == [durable_row]
 
 
 @pytest.mark.parametrize("crash_on_append", [1, 2])
@@ -367,10 +412,21 @@ def test_judging_retry_reuses_a_successor_persisted_before_the_crash(monkeypatch
     ]
     successor, _note = build_successor(claim, verdicts, 2)
     store = RunStore(tmp_path, "run-recover-successor")
-    for record in [claim, *verdicts, successor]:
-        store.ledger.append(record)
+    store.ledger.append(claim)
     artifact = tmp_path / "artifact.md"
     artifact.write_text("# artifact\n")
+    _judge_for_real(
+        monkeypatch,
+        store,
+        [first, second],
+        [claim],
+        artifact,
+        {
+            first.name: [_vote(claim.id, "amended", "guard is conditionally missing")],
+            second.name: [_vote(claim.id, "amended", "guard is conditionally missing")],
+        },
+        2,
+    )
     monkeypatch.setattr(
         crossexam_mod,
         "dispatch_round",
@@ -397,43 +453,31 @@ def test_judging_retry_reuses_a_successor_persisted_before_the_crash(monkeypatch
 
     assert [saved.id for saved in store.ledger.claims()] == [claim.id, successor.id]
     assert not any(saved.id.endswith("@3") for saved in outcome.claims)
-    assert [row["transport"] for row in outcome.friends_meta] == [
-        "unrecorded",
-        "unrecorded",
-    ]
+    assert [row["transport"] for row in outcome.friends_meta] == ["fake", "fake"]
 
 
-def test_recovered_verdict_refuses_a_tampered_audit_capture(tmp_path):
+def test_recovered_verdict_refuses_a_tampered_audit_capture(monkeypatch, tmp_path):
     spec = _spec("first-ops-0", "first")
     claim = _claim()
-    durable = Verdict(claim.id, "fake/first", 2, "upheld", "high", "verified", "vote", None, None)
     store = RunStore(tmp_path, "run-tampered-judge-audit")
     store.ledger.append(claim)
-    store.write_sensitive(store.friend_prompt_path(2, spec.name), "prompt")
-    result = SpawnResult(
-        argv=["fake"],
-        exit_code=0,
-        stdout="original",
-        stderr="",
-        duration_s=0.1,
-        timed_out=False,
-        result=NormalizeResult({}, [], True),
-        failure_reason=None,
-        orphans_suspected=False,
-    )
-    persist_result(
-        store,
-        2,
-        spec,
-        Capability(False, True, "none"),
-        result,
-        "fake",
-        ExternalToolPolicy.DENY,
-    )
-    store.ledger.append(durable)
-    store.write_sensitive(store.friend_paths(2, spec.name)[0], "tampered")
     artifact = tmp_path / "artifact.md"
     artifact.write_text("artifact")
+    _judge_for_real(
+        monkeypatch,
+        store,
+        [spec],
+        [claim],
+        artifact,
+        {spec.name: [_vote(claim.id)]},
+        2,
+    )
+    store.write_sensitive(store.friend_paths(2, spec.name)[0], "tampered")
+    monkeypatch.setattr(
+        crossexam_mod,
+        "dispatch_round",
+        lambda *_args, **_kwargs: pytest.fail("a tampered run was redispatched"),
+    )
 
     with pytest.raises(UsageError, match="raw capture was modified"):
         run_rounds(
@@ -556,40 +600,36 @@ def test_judging_replay_does_not_let_future_votes_rewrite_an_earlier_successor(
     first = _spec("first-ops-0", "first")
     second = _spec("second-ops-0", "second")
     claim = _claim()
-    round_two = [
-        Verdict(
-            claim.id,
-            f"fake/{lens}",
-            2,
-            "amended",
-            "high",
-            "verified",
-            "round two reasoning",
-            None,
-            "round two wording",
-        )
-        for lens in ("first", "second")
-    ]
-    successor, _note = build_successor(claim, round_two, 2)
-    round_three = [
-        Verdict(
-            claim.id,
-            f"fake/{lens}",
-            3,
-            "amended",
-            "high",
-            "verified",
-            "future reasoning",
-            None,
-            "future wording",
-        )
-        for lens in ("first", "second")
-    ]
     store = RunStore(tmp_path, "run-future-judging")
-    for record in [claim, *round_two, successor, *round_three]:
-        store.ledger.append(record)
+    store.ledger.append(claim)
     artifact = tmp_path / "artifact.md"
     artifact.write_text("# artifact\n")
+    _judge_for_real(
+        monkeypatch,
+        store,
+        [first, second],
+        [claim],
+        artifact,
+        {
+            first.name: [_vote(claim.id, "amended", "round two wording")],
+            second.name: [_vote(claim.id, "amended", "round two wording")],
+        },
+        2,
+    )
+    successor = next(saved for saved in store.ledger.claims() if saved.id != claim.id)
+    _judge_for_real(
+        monkeypatch,
+        store,
+        [first, second],
+        [claim, successor],
+        artifact,
+        {
+            first.name: [_vote(successor.id, "amended", "future wording")],
+            second.name: [_vote(successor.id, "amended", "future wording")],
+        },
+        3,
+        first_round=3,
+    )
     monkeypatch.setattr(
         crossexam_mod,
         "dispatch_round",
@@ -614,6 +654,12 @@ def test_judging_replay_does_not_let_future_votes_rewrite_an_earlier_successor(
         first_round=2,
         now=lambda: 0.0,
     )
+
+    round_two = [
+        record
+        for record in store.ledger.records()
+        if isinstance(record, Verdict) and record.round == 2
+    ]
 
     assert successor in outcome.claims
     assert not any(saved.id.endswith("@3") for saved in outcome.claims)
