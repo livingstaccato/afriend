@@ -51,7 +51,7 @@ diagrams: ## Re-render docs/architecture/*.puml to PNG + SVG
 	plantuml -tsvg docs/architecture/*.puml
 	python3 scripts/write_diagram_manifest.py
 
-quality: lint type-check max-loc plugin-sync version-sync wheel-assets wheel-install release-distributions test ## Run all portable quality gates
+quality: lint type-check max-loc plugin-sync version-sync wheel-assets wheel-install release-distributions test mutation-probe ## Run all portable quality gates
 
 check: quality ## Alias for quality
 
