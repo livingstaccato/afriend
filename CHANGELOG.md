@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.10.0
+
+**Security.** `claims.jsonl` was the one input a resume trusted, and it was
+the input that decided whether work happens: a judge is handed only the
+claims with no durable verdict, so anyone able to write into a halted run
+directory could append forged verdicts for every contested claim and that
+judge was never dispatched -- with the forgeries carried into the report as
+votes a friend had cast. A durable verdict may now suppress dispatch only if
+the judge's own version-2 batch records a vote on that claim; that batch
+binds the judge, the round, the prompt bytes and the parsed capture by
+digest. This costs no legitimate recovery, because the batch is persisted
+before the first ledger append, and the crash window that does exist (batch
+written, appends interrupted) is unaffected. Present since before 0.9.0.
+
+**Prompts arrive on stdin.** Every shipped adapter now hands its prompt to
+the CLI over stdin rather than argv, closing the last transports where a long
+prompt could hit a single-argument size cap or leak into a process listing.
+agy needed a JSON message per line, so adapters gained `stdin_template` --
+validated at load, because a template that never names the placeholder would
+send a well-formed message containing no artifact and record a review that
+reviewed nothing.
+
+**An exhausted quota is not a broken credential.** Auth failures abort a run;
+a spent allowance now stops one friend, records a downgrade, and reports what
+else that provider offers (`afriend providers models`). A failed friend's
+audit row records what the CLI said failed rather than what it printed on the
+way there -- codex on a spent quota wrote its reason to stdout and left only
+a banner on stderr, so the row said `exit 1 (stderr: Reading prompt from
+stdin...)` and the sentence naming the reset date was readable only in the
+raw capture.
+
+**One ready provider can reach a judging run.** Discovery built one friend
+per provider, so a machine with a single ready provider could not satisfy any
+judging policy -- including `distinct-sessions`, which exists to accept two
+sessions of one provider. Discovery now fans a sole worker across further
+lenses under that policy, and the refusal names the flag rather than leaving
+it to be discovered. A quorum drawn from one provider is recorded as a
+downgrade: those sessions share an account, a model and a failure mode.
+
+**`/areview`** is a slash-command alias for the `afriend:review` skill.
+
+Also fixed: a stream that emitted anything after its terminal event hid that
+event and cost the full `--print-timeout` (7-12 minutes per hung friend);
+model listings ran with the parent's whole environment and an inherited
+stdin, bypassing the `env.pass` filtering every dispatched friend goes
+through; quota downgrades were reported once per round rather than once; and
+`make quality` now runs a mutation probe that can actually fail.
+
 ## 0.9.0
 
 Every legacy compatibility path is gone. Each one was a second definition of
