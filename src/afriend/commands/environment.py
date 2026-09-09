@@ -300,6 +300,23 @@ def freeze_revision(
 CLOCK_OFFSET_VAR = "AF_CLOCK_OFFSET_S"
 
 
+def extend_unique(downgrades: list[str], notes: list[str]) -> None:
+    """Append notes that are not already recorded, preserving order.
+
+    A downgrade describes a fact about the run, not an event count. The same
+    friend exhausting the same allowance in round 1 and again in round 2 is
+    one fact, and the report printed it twice per friend per iteration --
+    `loop` mode over three rounds turned one exhausted provider into six
+    identical paragraphs. The skipped-friend path already guarded this with
+    an `announced` set; this is that rule for every note that reaches a run.
+    """
+    seen = set(downgrades)
+    for note in notes:
+        if note not in seen:
+            seen.add(note)
+            downgrades.append(note)
+
+
 def clock_offset(downgrades: list[str]) -> float:
     """Seconds to add to every clock reading this run takes.
 

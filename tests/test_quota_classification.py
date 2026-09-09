@@ -110,3 +110,32 @@ def test_a_long_model_list_is_summarized_rather_than_dumped():
 
     assert "and 7 more" in note
     assert "m11" not in note
+
+
+def test_one_exhausted_provider_is_reported_once_however_many_rounds_it_fails_in():
+    """Observed in a real crossexam: both codex friends ran out of allowance
+    in round 1 and again in round 2, and the report's Downgrades section
+    carried each sentence twice. A downgrade states a fact about the run --
+    this friend reviewed nothing -- not a count of the rounds in which it
+    held, and `loop` mode multiplies the repetition by iterations."""
+    from afriend.commands.environment import extend_unique
+
+    note = "codex-ops-0 exhausted its provider quota and reviewed nothing this round."
+    downgrades: list[str] = []
+
+    extend_unique(downgrades, [note])
+    extend_unique(downgrades, [note])
+
+    assert downgrades == [note]
+
+
+def test_deduplication_keeps_the_order_notes_arrived_in():
+    """A report reads chronologically: the roster decisions before the
+    failures that followed them."""
+    from afriend.commands.environment import extend_unique
+
+    downgrades: list[str] = []
+    extend_unique(downgrades, ["first", "second"])
+    extend_unique(downgrades, ["second", "third"])
+
+    assert downgrades == ["first", "second", "third"]

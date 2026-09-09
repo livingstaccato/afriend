@@ -161,3 +161,85 @@ def test_the_shipped_markers_match_the_captured_message(name):
     assert adapter.quota.declared() is True
     assert classify(_failure(provider_error=QUOTA_TEXT), adapter) == QUOTA
     assert classify(_failure(stderr="401 Unauthorized"), adapter) == AUTH
+
+
+def test_the_full_text_pointer_names_the_file_that_holds_it(tmp_path):
+    """Confirmed against a real run, not argued.
+
+    A provider error is extracted from the CLI's structured STDOUT, so it
+    lands in the .raw capture. The status pointed at the .err file, which in
+    that run held `Reading prompt from stdin...` and an unrelated
+    skills-extension error -- the quota sentence, and the reset date, were
+    not in it. The misdirection this branch exists to end, one file along.
+    """
+    outcome = _failure(provider_error=QUOTA_TEXT, stderr="Reading prompt from stdin...")
+    store = RunStore(tmp_path, "run-pointer")
+    store.lock()
+
+    status = rounds_mod.persist_result(
+        store,
+        1,
+        _spec("codex-ops-0", "codex"),
+        Capability(False, True, "none"),
+        outcome,
+        "exec",
+        ExternalToolPolicy.DENY,
+    )["status"]
+
+    assert "round-1/codex-ops-0.raw" in status
+    assert "round-1/codex-ops-0.err" not in status
+
+
+def test_a_stderr_only_failure_still_points_at_the_stderr_capture(tmp_path):
+    """The other branch must not follow it: an ordinary failure's diagnosis
+    really is in .err."""
+    store = RunStore(tmp_path, "run-pointer-2")
+    store.lock()
+
+    status = rounds_mod.persist_result(
+        store,
+        1,
+        _spec("codex-ops-0", "codex"),
+        Capability(False, True, "none"),
+        _failure(stderr="something broke"),
+        "exec",
+        ExternalToolPolicy.DENY,
+    )["status"]
+
+    assert "round-1/codex-ops-0.err" in status
+
+
+def test_a_round_without_a_repeat_tracker_still_classifies_its_failures(monkeypatch, tmp_path):
+    """`tracker` is optional; classification is not. Nesting the verdicts
+    inside `if tracker is not None` made a caller that passed none produce a
+    roster that shrank in silence."""
+    spec = _spec("codex-ops-0", "codex")
+    outcome = _failure(provider_error=QUOTA_TEXT)
+
+    def fake_dispatch(spec_arg, *_args, **_kwargs):
+        return spec_arg, Capability(False, True, "none"), outcome, ExternalToolPolicy.DENY
+
+    monkeypatch.setattr(rounds_mod, "_dispatch", fake_dispatch)
+    store = RunStore(tmp_path, "run-no-tracker")
+    store.lock()
+    prompt = tmp_path / "prompt.txt"
+    prompt.write_text("REVIEW THIS")
+    artifact = tmp_path / "spec.md"
+    artifact.write_text("# spec\n")
+
+    batch = rounds_mod.dispatch_round(
+        [spec],
+        1,
+        {spec.name: prompt},
+        store,
+        {"codex": load_adapters(ADAPTER_DIR)["codex"]},
+        None,
+        tmp_path / "schema.json",
+        artifact,
+        None,
+        None,
+        threading.Event(),
+        max_concurrency=1,
+    )
+
+    assert len(batch.quota_notes) == 1

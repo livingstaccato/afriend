@@ -48,6 +48,7 @@ from .critique import run_critique
 from .crossexam import run_rounds
 from .environment import (
     clock_offset,
+    extend_unique,
     freeze_revision,
     reconcile_snapshot_scope,
 )
@@ -92,12 +93,8 @@ def cmd_run(args: argparse.Namespace) -> int:
     registry = setup.registry
     fake_cmd = setup.fake_cmd
     saved_downgrades = list(getattr(args, "_resume_downgrades", []))
-    seen_downgrades: set[str] = set()
     downgrades: list[str] = []
-    for note in [*saved_downgrades, *setup.downgrades]:
-        if note not in seen_downgrades:
-            seen_downgrades.add(note)
-            downgrades.append(note)
+    extend_unique(downgrades, [*saved_downgrades, *setup.downgrades])
     extra_args = setup.extra_args
     resolved, specs = setup.resolved, setup.specs
     env_withheld = setup.env_withheld
@@ -479,7 +476,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                     resumed = step.resumed
                     all_claims = resumed.claims
                     friends_meta.extend(resumed.friends_meta)
-                    downgrades.extend(resumed.downgrades)
+                    extend_unique(downgrades, resumed.downgrades)
                     cross = resumed.cross or carry_over
                     carry_over = cross
                     # From the ledger, not from len(all_claims): canonical
@@ -544,7 +541,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 iterations_run = iteration
                 rounds_reached = max(rounds_reached, base_round)
                 friends_meta.extend(critique.friends_meta)
-                downgrades.extend(critique.downgrades)
+                extend_unique(downgrades, critique.downgrades)
                 any_success = any_success or critique.any_success
                 # The most recent fresh critique round's count, not a
                 # running total: --require-friends asks "did the review
@@ -628,7 +625,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                     carry_over = cross
                     rounds_reached = max(rounds_reached, cross.rounds_run)
                     friends_meta.extend(cross.friends_meta)
-                    downgrades.extend(cross.downgrades)
+                    extend_unique(downgrades, cross.downgrades)
                     if cross.dispatch_error is not None:
                         dispatch_error = _dispatch_error_detail(cross.dispatch_error)
                         break
@@ -668,7 +665,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 budget.spend(halt.calls)
                 rounds_reached = max(rounds_reached, base_round)
                 friends_meta.extend(halt.friends_meta)
-                downgrades.extend(halt.downgrades)
+                extend_unique(downgrades, halt.downgrades)
                 successful_friend_ids = list(halt.successful_friend_ids)
                 theme_proposals.extend(halt.theme_proposals)
                 produced_new_themes = halt.produced_new_themes

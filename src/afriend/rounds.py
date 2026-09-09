@@ -471,28 +471,30 @@ def dispatch_round(
 
     auth_abort: str | None = None
     quota_notes: list[str] = []
-    if tracker is not None:
-        for spec, _capability, outcome, _policy in results:
+    for spec, _capability, outcome, _policy in results:
+        # Repeat tracking is optional; classifying a failure is not. Nesting
+        # the verdicts under `tracker is not None` made a caller that passed
+        # no tracker silently produce no quota notes and no auth abort -- a
+        # roster that shrank without saying so, which is the outcome this
+        # whole path exists to prevent.
+        if tracker is not None:
             tracker.record(spec.name, outcome)
-            # §7.2: an auth failure is deterministic, so every remaining
-            # round and iteration would fail identically -- the caller
-            # should stop scheduling more of them. Every result in this
-            # round is still recorded and returned, though: this loop used
-            # to `raise` on the first AUTH hit, which both discarded every
-            # OTHER friend's result in this round and skipped `tracker
-            # .record` for every spec after it in iteration order. Only the
-            # first auth message is kept -- one is enough to tell the
-            # operator what to fix. Raised only on a DECLARED marker -- an
-            # unrecognised failure is never guessed into an abort, because
-            # a false auth classification ends the whole run.
-            adapter = registry.get(spec.cli)
-            verdict = classify(outcome, adapter)
-            if auth_abort is None and spec.independent and verdict == AUTH:
-                auth_abort = auth_abort_message(spec.name, adapter)
-            elif verdict == QUOTA:
-                quota_notes.append(
-                    quota_downgrade(spec.name, adapter, _quota_alternatives(adapter))
-                )
+        # §7.2: an auth failure is deterministic, so every remaining round
+        # and iteration would fail identically -- the caller should stop
+        # scheduling more of them. Every result in this round is still
+        # recorded and returned, though: this loop used to `raise` on the
+        # first AUTH hit, which both discarded every OTHER friend's result
+        # in this round and skipped `tracker.record` for every spec after it
+        # in iteration order. Only the first auth message is kept -- one is
+        # enough to tell the operator what to fix. Raised only on a DECLARED
+        # marker -- an unrecognised failure is never guessed into an abort,
+        # because a false auth classification ends the whole run.
+        adapter = registry.get(spec.cli)
+        verdict = classify(outcome, adapter)
+        if auth_abort is None and spec.independent and verdict == AUTH:
+            auth_abort = auth_abort_message(spec.name, adapter)
+        elif verdict == QUOTA:
+            quota_notes.append(quota_downgrade(spec.name, adapter, _quota_alternatives(adapter)))
     return DispatchRoundOutcome(results, auth_abort, round_error, tuple(quota_notes))
 
 
@@ -560,6 +562,12 @@ def persist_result(
 
     diagnostics = _stderr_tail(outcome.stderr) if outcome.stderr.strip() else ""
     diagnostics_path = f"round-{round_no}/{spec.name}.err"
+    # A provider error is extracted from the CLI's structured STDOUT, so its
+    # full text is in the raw capture. Pointing at the .err file sent a reader
+    # after the codex quota message to a file holding "Reading prompt from
+    # stdin..." and nothing else -- the same misdirection this branch was
+    # written to end, one file further along.
+    provider_path = f"round-{round_no}/{spec.name}.raw"
     failure_reason = failure_summary(outcome.failure_reason) if outcome.failure_reason else None
     status = "ok" if failure_reason is None else f"failed: {failure_reason or 'unusable output'}"
     # What the CLI said beats what it printed on the way there. codex on a
@@ -571,7 +579,7 @@ def persist_result(
     if outcome.failure_reason is None and diagnostics:
         status += f" (diagnostics: {diagnostics}; full text in {diagnostics_path})"
     elif outcome.failure_reason is not None and provider_error:
-        status += f" (provider: {provider_error}; full text in {diagnostics_path})"
+        status += f" (provider: {provider_error}; full text in {provider_path})"
     elif outcome.failure_reason is not None and diagnostics:
         status += f" (stderr: {diagnostics}; full text in {diagnostics_path})"
     if outcome.orphans_suspected:
