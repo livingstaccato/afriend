@@ -1,4 +1,4 @@
-"""Migration coverage for run.json files written by afriend 0.2.0."""
+"""Validation coverage for run.json at the one schema this version reads."""
 
 import copy
 import json
@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from runmeta_helpers import _resume_args, _resume_meta, _run_dir, load_fixture
+from runmeta_helpers import _resume_args, _resume_meta, _run_dir
 
 from afriend.adapters import FriendSpec
 from afriend.authority import DENY_ALL
@@ -15,168 +15,47 @@ from afriend.commands.runmeta import (
     CURRENT_SCHEMA_VERSION,
     _base_meta,
     _validated_roster_entries,
-    migrate_meta,
     validate_run_args,
+    validated_meta,
 )
 from afriend.errors import UsageError
-from afriend.ledger import Claim, Ledger
+from afriend.ledger import Ledger
 from afriend.snapshots import SnapshotIdentity
 
 
-def test_v020_terminal_meta_is_readable_and_marks_unknowns():
-    migrated = migrate_meta(load_fixture("run_meta_v020_terminal.json"))
+@pytest.mark.parametrize("version", [True, False, "4", 0, -1, 1, 2, 3, 5, None])
+def test_any_version_but_the_current_one_is_refused(version):
+    """One schema. Older versions are refused rather than upgraded on read.
 
-    assert migrated["schema_version"] == CURRENT_SCHEMA_VERSION == 4
-    assert migrated["external_tool_policy"] == "legacy-unknown"
-    assert migrated["started_at"] is None
-    assert migrated["finished_at"] is None
-    assert migrated["duration_s"] is None
-    assert migrated["exit_code"] is None
-    assert migrated["stop_reason"] is None
-
-
-def test_v020_halt_preserves_budget_tracker_and_snapshot():
-    raw = load_fixture("run_meta_v020_halted.json")
-
-    migrated = migrate_meta(raw)
-
-    assert migrated["attempted_calls"] == migrated["spent_calls"] == 4
-    assert migrated["repeat_tracker"]["disabled"]
-    assert migrated["snapshot"]["commit"] == migrated["snapshot_sha"]
-    assert migrated["snapshot_history"] == [migrated["snapshot"]]
-    assert migrated["external_tool_policy"] == "legacy-unknown"
+    Every migration path was a second definition of what a run is, with its
+    own defaults and reconstructions, and that is where the defects lived: a
+    policy filled from the wrong default, a verdict synthesized from a roster
+    whose host role was not yet known. Refusing is recoverable -- the run
+    directory stays readable as plain text.
+    """
+    with pytest.raises(UsageError, match="is not readable by this version"):
+        validated_meta({"schema_version": version})
 
 
-@pytest.mark.parametrize("version", [True, False, "2", 0, -1, 5])
-def test_invalid_or_unsupported_schema_versions_are_refused(version):
-    with pytest.raises(UsageError, match=rf"unsupported run metadata schema {version!r}"):
-        migrate_meta({"schema_version": version})
+def test_the_current_version_is_accepted():
+    assert validated_meta({"schema_version": CURRENT_SCHEMA_VERSION})["schema_version"] == (
+        CURRENT_SCHEMA_VERSION
+    )
 
 
-@pytest.mark.parametrize("version", [1, 2, 3, 4])
-def test_migration_always_returns_a_deep_copy(version):
+def test_validation_always_returns_a_deep_copy():
     raw = {
-        "schema_version": version,
+        "schema_version": CURRENT_SCHEMA_VERSION,
         "invocation": {"friend": ["fake:ops"]},
         "snapshot": {"artifact_path": "artifact/spec.md"},
     }
     before = copy.deepcopy(raw)
 
-    migrated = migrate_meta(raw)
+    migrated = validated_meta(raw)
     migrated["invocation"]["friend"].append("fake:security")
     migrated["snapshot"]["artifact_path"] = "changed"
 
     assert raw == before
-
-
-def test_legacy_existing_values_are_preserved_instead_of_reconstructed():
-    raw = load_fixture("run_meta_v020_terminal.json")
-    raw.update(
-        {
-            "started_at": "recorded-start",
-            "finished_at": None,
-            "exit_code": 17,
-            "external_tool_policy": "recorded-legacy-value",
-            "attempted_calls": 9,
-            "spent_calls": 4,
-            "repeat_tracker": {"last": {}, "count": {}, "disabled": {}},
-        }
-    )
-
-    migrated = migrate_meta(raw)
-
-    for field in (
-        "started_at",
-        "finished_at",
-        "exit_code",
-        "external_tool_policy",
-        "attempted_calls",
-        "spent_calls",
-        "repeat_tracker",
-    ):
-        assert migrated[field] == raw[field]
-
-
-def test_an_existing_snapshot_and_history_are_never_replaced():
-    raw = load_fixture("run_meta_v020_halted.json")
-    existing = {
-        "repo_root": None,
-        "commit": None,
-        "tree": None,
-        "artifact_path": "artifact/existing.md",
-        "artifact_hash": "sha256:" + "3" * 64,
-        "predecessor": None,
-    }
-    raw["snapshot"] = existing
-    raw["snapshot_history"] = [existing, {**existing, "predecessor": existing["artifact_hash"]}]
-
-    migrated = migrate_meta(raw)
-
-    assert migrated["snapshot"] == raw["snapshot"]
-    assert migrated["snapshot_history"] == raw["snapshot_history"]
-
-
-def test_migration_synthesizes_snapshot_only_from_v020_compatibility_keys():
-    raw = load_fixture("run_meta_v020_halted.json")
-
-    snapshot = migrate_meta(raw)["snapshot"]
-
-    assert snapshot == {
-        "repo_root": raw["repo_root"],
-        "commit": raw["snapshot_sha"],
-        "tree": None,
-        "artifact_path": raw["artifact_path"],
-        "artifact_hash": raw["artifact_hash"],
-        "predecessor": None,
-        "source_path": None,
-    }
-
-
-def test_a_legacy_authority_grant_remains_audit_data():
-    migrated = migrate_meta(load_fixture("run_meta_v020_halted.json"))
-
-    assert migrated["invocation"]["allow_unsandboxed_friend"] is True
-    assert migrated["invocation"]["i_accept_unsandboxed"] is True
-    assert migrated["invocation"]["unsafe_extra_args"] == "--legacy-option"
-    assert migrated["invocation"]["pass_env"] == ["LEGACY_TOKEN"]
-    assert migrated["external_tool_policy"] == "legacy-unknown"
-    assert migrated["external_tool_grants"] == []
-
-
-def test_legacy_external_tool_allow_migrates_to_global_audit_grant():
-    raw = load_fixture("run_meta_v020_halted.json")
-    raw["invocation"]["allow_external_tools"] = True
-
-    migrated = migrate_meta(raw)
-
-    assert migrated["external_tool_grants"] == ["*"]
-    assert migrated["invocation"]["allow_external_tools"] == ["*"]
-
-
-def test_legacy_denial_migrates_to_an_empty_audit_grant_set():
-    raw = load_fixture("run_meta_v020_terminal.json")
-    raw["invocation"]["allow_external_tools"] = False
-
-    migrated = migrate_meta(raw)
-
-    assert migrated["external_tool_grants"] == []
-
-
-def test_old_possible_host_roster_rows_default_to_non_independent_unknown_role():
-    entry = {
-        "name": "codex-ops",
-        "cli": "codex",
-        "lens": "ops",
-        "model": None,
-        "effort": None,
-        "scope": "doc",
-        "timeout": 30,
-    }
-
-    restored = FriendSpec(**_validated_roster_entries([entry])[0])
-
-    assert restored.independent is False
-    assert restored.host_self_review is False
 
 
 def test_saved_roster_preserves_host_role_audit_fields():
@@ -318,7 +197,7 @@ def test_resume_rejects_explicit_repo_before_restoring_saved_arguments():
         validate_run_args(args)
 
 
-def _legacy_host_resume_meta(mode: str, *, frozen_host: bool) -> dict[str, object]:
+def _host_resume_meta(mode: str, *, frozen_host: bool) -> dict[str, object]:
     meta = _resume_meta()
     meta["repo_root"] = None
     meta["snapshot_sha"] = None
@@ -370,49 +249,6 @@ def _legacy_host_resume_meta(mode: str, *, frozen_host: bool) -> dict[str, objec
         meta["detected_host"] = "codex"
         meta["effective_include_self"] = True
     return meta
-
-
-def _legacy_judging_meta(mode: str) -> dict[str, object]:
-    meta = _legacy_host_resume_meta(mode, frozen_host=True)
-    meta["invocation"]["max_rounds"] = 3
-    meta["roster"].append(
-        {
-            "name": "fake-author",
-            "cli": "fake",
-            "lens": "author",
-            "model": None,
-            "effort": None,
-            "scope": "doc",
-            "timeout": 900,
-        }
-    )
-    meta["friends"].append(
-        {
-            "name": "fake-author",
-            "model": None,
-            "effort": None,
-            "round": 1,
-            "status": "ok",
-        }
-    )
-    return meta
-
-
-def _legacy_claim() -> Claim:
-    return Claim(
-        id="c-0001@1",
-        supersedes=None,
-        origin=["fake/author"],
-        lens="author",
-        round=1,
-        advisory=False,
-        severity="high",
-        claim="unsafe default",
-        location="src/app.py:1",
-        evidence="the guard is absent",
-        failure_scenario="the operation proceeds",
-        suggested_fix="add the guard",
-    )
 
 
 def _append_ledger(run_dir: Path, *records: object) -> None:
@@ -630,7 +466,7 @@ def test_current_schema_requires_waiting_lifecycle_before_namespace(
 ):
     from afriend.commands import runmeta
 
-    meta = migrate_meta(_resume_meta())
+    meta = validated_meta(_resume_meta())
     if lifecycle is None:
         meta.pop("lifecycle_state", None)
     else:
@@ -642,27 +478,6 @@ def test_current_schema_requires_waiting_lifecycle_before_namespace(
 
     monkeypatch.setattr(runmeta.argparse, "Namespace", namespace_must_not_be_constructed)
     with pytest.raises(UsageError, match="waiting-for-orchestrator"):
-        runmeta._restore_args(_resume_args(run_dir))
-
-
-@pytest.mark.parametrize("request_data", [None, {}, {"question": "unknown"}])
-def test_legacy_resume_requires_a_valid_outstanding_request_before_namespace(
-    monkeypatch, tmp_path, request_data
-):
-    from afriend.commands import runmeta
-
-    run_dir = _run_dir(tmp_path, _resume_meta())
-    request_path = run_dir / "round-1" / "REQUEST.json"
-    if request_data is None:
-        request_path.unlink()
-    else:
-        request_path.write_text(json.dumps(request_data), encoding="utf-8")
-
-    def namespace_must_not_be_constructed(**_kwargs):
-        raise AssertionError("Namespace constructed without a pending legacy halt")
-
-    monkeypatch.setattr(runmeta.argparse, "Namespace", namespace_must_not_be_constructed)
-    with pytest.raises(UsageError, match="outstanding orchestrator halt"):
         runmeta._restore_args(_resume_args(run_dir))
 
 
@@ -703,7 +518,7 @@ def test_snapshot_semantics_are_rejected_before_namespace(monkeypatch, tmp_path,
         runmeta._restore_args(_resume_args(run_dir))
 
 
-def test_migration_rejects_deep_metadata_before_copying():
+def test_deep_metadata_is_rejected_before_copying():
     raw: dict[str, object] = {}
     cursor = raw
     for _ in range(500):
@@ -712,51 +527,16 @@ def test_migration_rejects_deep_metadata_before_copying():
         cursor = child
 
     with pytest.raises(UsageError, match="metadata bound"):
-        migrate_meta(raw)
+        validated_meta(raw)
 
     assert "schema_version" not in raw
 
 
-def test_migration_rejects_wide_metadata_without_mutating_input():
+def test_wide_metadata_is_rejected_without_mutating_input():
     values = list(range(9_000))
     raw = {"wide": values}
 
     with pytest.raises(UsageError, match="metadata bound"):
-        migrate_meta(raw)
+        validated_meta(raw)
 
     assert raw == {"wide": values}
-
-
-def test_v020_security_grants_must_be_reacknowledged_by_the_current_cli(tmp_path):
-    from afriend.commands.runmeta import _restore_args
-
-    run_dir = _run_dir(tmp_path, load_fixture("run_meta_v020_halted.json"))
-
-    with pytest.raises(UsageError, match="allow-unsandboxed-friend"):
-        _restore_args(_resume_args(run_dir))
-
-
-def test_sparse_legacy_snapshot_history_is_validated_before_namespace(monkeypatch, tmp_path):
-    from afriend.commands import runmeta
-
-    meta = {
-        "invocation": {"artifact": "spec.md", "friend": []},
-        "roster": [],
-        "snapshot": {
-            "repo_root": None,
-            "commit": None,
-            "tree": None,
-            "artifact_path": "artifact/spec.md",
-            "artifact_hash": "sha256:" + "1" * 64,
-            "predecessor": None,
-        },
-        "snapshot_history": [{"repo_root": []}],
-    }
-    run_dir = _run_dir(tmp_path, meta)
-
-    def namespace_must_not_be_constructed(**_kwargs):
-        raise AssertionError("Namespace constructed before snapshot_history validation")
-
-    monkeypatch.setattr(runmeta.argparse, "Namespace", namespace_must_not_be_constructed)
-    with pytest.raises(UsageError, match="snapshot_history"):
-        runmeta._restore_args(_resume_args(run_dir))

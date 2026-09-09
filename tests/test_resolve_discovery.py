@@ -113,7 +113,7 @@ def test_resolve_next_refuses_an_ambiguous_highest_priority_claim_without_append
     assert (run / "claims.jsonl").read_bytes() == before
 
 
-def test_resolve_list_supports_legacy_run_metadata_without_claim_states(tmp_path, capsys):
+def test_resolve_list_supports_run_metadata_without_claim_states(tmp_path, capsys):
     run, _ledger = _run(tmp_path, [_claim("c-0001@1", "medium")])
 
     assert cmd_resolve(_args(run, list_claims=True)) == 0

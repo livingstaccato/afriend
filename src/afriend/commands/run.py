@@ -187,16 +187,16 @@ def cmd_run(args: argparse.Namespace) -> int:
             history_from_meta(resume_meta, snapshot) if resume_meta is not None else [snapshot]
         )
         if resume_meta is not None:
-            # Legacy identities have no tree. Verification above derives it;
-            # keep that migration in memory until the normal halt/completion
-            # metadata write. A later read-only resume validation (ledger,
-            # response, roster, grants) may still refuse the run, and no
-            # refusal may rewrite the saved state it was asked to inspect.
-            migrated_meta = dict(resume_meta)
-            record_snapshot(migrated_meta, snapshot, snapshot_history)
-            if migrated_meta != resume_meta:
-                resume_meta = migrated_meta
-                args._resume_meta = migrated_meta
+            # Verification above resolves the identity; hold the result in
+            # memory until the normal halt/completion metadata write. A later
+            # read-only resume validation (ledger, response, roster, grants)
+            # may still refuse the run, and no refusal may rewrite the saved
+            # state it was asked to inspect.
+            verified_meta = dict(resume_meta)
+            record_snapshot(verified_meta, snapshot, snapshot_history)
+            if verified_meta != resume_meta:
+                resume_meta = verified_meta
+                args._resume_meta = verified_meta
         review = ReviewState.replay(store.ledger.records())
         review.copy_transition_warnings(downgrades)
         schema_file = schema_path(store.run_dir)
@@ -218,7 +218,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         )
         reporter.run_started(
             args.mode,
-            str(getattr(args, "profile", "legacy") or "legacy"),
+            str(getattr(args, "profile", None) or "none"),
             "repo" if any(spec.scope == "repo" for spec in specs) else "doc",
             repository_scope_mode=repository_scope_mode,
             required=resume_meta is None,
@@ -258,7 +258,6 @@ def cmd_run(args: argparse.Namespace) -> int:
                 started_at=invocation_started_at,
                 theme_proposals=theme_proposals,
                 produced_new_themes=produced_new_themes,
-                prior_external_tool_policy=(resume_meta or {}).get("external_tool_policy"),
                 detected_host=resolved.detected_host,
                 effective_include_self=resolved.effective_include_self,
                 repository_scope_mode=repository_scope_mode,

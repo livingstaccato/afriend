@@ -184,8 +184,7 @@ def test_in_repo_symlink_to_outside_records_a_complete_no_repo_identity_for_doc_
     assert meta["snapshot"]["repo_root"] is None
     assert meta["snapshot"]["commit"] is None
     assert meta["snapshot"]["tree"] is None
-    assert meta["repo_root"] is None
-    assert meta["snapshot_sha"] is None
+    assert meta["snapshot"]["commit"] is None
     assert meta["artifact_hash"] == "sha256:" + hashlib.sha256(outside.read_bytes()).hexdigest()
     assert meta["roster"][0]["scope"] == "doc"
     assert any("no repository to snapshot or read" in note for note in meta["downgrades"])
@@ -298,8 +297,7 @@ def test_loop_successor_reconciles_scope_when_symlink_retargets_outside(monkeypa
     assert successor["commit"] is None
     assert successor["tree"] is None
     assert meta["snapshot"] == successor
-    assert meta["repo_root"] is None
-    assert meta["snapshot_sha"] is None
+    assert meta["snapshot"]["commit"] is None
     assert {friend["declared_scope"] for friend in meta["friends"]} == {"doc"}
     assert {spec["scope"] for spec in meta["roster"]} == {"doc"}
     assert any("no repository to snapshot or read" in note for note in meta["downgrades"])

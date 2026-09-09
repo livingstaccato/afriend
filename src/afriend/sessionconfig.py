@@ -22,14 +22,11 @@ from .reviewprofiles import (
 )
 
 CONFIG_VERSION = 3
-_LEGACY_CONFIG_VERSIONS = frozenset({1, 2})
 DEFAULT_PROFILE = "quick"
 MAX_SESSION_CONFIG_BYTES = 256 * 1024
 REVIEW_CONTEXT_SOURCES = frozenset({"current-task", "recent-session"})
 REVIEW_CONTEXT_AMBIGUITIES = frozenset({"ask", "newest", "refuse"})
 _TOP_LEVEL_KEYS = frozenset({"version", "default_profile", "profiles", "review_context"})
-_V2_TOP_LEVEL_KEYS = frozenset({"version", "default_profile", "profiles"})
-_V1_TOP_LEVEL_KEYS = frozenset({"version", "default_profile"})
 _REVIEW_CONTEXT_KEYS = frozenset({"enabled", "sources", "automatic_combine", "ambiguity"})
 _NO_VALUE = object()
 
@@ -225,32 +222,27 @@ def load(
     version = data.get("version")
     if isinstance(version, bool) or not isinstance(version, int):
         raise _invalid(path, "version", "must be an integer", got=version)
-    expected_keys_by_version = {
-        1: _V1_TOP_LEVEL_KEYS,
-        2: _V2_TOP_LEVEL_KEYS,
-        CONFIG_VERSION: _TOP_LEVEL_KEYS,
-    }
-    if version not in expected_keys_by_version:
+    # One version, one set of keys. Accepting the earlier two meant three
+    # definitions of a valid config, and the older two were completed with
+    # silent defaults -- an empty profile map, review context off -- so a
+    # stale file did not read as stale, it read as a deliberate preference.
+    if version != CONFIG_VERSION:
         raise _invalid(
             path,
             "version",
-            f"must be one of {sorted(expected_keys_by_version)}",
+            f"must be {CONFIG_VERSION}; delete this file or rerun `afriend setup` "
+            "to write the current one",
             got=version,
         )
-    expected_keys = expected_keys_by_version[version]
-    if set(data) != expected_keys:
+    if set(data) != _TOP_LEVEL_KEYS:
         raise _invalid(
             path,
             "top-level keys",
-            f"must be exactly {sorted(expected_keys)}",
+            f"must be exactly {sorted(_TOP_LEVEL_KEYS)}",
             got=sorted(data),
         )
-    profiles = MappingProxyType({}) if version == 1 else _validated_profiles(path, data["profiles"])
-    review_context = (
-        ReviewContextConfig()
-        if version in _LEGACY_CONFIG_VERSIONS
-        else _validate_review_context(path, data["review_context"])
-    )
+    profiles = _validated_profiles(path, data["profiles"])
+    review_context = _validate_review_context(path, data["review_context"])
     all_names = known_names | set(profiles)
     return SessionConfig(
         _validate_profile(path, data["default_profile"], all_names), profiles, review_context

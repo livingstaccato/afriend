@@ -12,8 +12,8 @@ from afriend.authority import (
     PolicyError,
     enforce,
 )
-from afriend.commands.checkpoint import legacy_successful_friend_ids
 from afriend.commands.runmeta import _restore_args
+from afriend.commands.runmeta_schema import CURRENT_SCHEMA_VERSION
 from afriend.dispatch import _dispatch
 from afriend.errors import UsageError
 from afriend.normalize import NormalizeResult
@@ -167,8 +167,8 @@ def test_every_shipped_transport_explicitly_declares_authority(registry):
 
 
 def test_missing_authority_declaration_defaults_to_unknown(tmp_path):
-    (tmp_path / "legacy.toml").write_text('name = "legacy"\nbinary = "legacy"\n')
-    adapter = load_adapters(tmp_path)["legacy"]
+    (tmp_path / "bare.toml").write_text('name = "bare"\nbinary = "bare"\n')
+    adapter = load_adapters(tmp_path)["bare"]
     assert adapter.external_tools == "unknown"
     assert adapter.deny_external_tools_argv == ()
     assert adapter.external_tool_sources == ()
@@ -364,12 +364,19 @@ def _write_resume_fixture(
         "predecessor": None,
     }
     meta = {
-        "schema_version": 2,
+        "schema_version": CURRENT_SCHEMA_VERSION,
         "lifecycle_state": "waiting-for-orchestrator",
         "invocation": {"artifact": artifact, "friend": [], **invocation},
+        # The audit copy of the grants and the invocation that produced them
+        # must agree, and resume refuses the run when they do not. The current
+        # schema writes both, so a fixture states both.
+        "external_tool_grants": sorted(invocation.get("allow_external_tools") or []),
         "roster": roster or [],
         "snapshot": snapshot,
         "snapshot_history": [snapshot],
+        # Quorum is cross-checked against the friend audit rows, so a fixture
+        # states it. Tests that supply audit rows override this.
+        "successful_friend_ids": [],
     }
     (tmp_path / "spec.md").write_text("# spec\n")
     round_dir = run_dir / "round-1"
@@ -426,10 +433,13 @@ def test_saved_checkpoint_refuses_successes_outside_the_frozen_roster(tmp_path):
         _restore_args(_resume_args(run_dir))
 
 
-def test_legacy_checkpoint_derives_only_unambiguous_resume_defaults(tmp_path):
+def test_a_checkpoint_omitting_counters_resumes_at_the_documented_defaults(tmp_path):
     run_dir = _write_checkpoint_fixture(
         tmp_path,
-        {"friends": [_friend_row("fake-good-0", 1, "ok")]},
+        {
+            "friends": [_friend_row("fake-good-0", 1, "ok")],
+            "successful_friend_ids": ["fake-good-0"],
+        },
     )
 
     restored = _restore_args(_resume_args(run_dir))
@@ -456,9 +466,11 @@ def test_legacy_checkpoint_derives_only_unambiguous_resume_defaults(tmp_path):
         (("ok", "ok [orphans suspected]"), ["fake-a", "fake-b"]),
     ],
 )
-def test_legacy_success_recovery_uses_only_the_pending_critique_round(
+def test_quorum_is_cross_checked_against_the_pending_critique_round_only(
     tmp_path, pending_statuses, expected
 ):
+    """The later judging rows are successful too. If they counted, a saved
+    quorum of `expected` would be refused as disagreeing with the audit."""
     run_dir = _write_resume_fixture(
         tmp_path,
         {
@@ -485,10 +497,11 @@ def test_legacy_success_recovery_uses_only_the_pending_critique_round(
                 _friend_row("fake-b", 2, "ok"),
                 _friend_row("fake-a", 3, pending_statuses[0]),
                 _friend_row("fake-b", 3, pending_statuses[1]),
-                # A repeated, identical row is non-ambiguous legacy history
-                # and must not make a valid loop checkpoint unresumable.
+                # A repeated, identical row is unambiguous and must not make
+                # a valid loop checkpoint unresumable.
                 _friend_row("fake-a", 3, pending_statuses[0]),
             ],
+            "successful_friend_ids": list(expected),
         }
     )
     path.write_text(json.dumps(meta))
@@ -551,7 +564,7 @@ def test_malformed_saved_friend_rows_are_rejected_without_rewriting_artifacts(tm
     assert report.read_bytes() == before_report
 
 
-def test_legacy_checkpoint_rejects_conflicting_duplicate_friend_status(tmp_path):
+def test_a_checkpoint_with_conflicting_duplicate_friend_status_is_refused(tmp_path):
     run_dir = _write_checkpoint_fixture(
         tmp_path,
         {
@@ -565,44 +578,7 @@ def test_legacy_checkpoint_rejects_conflicting_duplicate_friend_status(tmp_path)
         _restore_args(_resume_args(run_dir))
 
 
-@pytest.mark.parametrize(
-    ("first_status", "second_status"),
-    [
-        ("ok", "ok [orphans suspected]"),
-        ("failed: exit 1", "failed: timeout"),
-        ("ok", "OK"),
-        ("ok", " ok"),
-        ("failed: exit 1", "FAILED: exit 1"),
-        ("failed: exit 1", "failed: exit 1 "),
-    ],
-)
-def test_legacy_success_recovery_rejects_nonidentical_duplicate_statuses(
-    first_status, second_status
-):
-    rows = [
-        _friend_row("fake-good-0", 1, first_status),
-        _friend_row("fake-good-0", 1, second_status),
-    ]
-
-    with pytest.raises(UsageError, match=r"ambiguous duplicate statuses.*fake-good-0"):
-        legacy_successful_friend_ids(rows, 1)
-
-
-@pytest.mark.parametrize(
-    ("status", "expected"),
-    [
-        ("ok", ["fake-good-0"]),
-        ("ok [orphans suspected]", ["fake-good-0"]),
-        ("failed: exit 1", []),
-    ],
-)
-def test_legacy_success_recovery_deduplicates_only_identical_statuses(status, expected):
-    row = _friend_row("fake-good-0", 1, status)
-
-    assert legacy_successful_friend_ids([row, dict(row)], 1) == expected
-
-
-def test_legacy_checkpoint_rejects_missing_pending_critique_rows(tmp_path):
+def test_a_checkpoint_missing_pending_critique_rows_is_refused(tmp_path):
     run_dir = _write_checkpoint_fixture(
         tmp_path,
         {

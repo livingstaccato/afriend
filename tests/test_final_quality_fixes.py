@@ -1,8 +1,6 @@
 """Regression tests for the final crash-boundary quality review."""
 
 import argparse
-import hashlib
-import json
 from pathlib import Path
 import threading
 
@@ -53,45 +51,36 @@ def _merge_response() -> bytes:
     return b'{"version": 1, "merges": []}'
 
 
-def test_identical_live_and_applying_without_checkpoint_recovers(tmp_path):
-    store = RunStore(tmp_path, "pre-checkpoint")
-    round_dir = store.round_dir(1)
-    orchestrator.write_request(round_dir, store.run_id, 1, [])
-    payload = _merge_response()
-    store.create_owned_bytes(round_dir / "RESPONSE.json", payload)
-    store.create_owned_bytes(round_dir / "RESPONSE.json.applying", payload)
+def test_a_post_validation_swap_of_the_live_response_is_refused(tmp_path, monkeypatch):
+    """The applied copy is written from the validated byte snapshot, so a
+    swap between validation and materialization cannot change the evidence --
+    and the mismatch is refused rather than absorbed.
 
-    _resume(store)
-
-    assert (round_dir / "RESPONSE.json.applied").read_bytes() == payload
-    assert not (round_dir / "RESPONSE.json").exists()
-    assert not (round_dir / "RESPONSE.json.applying").exists()
-    checkpoint = json.loads((store.run_dir / "run.json").read_text())
-    assert checkpoint["applied_response"]["sha256"] == (
-        "sha256:" + hashlib.sha256(payload).hexdigest()
-    )
-
-
-def test_applying_swap_is_never_promoted_to_applied(tmp_path, monkeypatch):
-    store = RunStore(tmp_path, "applying-swap")
+    This replaces a test of the same property against `RESPONSE.json.applying`,
+    a staging pathname nothing wrote. The risk it guarded was that the staged
+    file could be *selected* as the response source; removing the pathname
+    removed the risk, but the swap it modelled is still possible against the
+    live file, and that is what is checked here.
+    """
+    store = RunStore(tmp_path, "post-validation-swap")
     round_dir = store.round_dir(1)
     orchestrator.write_request(round_dir, store.run_id, 1, [])
     payload = _merge_response()
     live = round_dir / "RESPONSE.json"
-    applying = round_dir / "RESPONSE.json.applying"
     live.write_bytes(payload)
     original_checkpoint = resume_mod._checkpoint_response_preparation
 
     def swap_then_checkpoint(*args, **kwargs):
-        applying.write_bytes(b"attacker-controlled")
-        return original_checkpoint(*args, **kwargs)
+        result = original_checkpoint(*args, **kwargs)
+        live.write_bytes(b'{"version": 1, "merges": [], "extra": "attacker"}')
+        return result
 
     monkeypatch.setattr(resume_mod, "_checkpoint_response_preparation", swap_then_checkpoint)
 
-    _resume(store)
+    with pytest.raises(UsageError, match=r"live response changed after validation"):
+        _resume(store)
 
     assert (round_dir / "RESPONSE.json.applied").read_bytes() == payload
-    assert not applying.exists()
 
 
 def test_invalid_response_does_not_repair_existing_round_permissions(tmp_path):

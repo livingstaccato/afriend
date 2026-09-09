@@ -83,11 +83,11 @@ def discover_clis(
     probe: Callable[[str], bool] | None = None,
     env: Mapping[str, str] | None = None,
 ) -> list[str]:
-    """Legacy projection of the canonical readiness assessment.
+    """A wider projection of the canonical readiness assessment.
 
     Reachable HTTP providers without a model remain visible here because
-    `afriend init` historically used this API to write an editable
-    placeholder. Automatic run selection consumes only READY rows directly.
+    `afriend init` writes them as editable placeholders. Automatic run
+    selection is stricter and consumes only READY rows directly.
     """
     rows = assess_all(
         registry,

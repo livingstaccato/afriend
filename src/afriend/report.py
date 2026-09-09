@@ -177,7 +177,7 @@ def _codex_user_config_may_apply(run_meta: dict[str, Any]) -> bool:
     if policy == "scoped-allow":
         grants = run_meta.get("external_tool_grants")
         return not isinstance(grants, list) or "codex" in grants or "*" in grants
-    # Legacy metadata cannot prove that --ignore-user-config was supplied.
+    # Metadata that records no policy cannot prove --ignore-user-config.
     return True
 
 
@@ -286,8 +286,8 @@ def _external_authority_lines(run_meta: dict[str, Any]) -> list[str]:
             f"providers: {', '.join(str(name) for name in grants) or 'none'}."
         )
     else:
-        status = "legacy-unknown"
-        detail = "This legacy capture does not record provider-managed tool authority."
+        status = "unrecorded"
+        detail = "This capture does not record provider-managed tool authority."
     return ["## External tool authority", "", f"Status: `{status}`", "", detail, ""]
 
 
@@ -303,7 +303,7 @@ def _repository_snapshot_lines(run_meta: dict[str, Any]) -> list[str]:
     if mode not in {"automatic", "explicit"}:
         return []
     try:
-        identity = SnapshotIdentity.from_current_meta(run_meta)
+        identity = SnapshotIdentity.from_meta(run_meta)
     except UsageError:
         return []
     if (
@@ -553,7 +553,7 @@ def render(
     lines: list[str] = [f"# Adversarial review — {_artifact_label(run_meta['artifact'])}", ""]
     lines.append(
         f"Mode: {_code_span(str(run_meta['mode']))} · "
-        f"profile: {_code_span(str(run_meta.get('profile', 'legacy-unknown')))} · "
+        f"profile: {_code_span(str(run_meta.get('profile', 'unrecorded')))} · "
         f"preset: {_code_span(str(run_meta['preset']))}"
     )
     lines.append("")
@@ -633,7 +633,7 @@ def render(
         elif friend.get("fresh_host_worker", False):
             role = "fresh host-provider worker"
         elif not independent:
-            role = "legacy role unknown (advisory)"
+            role = "role unknown (advisory)"
         else:
             role = "independent reviewer"
         lines.append(

@@ -53,12 +53,12 @@ def test_report_header_states_model_and_effort_per_friend():
     assert "gpt-5.6-sol" in out and "high" in out
 
 
-def test_report_header_records_profile_and_marks_legacy_metadata_unknown():
+def test_report_header_records_profile_and_marks_an_absent_one_unrecorded():
     profiled = render([claim("c-0001@1")], [], meta(profile="balanced"))
-    legacy = render([claim("c-0001@1")], [], meta())
+    unrecorded = render([claim("c-0001@1")], [], meta())
 
     assert "Mode: `report` · profile: `balanced` · preset: `inherit`" in profiled
-    assert "profile: `legacy-unknown`" in legacy
+    assert "profile: `unrecorded`" in unrecorded
 
 
 def test_report_labels_host_self_review_as_advisory_and_non_independent():
@@ -222,7 +222,7 @@ def test_gate_report_names_ceiling_and_partial_evidence_caveat():
         ("deny", "denied"),
         ("scoped-allow", "scoped-allow"),
         ("allow", "explicitly-allowed"),
-        (None, "legacy-unknown"),
+        (None, "unrecorded"),
     ],
 )
 def test_external_tool_authority_is_distinct_from_filesystem_confinement(policy, expected):

@@ -344,7 +344,7 @@ def _roster_rows(meta: dict[str, Any]) -> dict[str, dict[str, object]]:
 
 
 def _metadata_status(value: object) -> str:
-    """Map diagnostic-bearing legacy statuses to a small safe vocabulary."""
+    """Map a diagnostic-bearing friend status to a small safe vocabulary."""
     if not isinstance(value, str):
         return "pending"
     normalized = value.lower()
@@ -478,7 +478,7 @@ def _state(meta: dict[str, Any], events: list[EventRecord]) -> tuple[str, str | 
         return "halted", None, "resume"
     if lifecycle == "running":
         return "live", None, None
-    return "legacy", None, None
+    return "unknown", None, None
 
 
 def _next_action(
@@ -623,7 +623,7 @@ def _render(summary: dict[str, object]) -> str:
     claim_text = ", ".join(f"{name}={count}" for name, count in by_status.items()) or "none"
     lines = [
         f"{summary['run_id']}: {summary['state']}{outcome}",
-        f"mode: {summary['mode'] or 'unknown'}  profile: {summary['profile'] or 'legacy'}  scope: {summary['scope']}",
+        f"mode: {summary['mode'] or 'unknown'}  profile: {summary['profile'] or 'none'}  scope: {summary['scope']}",
         f"claims: {claims['total']} ({claim_text})",
     ]
     triage = summary.get("triage")

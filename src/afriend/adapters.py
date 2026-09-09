@@ -168,8 +168,8 @@ class Adapter:
     # anything that grants access: see the note in codex.toml.
     doc_argv: tuple[str, ...] = ()
     # Provider-managed integrations are a separate authority boundary from
-    # filesystem confinement. Missing declarations stay unknown for API and
-    # legacy-TOML compatibility; shipped adapters declare one explicitly.
+    # filesystem confinement. A TOML that declares nothing stays unknown,
+    # which is the fail-closed value; shipped adapters declare one explicitly.
     external_tools: str = "unknown"  # none | deny-argv | uncontrolled | unknown
     deny_external_tools_argv: tuple[str, ...] = ()
     external_tool_sources: tuple[str, ...] = ()

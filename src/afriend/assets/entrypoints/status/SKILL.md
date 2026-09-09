@@ -28,9 +28,9 @@ The default run root is
 scope, profile, per-friend completion/failure, current round, claims,
 downgrades, and a next action. `--watch` renders only new lifecycle events
 until the terminal event and tolerates a partially written final event. It
-uses `run.json` and `claims.jsonl` for the available legacy summary when a
-run has no events; it never invents a run identity or reads a report as
-lifecycle evidence.
+falls back to `run.json` and `claims.jsonl` for what can still be
+summarized when a run has no events; it never invents a run identity or
+reads a report as lifecycle evidence.
 
 This skill is read-only: it never dispatches friends and never changes
 configuration. Codex remains an advisory host orchestrator. A past run's

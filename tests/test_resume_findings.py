@@ -17,8 +17,6 @@ import contextlib
 import json
 from pathlib import Path
 
-import pytest
-
 from afriend import orchestrator
 from afriend.ids import format_claim_id
 from afriend.ledger import Alias, Claim, Verdict
@@ -214,45 +212,6 @@ def test_write_halt_records_what_the_round_actually_did(monkeypatch, tmp_path):
     assert meta["dry_streak"] == 1
 
 
-def test_write_halt_refuses_conflicting_snapshot_compatibility_keys(monkeypatch, tmp_path):
-    """A halt must not silently choose between conflicting authoritative and
-    compatibility identities."""
-    from afriend.commands import haltstate
-    from afriend.errors import UsageError
-    from afriend.runstore import RunStore
-    from afriend.snapshots import SnapshotIdentity
-
-    monkeypatch.setattr(haltstate, "render", lambda *a, **k: "")
-    store = RunStore(tmp_path, "run-snapshot")
-    store.lock()
-    identity = SnapshotIdentity(
-        None,
-        None,
-        None,
-        "artifact/spec.md",
-        "sha256:" + "0" * 64,
-    )
-    meta = {
-        "snapshot": identity.to_dict(),
-        "snapshot_history": [identity.to_dict()],
-        "repo_root": "/stale/repository",
-        "snapshot_sha": "f" * 40,
-    }
-
-    with pytest.raises(UsageError, match=r"snapshot.*conflicts.*repo_root"):
-        haltstate.write_halt(
-            argparse.Namespace(mode="report"),
-            store,
-            meta,
-            ReviewState(),
-            1,
-            0,
-            None,
-        )
-
-    assert not (store.run_dir / "run.json").exists()
-
-
 # --- c-0011: an adjudication response is applied once ----------------------
 
 
@@ -280,7 +239,6 @@ def test_a_consumed_response_is_renamed_so_a_second_resume_cannot_reapply_it(tmp
     response = round_dir / "RESPONSE.json"
     response.write_text("{}")
     payload = response.read_bytes()
-    store.create_owned_bytes(round_dir / "RESPONSE.json.applying", payload)
 
     _mark_response_consumed(
         store, round_dir, PreparedResponse(response, payload, _response_digest(payload), None)
@@ -316,7 +274,6 @@ def test_the_consumed_copy_is_kept_rather_than_deleted(tmp_path):
     response = round_dir / "RESPONSE.json"
     response.write_text('{"merges": []}')
     payload = response.read_bytes()
-    store.create_owned_bytes(round_dir / "RESPONSE.json.applying", payload)
     _mark_response_consumed(
         store, round_dir, PreparedResponse(response, payload, _response_digest(payload), None)
     )

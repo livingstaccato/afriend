@@ -9,11 +9,26 @@ from afriend.cli import main
 from afriend.errors import UsageError
 
 
-def test_v1_session_config_is_loaded_as_no_custom_profiles(tmp_path, monkeypatch):
+def test_an_empty_profile_map_is_loaded_as_no_custom_profiles(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     path = sessionconfig.config_path()
     path.parent.mkdir(parents=True)
-    path.write_text('{"default_profile": "balanced", "version": 1}\n', encoding="utf-8")
+    path.write_text(
+        json.dumps(
+            {
+                "version": 3,
+                "default_profile": "balanced",
+                "profiles": {},
+                "review_context": {
+                    "enabled": False,
+                    "sources": "current-task",
+                    "automatic_combine": False,
+                    "ambiguity": "ask",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
 
     config = sessionconfig.load()
 
@@ -78,7 +93,19 @@ def test_profile_schema_refuses_unsafe_or_invalid_inheritance(
         profiles["a"] = {"base": "b", "timeout": 1}
         profiles["b"] = {"base": "a", "timeout": 1}
     path.write_text(
-        json.dumps({"version": 2, "default_profile": "quick", "profiles": profiles}),
+        json.dumps(
+            {
+                "version": 3,
+                "default_profile": "quick",
+                "profiles": profiles,
+                "review_context": {
+                    "enabled": False,
+                    "sources": "current-task",
+                    "automatic_combine": False,
+                    "ambiguity": "ask",
+                },
+            }
+        ),
         encoding="utf-8",
     )
 

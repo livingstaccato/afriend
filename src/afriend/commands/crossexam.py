@@ -266,7 +266,7 @@ def run_rounds(
                 spec,
                 [claim.id for claim in full_slice],
                 full_prompt,
-                legacy_complete=all(
+                verdicts_already_durable=all(
                     (claim.id, judge, round_no) in durable_verdicts for claim in full_slice
                 ),
             )

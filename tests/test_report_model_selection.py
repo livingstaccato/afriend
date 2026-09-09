@@ -11,7 +11,7 @@ def render(claims, aliases, run_meta):
     return render_review(ReviewState.replay([*claims, *aliases]), run_meta)
 
 
-def test_legacy_friend_model_selection_is_not_mislabeled_as_inherited():
+def test_a_friend_row_without_a_model_source_is_not_mislabeled_as_inherited():
     m = meta(
         friends=[
             {

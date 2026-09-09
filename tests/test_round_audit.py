@@ -12,8 +12,8 @@ from afriend.authority import ExternalToolPolicy
 from afriend.ceilings import KILL_GRACE_S, Budget
 from afriend.commands import critique as critique_mod, crossexam as crossexam_mod
 from afriend.commands.checkpoint import (
-    legacy_successful_friend_ids,
     normalize_friend_rows,
+    successful_friend_ids_from_audit,
 )
 from afriend.commands.critique import run_critique
 from afriend.commands.crossexam import run_rounds
@@ -632,10 +632,10 @@ def test_checkpoint_accepts_audited_success_and_skip_rows(tmp_path):
     )
 
     assert normalized == [success, skip_row]
-    assert legacy_successful_friend_ids(normalized, 1) == ["friend-ops-0"]
+    assert successful_friend_ids_from_audit(normalized, 1) == ["friend-ops-0"]
 
 
-def test_checkpoint_accepts_exact_safe_legacy_failure_with_inline_stderr_reference():
+def test_checkpoint_accepts_an_exact_failure_status_with_inline_stderr_reference():
     diagnostics = "x" * 200
     row = {
         "name": "friend-ops-0",
@@ -650,7 +650,7 @@ def test_checkpoint_accepts_exact_safe_legacy_failure_with_inline_stderr_referen
     assert normalize_friend_rows([row], {"friend-ops-0"}) == [row]
 
 
-def test_legacy_failure_shape_does_not_legalize_hostile_stripped_current_status():
+def test_the_failure_shape_does_not_legalize_a_hostile_stripped_status():
     row = {
         "name": "friend-ops-0",
         "model": None,

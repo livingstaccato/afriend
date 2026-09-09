@@ -2,7 +2,7 @@
 
 import pytest
 
-from afriend.commands.runmeta import CURRENT_SCHEMA_VERSION, migrate_meta
+from afriend.commands.runmeta import CURRENT_SCHEMA_VERSION, validated_meta
 
 
 @pytest.mark.parametrize("marker_field", ["repository_scope_audit", "downgrades"])
@@ -17,7 +17,7 @@ def test_missing_scope_mode_is_not_inferred_from_explicit_scope_prose(marker_fie
     }
     raw[marker_field] = marker if marker_field == "repository_scope_audit" else [marker]
 
-    migrated = migrate_meta(raw)
+    migrated = validated_meta(raw)
 
     assert "repository_scope_mode" not in migrated
     assert migrated[marker_field] == raw[marker_field]

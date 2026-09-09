@@ -13,7 +13,7 @@ Two fixture details matter and are easy to get wrong:
   `unverifiable` and the tests would pass while checking nothing.
 * Friends are requested as `fake:<mode>:repo`. A snapshot is only taken when
   some friend actually needs repo scope, so a roster of doc-scope fakes
-  produces a run with `snapshot_sha: null` -- same vacuous outcome.
+  produces a run with a null snapshot commit -- same vacuous outcome.
 """
 
 from dataclasses import replace
@@ -164,8 +164,8 @@ def test_the_run_records_what_a_resolution_will_need(tmp_path):
     repo = _repo(tmp_path)
     _gate(tmp_path, repo, "judge_uphold_a", "judge_uphold_b")
     meta = _run_json(tmp_path)
-    assert meta["snapshot_sha"]
-    assert meta["repo_root"]
+    assert meta["snapshot"]["commit"]
+    assert meta["snapshot"]["repo_root"]
     assert meta["artifact_path"] == str((repo / "spec.md").absolute())
 
 
@@ -192,7 +192,7 @@ def test_a_doc_scope_roster_still_gets_a_snapshot_under_gate(tmp_path):
     )
     assert result.returncode == 1, result.stderr
     meta = _run_json(tmp_path)
-    assert meta["snapshot_sha"], "a gate run must snapshot even with no repo-scope friend"
+    assert meta["snapshot"]["commit"], "a gate run must snapshot even with no repo-scope friend"
 
     # And the consequence that actually matters: the refusal works.
     cid = meta["gate_blocking_claims"][0]

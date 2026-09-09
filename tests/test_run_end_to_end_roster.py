@@ -448,8 +448,8 @@ def test_init_does_not_probe_disabled_http_provider(monkeypatch, tmp_path):
         lambda endpoint: probes.append(endpoint) or True,
     )
     target = tmp_path / "roster.toml"
-    # Keep this legacy-shaped namespace intentionally: plain `init` remains
-    # roster generation even though guided-only attributes are absent.
+    # A bare namespace on purpose: plain `init` is still roster generation,
+    # and the guided-only attributes are legitimately absent here.
     args = type("Args", (), {"out": str(target), "force": False})()
 
     with pytest.raises(NoFriendsError):

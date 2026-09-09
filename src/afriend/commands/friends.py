@@ -436,9 +436,9 @@ def roster_for_run(
         # A replayed verdict is still enforced. Replay fixes *which* rule is
         # applied -- the one the run recorded, not the current default -- but
         # a run whose own metadata says it never qualified must not become
-        # judgeable by being resumed. A legacy roster holding only an
-        # advisory host is exactly that case, and admitting it would rebuild
-        # the exit-0 gate this file already documents.
+        # judgeable by being resumed. A roster holding only an advisory host
+        # is exactly that case, and admitting it would rebuild the exit-0
+        # gate this file already documents.
         if args.mode not in DEGRADED_MODES:
             names = ", ".join(qualification.qualifying_names) or "none"
             families = ", ".join(qualification.provider_families) or "none"

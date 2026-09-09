@@ -116,10 +116,10 @@ def test_list_treats_a_missing_root_as_an_empty_inventory(tmp_path, capsys):
     assert json.loads(capsys.readouterr().out) == {"runs": [], "warnings": []}
 
 
-def test_list_keeps_valid_legacy_and_event_only_runs_without_a_report(tmp_path, capsys):
+def test_list_keeps_reportless_and_event_only_runs(tmp_path, capsys):
     root = tmp_path / "runs"
-    legacy = _terminal_run(root, "legacy")
-    (legacy / "report.md").unlink()
+    reportless = _terminal_run(root, "reportless")
+    (reportless / "report.md").unlink()
     event_only = root / "event-only"
     event_only.mkdir()
     event_only_event = EventRecord.create(
@@ -135,7 +135,7 @@ def test_list_keeps_valid_legacy_and_event_only_runs_without_a_report(tmp_path, 
     assert cli.main(["runs", "list", "--out", str(root), "--json"]) == 0
 
     rows = {row["id"]: row for row in json.loads(capsys.readouterr().out)["runs"]}
-    assert rows["legacy"]["report_path"] is None
+    assert rows["reportless"]["report_path"] is None
     assert rows["event-only"] == {
         "id": "event-only",
         "mode": "report",
