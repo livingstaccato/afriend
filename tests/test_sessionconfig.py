@@ -122,13 +122,18 @@ def test_review_context_schema_is_strict(tmp_path, monkeypatch, contents, field)
         '{"version": 2, "default_profile": "quick", "profiles": {}}',
     ],
 )
-def test_pre_review_context_session_schemas_load_with_safe_policy(tmp_path, monkeypatch, contents):
+def test_an_earlier_session_schema_is_refused_with_recovery_advice(tmp_path, monkeypatch, contents):
+    """These used to load, completed with defaults -- no profiles, review
+    context off. A file that says nothing about review context is not a file
+    asking for it to be off, so it is refused and the message says how to
+    replace it."""
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     path = sessionconfig.config_path()
     path.parent.mkdir(parents=True)
     path.write_text(contents, encoding="utf-8")
 
-    assert sessionconfig.load().review_context == sessionconfig.ReviewContextConfig()
+    with pytest.raises(UsageError, match=r"version.*must be 3.*afriend setup"):
+        sessionconfig.load()
 
 
 def test_set_default_refuses_an_unknown_profile(tmp_path, monkeypatch):
@@ -158,11 +163,22 @@ def test_config_path_honors_absolute_xdg_home_and_rejects_relative(tmp_path, mon
     [
         ("not json", "malformed JSON"),
         ("[]", "top-level"),
-        ('{"version": 1}', "top-level keys"),
-        ('{"version": 1, "default_profile": "quick", "provider": "codex"}', "top-level keys"),
+        ('{"version": 3}', "top-level keys"),
+        (
+            '{"version": 3, "default_profile": "quick", "profiles": {}, '
+            '"review_context": {"enabled": false, "sources": "current-task", "automatic_combine": false, "ambiguity": "ask"}, "provider": "codex"}',
+            "top-level keys",
+        ),
         ('{"version": 2, "default_profile": "quick"}', "version"),
-        ('{"version": 1, "default_profile": 7}', "default_profile"),
-        ('{"version": 1, "default_profile": "unknown"}', "default_profile"),
+        ('{"version": 4, "default_profile": "quick"}', "version"),
+        (
+            '{"version": 3, "default_profile": 7, "profiles": {}, "review_context": {"enabled": false, "sources": "current-task", "automatic_combine": false, "ambiguity": "ask"}}',
+            "default_profile",
+        ),
+        (
+            '{"version": 3, "default_profile": "unknown", "profiles": {}, "review_context": {"enabled": false, "sources": "current-task", "automatic_combine": false, "ambiguity": "ask"}}',
+            "default_profile",
+        ),
     ],
 )
 def test_malformed_session_contract_is_rejected(tmp_path, monkeypatch, contents, field):
