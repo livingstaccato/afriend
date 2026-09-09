@@ -220,13 +220,26 @@ class Adapter:
 
     @property
     def is_readonly(self) -> bool:
-        """Whether the adapter's complete dispatch policy prevents writes."""
-        return bool(self.readonly_argv) if self.readonly is None else self.readonly
+        """Whether the adapter's complete dispatch policy prevents writes.
+
+        `None` reaches here only for an adapter that declares no
+        `readonly_argv` at all -- one declaring flags must say explicitly
+        whether they work (see load_adapters). Claiming nothing means
+        restricting nothing, which is the safe reading: such a friend is
+        OS-confined.
+        """
+        return False if self.readonly is None else self.readonly
 
     @property
     def is_self_confining(self) -> bool:
-        """Whether the provider's own argv provides the write restriction."""
-        return bool(self.readonly_argv) if self.self_confines is None else self.self_confines
+        """Whether the provider's own argv provides the write restriction.
+
+        Never inferred from the presence of flags. That inference handed agy
+        an exemption from OS confinement for four flags that restricted
+        nothing, and could not distinguish them from claude's `--tools`
+        allowlist, which holds.
+        """
+        return False if self.self_confines is None else self.self_confines
 
 
 @dataclass(frozen=True)
@@ -407,6 +420,24 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
         # `--sandbox danger-full-access`: the workdir is protected by the
         # outer OS policy instead. Require every leg explicitly so a custom
         # adapter cannot claim the exception while skipping that policy.
+        # A CLI's restriction flags must be VERIFIED, not assumed. These two
+        # properties used to fall back to `bool(readonly_argv)` when unset,
+        # so declaring flags was the same as declaring that they worked --
+        # and agy shipped four that restricted nothing, buying a real
+        # exemption from OS confinement with them. Nothing in the format
+        # asked whether anyone had checked, so nothing could tell those apart
+        # from claude's `--tools` allowlist, which does hold.
+        #
+        # Refused rather than defaulted, in either direction: defaulting to
+        # trusted rebuilds the hole, and defaulting to untrusted would
+        # silently confine a CLI whose credentials the sandbox cannot reach
+        # (claude's live in the macOS Keychain). Someone has to say.
+        if data.get("readonly_argv") and (readonly is None or self_confines is None):
+            raise UsageError(
+                f"{path}: an adapter declaring readonly_argv must also declare "
+                "`readonly` and `self_confines`. Their presence is not evidence that "
+                "they work: state what was measured against the installed CLI."
+            )
         if readonly_workdir and not (
             sandbox_confine and readonly is True and self_confines is False
         ):

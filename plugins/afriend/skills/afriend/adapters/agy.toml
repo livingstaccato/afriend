@@ -68,13 +68,18 @@ external_tools = "uncontrolled"
 deny_external_tools_argv = []
 external_tool_sources = ["tools", "slash commands", "MCP servers", "plugins"]
 
-# Direct validation with installed agy 1.1.23 confirms that Markdown agents
-# support `tools`, `subagent`, `disable-model-invocation`, and the single
-# `inheritCustomizations` switch. `subagent: false` prevents subagent
-# discovery/invocation; `disable-model-invocation: true` is a distinct
-# restriction. These controls are defense in depth and do not prove
-# invocation-local denial of every inherited tool/plugin/MCP source, so
-# external_tools remains uncontrolled.
+# The reviewer agent below declares `tools: []`, `subagent: false`,
+# `disable-model-invocation: true` and `inheritCustomizations: false`. agy
+# 1.1.23 accepts all four as agent fields.
+#
+# It does not honour `tools: []` as a restriction. Measured with the agent
+# staged exactly as dispatch stages it, the friend used a file-writing tool
+# and used a file-reading tool on an absolute path outside its working
+# directory. An earlier version of this comment read the fields being
+# ACCEPTED as evidence they took effect, and called them defense in depth;
+# they are staged for their prompt content and their declared intent, and
+# nothing here rests on them. `external_tools` remains uncontrolled, and
+# `[sandbox]` below is what actually restricts this friend.
 [[workspace_assets]]
 source = "harnesses/agy/afriend-reviewer.md"
 target = ".agents/agents/afriend-reviewer/agent.md"

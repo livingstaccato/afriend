@@ -10,6 +10,20 @@ base_argv = ["--print", "--output-format", "json"]
 #   printf 'Reply with exactly the word: STDIN_OK' | claude --print --output-format json
 # returns the normal JSON envelope with stop_reason "end_turn".
 prompt_mode = "stdin"
+# Measured against installed Claude Code, not inferred from the flag's
+# presence: asked to create a file in its working directory it replies
+# NO_WRITE_TOOL and creates nothing, so the allowlist genuinely holds and
+# claude confines its own writes.
+#
+# `readonly` is about WRITES only. claude read an absolute path outside its
+# working directory and returned the contents, which is the same gap codex
+# documents for its own `--sandbox read-only`. claude does not close it by
+# opting into OS confinement, because its credentials live in the macOS
+# Keychain and any profile that does not grant ~/Library/Keychains reports
+# "Not logged in" -- granting that would hand a friend every credential the
+# operator has, which is worse than the gap.
+readonly = true
+self_confines = true
 readonly_argv = ["--tools", "Read,Grep,Glob"]
 schema_flag = "--json-schema"
 # --json-schema takes the schema JSON itself, not a path. Passed a path,

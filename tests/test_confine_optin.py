@@ -186,3 +186,69 @@ def test_a_cli_with_no_readonly_mode_is_still_confined_without_opting_in():
     opencode = _registry()["opencode"]
     assert not opencode.readonly_argv
     assert opencode.sandbox_confine is False
+
+
+def _adapter_toml(tmp_path, body: str):
+    from afriend.adapters import load_adapters
+
+    (tmp_path / "probe.toml").write_text(
+        'name = "probe"\nbinary = "probe"\nprompt_mode = "stdin"\n' + body
+    )
+    return load_adapters(tmp_path)["probe"]
+
+
+def test_declaring_restriction_flags_without_saying_whether_they_work_is_refused(tmp_path):
+    """The defect underneath the agy hole, closed at the source.
+
+    `is_readonly` and `is_self_confining` used to fall back to
+    `bool(readonly_argv)` -- the PRESENCE of flags, never their effect. agy
+    declared four that restricted nothing and was handed a real confinement
+    exemption for them. Nothing in the adapter format asked whether anyone had
+    checked, so nothing could tell agy's dead flags from claude's working
+    allowlist.
+    """
+    import pytest
+
+    from afriend.errors import UsageError
+
+    with pytest.raises(UsageError, match="self_confines"):
+        _adapter_toml(tmp_path, 'readonly_argv = ["--pretend-read-only"]\n')
+
+
+def test_an_adapter_with_no_restriction_flags_needs_no_declaration(tmp_path):
+    """Claiming nothing is still allowed, and still means confined: opencode
+    and ollama declare no readonly_argv and get OS confinement."""
+    probe = _adapter_toml(tmp_path, "")
+
+    assert probe.is_readonly is False
+    assert probe.is_self_confining is False
+
+
+def test_flags_declared_as_verified_are_taken_at_their_word(tmp_path):
+    probe = _adapter_toml(
+        tmp_path,
+        'readonly_argv = ["--tools", "read-only"]\nreadonly = true\nself_confines = true\n',
+    )
+
+    assert probe.is_readonly is True
+    assert probe.is_self_confining is True
+
+
+def test_flags_declared_as_not_confining_still_get_the_sandbox(tmp_path):
+    """agy's shape: the flags exist and are worth passing, but they do not
+    confine, so the friend is OS-confined anyway."""
+    probe = _adapter_toml(
+        tmp_path,
+        'readonly_argv = ["--sandbox"]\nreadonly = false\nself_confines = false\n',
+    )
+
+    assert probe.is_self_confining is False
+
+
+def test_no_shipped_adapter_relies_on_the_inference():
+    """The guard against reintroducing it: every adapter that declares
+    restriction flags says explicitly whether they work."""
+    for name, adapter in _registry().items():
+        if adapter.readonly_argv:
+            assert adapter.readonly is not None, name
+            assert adapter.self_confines is not None, name
