@@ -27,6 +27,8 @@ readonly_argv = [
 ]
 schema_flag = "--json-schema"
 model_flag = "--model"
+models_argv = ["models"]
+models_format = "tsv"
 internal_timeout_flag = "--print-timeout"
 effort_kind = "native"
 structured_output = true

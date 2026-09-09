@@ -37,7 +37,7 @@ from .dispatch import (
     failure_summary,
 )
 from .errors import AfError, UsageError
-from .failures import AUTH, RepeatTracker, auth_abort_message, classify
+from .failures import AUTH, QUOTA, RepeatTracker, auth_abort_message, classify, quota_downgrade
 from .progress import Progress, disabled
 from .runstore import RunStore
 from .spawn import SpawnResult
@@ -57,6 +57,10 @@ class DispatchRoundOutcome:
     results: list[RoundResult]
     auth_abort: str | None = None
     error: BaseException | None = None
+    # One note per friend that ran out of allowance. Not an abort: the other
+    # friends have their own quotas, so the run continues -- but a roster
+    # that silently shrank is a downgrade the report has to carry.
+    quota_notes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -466,6 +470,7 @@ def dispatch_round(
             # removes on exit independent of whether dispatch raised.
 
     auth_abort: str | None = None
+    quota_notes: list[str] = []
     if tracker is not None:
         for spec, _capability, outcome, _policy in results:
             tracker.record(spec.name, outcome)
@@ -480,13 +485,31 @@ def dispatch_round(
             # operator what to fix. Raised only on a DECLARED marker -- an
             # unrecognised failure is never guessed into an abort, because
             # a false auth classification ends the whole run.
-            if (
-                auth_abort is None
-                and spec.independent
-                and classify(outcome, registry.get(spec.cli)) == AUTH
-            ):
-                auth_abort = auth_abort_message(spec.name, registry.get(spec.cli))
-    return DispatchRoundOutcome(results, auth_abort, round_error)
+            adapter = registry.get(spec.cli)
+            verdict = classify(outcome, adapter)
+            if auth_abort is None and spec.independent and verdict == AUTH:
+                auth_abort = auth_abort_message(spec.name, adapter)
+            elif verdict == QUOTA:
+                quota_notes.append(
+                    quota_downgrade(spec.name, adapter, _quota_alternatives(adapter))
+                )
+    return DispatchRoundOutcome(results, auth_abort, round_error, tuple(quota_notes))
+
+
+def _quota_alternatives(adapter: "Adapter | None") -> list[str]:
+    """Models this provider itself lists, or nothing.
+
+    Asked only once a quota failure has already happened, so the subprocess
+    is paid for on a path that has stopped doing useful work anyway. A CLI
+    with no listing command answers nothing, which is the honest result --
+    codex is that case, and the remediation text still names the other ways
+    out.
+    """
+    if adapter is None or not adapter.models_argv:
+        return []
+    from .models import list_models
+
+    return list(list_models(adapter).models)
 
 
 def persist_result(

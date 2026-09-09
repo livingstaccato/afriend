@@ -481,6 +481,9 @@ def build_parser() -> argparse.ArgumentParser:
     for action in ("enable", "disable", "clear-model"):
         action_p = provider_sub.add_parser(action)
         action_p.add_argument("name", metavar="NAME")
+    models_p = provider_sub.add_parser("models")
+    models_p.add_argument("name", metavar="NAME", nargs="?")
+    models_p.add_argument("--json", action="store_true", help="machine-readable output")
     set_model_p = provider_sub.add_parser("set-model")
     set_model_p.add_argument("name", metavar="NAME")
     set_model_p.add_argument("model", metavar="MODEL")

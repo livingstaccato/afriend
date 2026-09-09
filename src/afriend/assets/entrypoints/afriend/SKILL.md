@@ -267,7 +267,17 @@ afriend providers enable claude
 afriend providers disable opencode
 afriend providers set-model ollama qwen3:8b
 afriend providers clear-model ollama
+afriend providers models          # every provider that can be asked
+afriend providers models agy      # one of them
 ```
+
+Never state what models a provider offers from memory. `providers models`
+asks the installed CLI and prints what it answered; a provider whose CLI has
+no listing command is reported as having none rather than guessed at, and a
+model name afriend invented would fail at dispatch rather than at the point
+it was suggested. Use it before recommending a model, and when a friend
+fails on an exhausted quota -- a different model on that provider may hold a
+separate allowance.
 
 ### Model selection provenance
 
