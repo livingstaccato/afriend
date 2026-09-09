@@ -187,16 +187,16 @@ def cmd_run(args: argparse.Namespace) -> int:
             history_from_meta(resume_meta, snapshot) if resume_meta is not None else [snapshot]
         )
         if resume_meta is not None:
-            # Legacy identities have no tree. Verification above derives it;
-            # keep that migration in memory until the normal halt/completion
-            # metadata write. A later read-only resume validation (ledger,
-            # response, roster, grants) may still refuse the run, and no
-            # refusal may rewrite the saved state it was asked to inspect.
-            migrated_meta = dict(resume_meta)
-            record_snapshot(migrated_meta, snapshot, snapshot_history)
-            if migrated_meta != resume_meta:
-                resume_meta = migrated_meta
-                args._resume_meta = migrated_meta
+            # Verification above resolves the identity; hold the result in
+            # memory until the normal halt/completion metadata write. A later
+            # read-only resume validation (ledger, response, roster, grants)
+            # may still refuse the run, and no refusal may rewrite the saved
+            # state it was asked to inspect.
+            verified_meta = dict(resume_meta)
+            record_snapshot(verified_meta, snapshot, snapshot_history)
+            if verified_meta != resume_meta:
+                resume_meta = verified_meta
+                args._resume_meta = verified_meta
         review = ReviewState.replay(store.ledger.records())
         review.copy_transition_warnings(downgrades)
         schema_file = schema_path(store.run_dir)

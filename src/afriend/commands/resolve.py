@@ -252,22 +252,19 @@ def cmd_resolve(args: argparse.Namespace) -> int:
             "location is an assertion nothing can check."
         )
 
-    repo_root = Path(meta["repo_root"]) if meta.get("repo_root") else None
+    # The nested snapshot is the repository identity. run.json used to mirror
+    # repo_root and the commit at the top level for v0.2 readers; it no longer
+    # does, and reading the mirror would read a field nothing writes.
+    snapshot = meta.get("snapshot")
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
+    repo_root = Path(snapshot["repo_root"]) if snapshot.get("repo_root") else None
     frozen_dir = run_dir / "artifact"
     frozen = next(iter(frozen_dir.iterdir()), None) if frozen_dir.is_dir() else None
     artifact_path = Path(meta["artifact_path"]) if meta.get("artifact_path") else None
-    if artifact_path is None:
-        old = Path((meta.get("invocation") or {}).get("artifact") or "")
-        if old.is_absolute():
-            artifact_path = old
-        elif repo_root is not None and old:
-            candidate = repo_root / old
-            if candidate.is_file():
-                artifact_path = candidate
     verified = verify_location(
         location,
         repo_root,
-        meta.get("snapshot_sha"),
+        snapshot.get("commit"),
         frozen_artifact=frozen,
         artifact_path=artifact_path,
     )

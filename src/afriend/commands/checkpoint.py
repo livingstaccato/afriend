@@ -303,5 +303,5 @@ def validate_lifecycle_and_snapshot(meta: dict[str, Any], *, run_dir: Path) -> N
             "cannot resume: saved lifecycle_state must be waiting-for-orchestrator "
             "or a response-applying/response-applied recovery state"
         )
-    current = SnapshotIdentity.from_current_meta(meta)
+    current = SnapshotIdentity.from_meta(meta)
     history_from_meta(meta, current)

@@ -37,9 +37,18 @@ def halted_run(tmp_path):
     store = RunStore(tmp_path / "runs", "run-halted")
     frozen, digest = store.artifact_copy(artifact)
     commit = isolation.snapshot_commit(repo)
-    meta = {
+    snapshot = {
         "repo_root": str(repo),
-        "snapshot_sha": commit,
+        "commit": commit,
+        "tree": None,
+        "artifact_path": str(artifact),
+        "artifact_hash": digest,
+        "predecessor": None,
+        "source_path": "spec.md",
+        "artifact_bound_to_snapshot": True,
+    }
+    meta = {
+        "snapshot": snapshot,
         "artifact_path": str(artifact),
         "artifact_hash": digest,
     }
@@ -49,15 +58,12 @@ def halted_run(tmp_path):
         repo=repo,
         artifact=artifact,
         frozen=frozen,
+        commit=commit,
+        snapshot=snapshot,
         meta=meta,
         run_json=run_json,
         store=store,
     )
-
-
-@pytest.fixture
-def v020_meta(halted_run):
-    return dict(halted_run.meta)
 
 
 def test_resume_uses_recorded_snapshot_without_creating_another(monkeypatch, halted_run):
@@ -65,7 +71,7 @@ def test_resume_uses_recorded_snapshot_without_creating_another(monkeypatch, hal
         isolation, "snapshot_commit", Mock(side_effect=AssertionError("new snapshot"))
     )
     identity = SnapshotIdentity.from_meta(halted_run.meta)
-    assert identity.verify(halted_run.frozen).commit == halted_run.meta["snapshot_sha"]
+    assert identity.verify(halted_run.frozen).commit == halted_run.commit
 
 
 def test_resume_selection_never_creates_a_replacement_snapshot(monkeypatch, halted_run):
@@ -78,15 +84,15 @@ def test_resume_selection_never_creates_a_replacement_snapshot(monkeypatch, halt
         halted_run.meta["artifact_hash"],
         halted_run.meta,
     )
-    assert selected.commit == halted_run.meta["snapshot_sha"]
+    assert selected.commit == halted_run.commit
 
 
 def test_missing_saved_commit_refuses_resume_without_rewriting_run_json(halted_run):
     before = halted_run.run_json.read_bytes()
     with pytest.raises(UsageError, match=r"saved snapshot.*missing"):
-        SnapshotIdentity.from_meta({**halted_run.meta, "snapshot_sha": "0" * 40}).verify(
-            halted_run.frozen
-        )
+        SnapshotIdentity.from_meta(
+            {**halted_run.meta, "snapshot": {**halted_run.snapshot, "commit": "0" * 40}}
+        ).verify(halted_run.frozen)
     assert halted_run.run_json.read_bytes() == before
 
 
@@ -127,13 +133,6 @@ def test_resume_frozen_artifact_selects_the_only_regular_file(tmp_path):
     assert resume_frozen_artifact(tmp_path / "run") == expected
 
 
-def test_v020_snapshot_fields_migrate_to_identity(v020_meta):
-    identity = SnapshotIdentity.from_meta(v020_meta)
-    assert identity.commit == v020_meta["snapshot_sha"]
-    assert identity.tree is None
-    assert identity.artifact_path == v020_meta["artifact_path"]
-
-
 @pytest.mark.parametrize("meta", [None, [], "metadata", 7, True, {1: "not a string key"}])
 def test_outer_snapshot_metadata_must_be_a_mapping(meta):
     with pytest.raises(UsageError, match=r"snapshot metadata.*object"):
@@ -141,15 +140,6 @@ def test_outer_snapshot_metadata_must_be_a_mapping(meta):
 
 
 @pytest.mark.parametrize(
-    "nested", [None, [], "incomplete", {"tree": None}, {1: "not a string key"}]
-)
-def test_unusable_nested_snapshot_recovers_from_complete_legacy_fields(halted_run, nested):
-    identity = SnapshotIdentity.from_meta({**halted_run.meta, "snapshot": nested})
-    assert identity.commit == halted_run.meta["snapshot_sha"]
-    assert identity.artifact_hash == halted_run.meta["artifact_hash"]
-
-
-@pytest.mark.parametrize(
     "field, invalid",
     [
         ("repo_root", []),
@@ -160,95 +150,26 @@ def test_unusable_nested_snapshot_recovers_from_complete_legacy_fields(halted_ru
         ("predecessor", ["not", "a", "reference"]),
     ],
 )
-@pytest.mark.parametrize("complete_shape", [False, True], ids=["partial", "complete"])
-def test_invalid_nested_field_recovers_complete_valid_legacy(
-    halted_run, field, invalid, complete_shape
-):
-    nested = (
-        SnapshotIdentity.from_meta(halted_run.meta).verify(halted_run.frozen).to_dict()
-        if complete_shape
-        else {}
-    )
-    nested[field] = invalid
-
-    identity = SnapshotIdentity.from_meta({**halted_run.meta, "snapshot": nested})
-
-    legacy = SnapshotIdentity.from_meta(halted_run.meta)
-    assert identity == legacy
-
-
-@pytest.mark.parametrize(
-    "field, invalid",
-    [
-        ("repo_root", []),
-        ("commit", {}),
-        ("tree", []),
-        ("artifact_path", None),
-        ("artifact_hash", 7),
-        ("predecessor", ["not", "a", "reference"]),
-    ],
-)
-def test_invalid_partial_nested_field_without_legacy_is_contextual(field, invalid):
+def test_an_invalid_nested_field_is_named_in_the_refusal(field, invalid):
+    """The snapshot is otherwise complete, so the message names the one bad
+    field rather than the first one a partial shape happens to be missing."""
+    snapshot = {
+        "repo_root": None,
+        "commit": None,
+        "tree": None,
+        "artifact_path": "artifact/spec.md",
+        "artifact_hash": "sha256:" + "0" * 64,
+        "predecessor": None,
+        "source_path": None,
+        "artifact_bound_to_snapshot": False,
+    }
     with pytest.raises(UsageError, match=field):
-        SnapshotIdentity.from_meta({"snapshot": {field: invalid}})
+        SnapshotIdentity.from_meta({"snapshot": {**snapshot, field: invalid}})
 
 
-def test_partial_nested_snapshot_recovers_from_legacy_artifact_name(halted_run):
-    meta = {
-        **halted_run.meta,
-        "artifact": halted_run.meta["artifact_path"],
-        "snapshot": {"repo_root": halted_run.meta["repo_root"]},
-    }
-    del meta["artifact_path"]
-    assert SnapshotIdentity.from_meta(meta).artifact_path == meta["artifact"]
-
-
-def test_valid_legacy_artifact_name_recovers_from_unusable_artifact_path(halted_run):
-    meta = {
-        **halted_run.meta,
-        "artifact_path": [halted_run.meta["artifact_path"]],
-        "artifact": halted_run.meta["artifact_path"],
-        "snapshot": None,
-    }
-    assert SnapshotIdentity.from_meta(meta).artifact_path == meta["artifact"]
-
-
-def test_partial_nested_conflict_with_legacy_is_refused(halted_run):
-    with pytest.raises(UsageError, match=r"snapshot.*conflicts.*commit"):
-        SnapshotIdentity.from_meta(
-            {
-                **halted_run.meta,
-                "snapshot": {"commit": "f" * 40},
-            }
-        )
-
-
-def test_complete_nested_conflict_with_legacy_is_refused(halted_run):
-    nested = SnapshotIdentity.from_meta(halted_run.meta).verify(halted_run.frozen).to_dict()
-    with pytest.raises(UsageError, match=r"snapshot.*conflicts.*commit"):
-        SnapshotIdentity.from_meta(
-            {
-                **halted_run.meta,
-                "snapshot_sha": "f" * 40,
-                "snapshot": nested,
-            }
-        )
-
-
-def test_unusable_nested_snapshot_without_complete_legacy_is_contextual():
+def test_unusable_nested_snapshot_is_contextual():
     with pytest.raises(UsageError, match=r"saved snapshot.*object"):
         SnapshotIdentity.from_meta({"snapshot": None})
-
-
-def test_unusable_nested_snapshot_preserves_malformed_legacy_field_error(halted_run):
-    with pytest.raises(UsageError, match=r"commit.*40 hexadecimal"):
-        SnapshotIdentity.from_meta(
-            {
-                **halted_run.meta,
-                "snapshot_sha": "HEAD",
-                "snapshot": None,
-            }
-        )
 
 
 @pytest.mark.parametrize(
@@ -267,9 +188,9 @@ def test_invalid_commit_is_rejected_before_any_git_subprocess(monkeypatch, halte
     git = Mock(side_effect=AssertionError("git invoked"))
     monkeypatch.setattr("afriend.snapshots.subprocess.run", git)
     with pytest.raises(UsageError, match="40 hexadecimal"):
-        SnapshotIdentity.from_meta({**halted_run.meta, "snapshot_sha": commit}).verify(
-            halted_run.frozen
-        )
+        SnapshotIdentity.from_meta(
+            {**halted_run.meta, "snapshot": {**halted_run.snapshot, "commit": commit}}
+        ).verify(halted_run.frozen)
     git.assert_not_called()
 
 
@@ -277,7 +198,10 @@ def test_artifact_hash_mismatch_fails_before_git(monkeypatch, halted_run):
     git = Mock(side_effect=AssertionError("git invoked"))
     monkeypatch.setattr("afriend.snapshots.subprocess.run", git)
     identity = SnapshotIdentity.from_meta(
-        {**halted_run.meta, "artifact_hash": "sha256:" + "1" * 64}
+        {
+            **halted_run.meta,
+            "snapshot": {**halted_run.snapshot, "artifact_hash": "sha256:" + "1" * 64},
+        }
     )
     with pytest.raises(UsageError, match=r"artifact hash.*saved snapshot"):
         identity.verify(halted_run.frozen)
@@ -400,11 +324,9 @@ def test_repo_and_commit_must_be_present_together(halted_run):
         SnapshotIdentity.from_meta({"snapshot": raw})
 
 
-def test_legacy_commit_derives_tree_and_can_be_persisted_complete(halted_run):
+def test_verify_derives_the_tree_and_persists_a_complete_identity(halted_run):
     verified = SnapshotIdentity.from_meta(halted_run.meta).verify(halted_run.frozen)
-    assert verified.tree == _git(
-        halted_run.repo, "rev-parse", f"{halted_run.meta['snapshot_sha']}^{{tree}}"
-    )
+    assert verified.tree == _git(halted_run.repo, "rev-parse", f"{halted_run.commit}^{{tree}}")
 
     meta = dict(halted_run.meta)
     history = history_from_meta(meta, verified)
@@ -414,20 +336,6 @@ def test_legacy_commit_derives_tree_and_can_be_persisted_complete(halted_run):
     persisted = json.loads(halted_run.run_json.read_text(encoding="utf-8"))
     assert persisted["snapshot"]["tree"] == verified.tree
     assert persisted["snapshot_history"] == [persisted["snapshot"]]
-
-
-def test_partially_migrated_history_receives_the_derived_current_tree(halted_run):
-    legacy = SnapshotIdentity.from_meta(halted_run.meta)
-    meta = {
-        "snapshot": legacy.to_dict(),
-        "snapshot_history": [legacy.to_dict()],
-    }
-
-    verified = SnapshotIdentity.from_meta(meta).verify(halted_run.frozen)
-    history = history_from_meta(meta, verified)
-
-    assert history == [verified]
-    assert history[0].tree is not None
 
 
 def _repo_successor(identity):
@@ -448,7 +356,7 @@ def test_present_invalid_snapshot_history_is_not_treated_as_absent(halted_run, h
         history_from_meta({"snapshot_history": history}, current)
 
 
-def test_absent_snapshot_history_is_the_only_legacy_migration_case(halted_run):
+def test_absent_snapshot_history_yields_the_current_identity(halted_run):
     current = SnapshotIdentity.from_meta(halted_run.meta).verify(halted_run.frozen)
     assert history_from_meta({}, current) == [current]
 
@@ -514,7 +422,7 @@ def test_snapshot_fields_and_history_have_deterministic_order(halted_run):
     meta: dict[str, object] = {}
     record_snapshot(meta, identity, [identity])
 
-    assert list(meta) == ["snapshot", "snapshot_history", "repo_root", "snapshot_sha"]
+    assert list(meta) == ["snapshot", "snapshot_history"]
     assert list(meta["snapshot"]) == [
         "repo_root",
         "commit",
@@ -526,8 +434,6 @@ def test_snapshot_fields_and_history_have_deterministic_order(halted_run):
         "artifact_bound_to_snapshot",
     ]
     assert meta["snapshot_history"] == [identity.to_dict()]
-    assert meta["repo_root"] == str(halted_run.repo)
-    assert meta["snapshot_sha"] == identity.commit
 
 
 def test_unchanged_loop_revision_creates_no_successor(monkeypatch, halted_run):

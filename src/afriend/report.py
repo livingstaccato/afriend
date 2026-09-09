@@ -303,7 +303,7 @@ def _repository_snapshot_lines(run_meta: dict[str, Any]) -> list[str]:
     if mode not in {"automatic", "explicit"}:
         return []
     try:
-        identity = SnapshotIdentity.from_current_meta(run_meta)
+        identity = SnapshotIdentity.from_meta(run_meta)
     except UsageError:
         return []
     if (

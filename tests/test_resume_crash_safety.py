@@ -738,9 +738,18 @@ def test_missing_snapshot_refusal_leaves_all_resume_state_untouched(tmp_path):
     store = _store(tmp_path, "run-snapshot-refusal")
     frozen, digest = store.artifact_copy(artifact)
     commit = isolation.snapshot_commit(repo)
-    meta = {
+    snapshot = {
         "repo_root": str(repo),
-        "snapshot_sha": commit,
+        "commit": commit,
+        "tree": None,
+        "artifact_path": str(artifact),
+        "artifact_hash": digest,
+        "predecessor": None,
+        "source_path": "spec.md",
+        "artifact_bound_to_snapshot": True,
+    }
+    meta = {
+        "snapshot": snapshot,
         "artifact_path": str(artifact),
         "artifact_hash": digest,
     }
@@ -756,7 +765,9 @@ def test_missing_snapshot_refusal_leaves_all_resume_state_untouched(tmp_path):
     }
 
     with pytest.raises(UsageError, match=r"saved snapshot.*missing"):
-        SnapshotIdentity.from_meta({**meta, "snapshot_sha": "0" * 40}).verify(frozen)
+        SnapshotIdentity.from_meta({**meta, "snapshot": {**snapshot, "commit": "0" * 40}}).verify(
+            frozen
+        )
 
     assert (store.run_dir / "run.json").read_bytes() == before["run"]
     ledger = store.run_dir / "claims.jsonl"
