@@ -10,6 +10,7 @@ from types import MappingProxyType
 import pytest
 
 from afriend import outcomes as outcomes_module
+from afriend.commands.runmeta import CURRENT_SCHEMA_VERSION
 from afriend.outcomes import (
     StopReason,
     terminal_outcome,
@@ -344,7 +345,11 @@ def test_every_accepted_tracker_value_serializes_with_stdlib_json(value):
 
 
 def test_apply_returns_a_copy_with_plain_json_safe_state():
-    base = {"artifact": "spec.md"}
+    # A terminal transition records how a run ended; it does not decide what
+    # schema the run was written with. This asserted a literal 2 for as long
+    # as the schema happened to be 2, which is why every terminal run kept
+    # claiming 2 after the schema moved to 3 and then 4.
+    base = {"artifact": "spec.md", "schema_version": CURRENT_SCHEMA_VERSION}
     got = outcome(
         started_at="2026-08-31T10:00:00Z",
         finished_at="2026-08-31T10:00:01Z",
@@ -358,8 +363,8 @@ def test_apply_returns_a_copy_with_plain_json_safe_state():
     )
     applied = got.apply(base)
     assert applied is not base
-    assert base == {"artifact": "spec.md"}
-    assert applied["schema_version"] == 2
+    assert base == {"artifact": "spec.md", "schema_version": CURRENT_SCHEMA_VERSION}
+    assert applied["schema_version"] == CURRENT_SCHEMA_VERSION
     assert applied["stop_reason"] == "completed"
     assert applied["lifecycle_state"] == "terminal"
     assert applied["exit_code"] == 0

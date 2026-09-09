@@ -38,6 +38,49 @@ class Qualification:
     reason: str | None
 
 
+def restore_frozen_qualification(resume_meta: object) -> Qualification | None:
+    """Rebuild a run's recorded qualification from its frozen metadata.
+
+    Returns None when there is nothing frozen to replay -- a fresh run, or a
+    run predating the field that migration did not project -- so the caller
+    falls back to deciding admission normally.
+
+    Resume treats run.json as hostile input, so this validates shape and
+    policy rather than trusting it: a payload that is not a dict, omits a
+    field, carries a wrong type, or names a policy this version does not
+    know is refused outright. What it deliberately does not do is re-derive
+    `qualified` from the roster. That value is the record of a decision
+    already made, and recomputing it is the whole defect this exists to fix.
+    """
+    if not isinstance(resume_meta, dict):
+        return None
+    payload = resume_meta.get("qualification")
+    if payload is None:
+        return None
+    if not isinstance(payload, dict):
+        raise UsageError("cannot resume: saved qualification must be an object")
+    policy = payload.get("policy")
+    if policy not in QUALIFICATION_POLICIES:
+        raise UsageError(
+            f"cannot resume: saved qualification policy {policy!r} is not one of "
+            f"{list(QUALIFICATION_POLICIES)}"
+        )
+    qualified = payload.get("qualified")
+    if not isinstance(qualified, bool):
+        raise UsageError("cannot resume: saved qualification.qualified must be a boolean")
+    names = payload.get("qualifying_names", [])
+    families = payload.get("provider_families", [])
+    for field, value in (("qualifying_names", names), ("provider_families", families)):
+        if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+            raise UsageError(
+                f"cannot resume: saved qualification.{field} must be a list of strings"
+            )
+    reason = payload.get("reason")
+    if reason is not None and not isinstance(reason, str):
+        raise UsageError("cannot resume: saved qualification.reason must be a string or null")
+    return Qualification(policy, qualified, tuple(names), tuple(families), reason)
+
+
 def qualify(specs: Sequence[FriendSpec], policy: str) -> Qualification:
     """Evaluate one policy without modifying the roster or dispatching work."""
     if policy not in QUALIFICATION_POLICIES:

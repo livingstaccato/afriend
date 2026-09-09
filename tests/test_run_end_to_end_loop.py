@@ -16,6 +16,8 @@ import json
 
 from e2e_helpers import _env, run_af
 
+from afriend.commands.runmeta import CURRENT_SCHEMA_VERSION
+
 
 def _artifact(tmp_path):
     path = tmp_path / "spec.md"
@@ -205,7 +207,7 @@ def test_terminal_metadata_has_one_exact_lifecycle_and_checkpoint_state(tmp_path
     )
     meta = _run_json(tmp_path)
     assert result.returncode == meta["exit_code"]
-    assert meta["schema_version"] == 2
+    assert meta["schema_version"] == CURRENT_SCHEMA_VERSION
     assert meta["lifecycle_state"] == "terminal"
     assert meta["started_at"].endswith("Z")
     assert meta["finished_at"].endswith("Z")

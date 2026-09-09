@@ -308,7 +308,12 @@ class RunOutcome:
         )
         applied.update(
             {
-                "schema_version": 2,
+                # No schema_version here. This stamped a literal 2 over
+                # whatever the caller wrote, so every terminal run claimed
+                # schema 2 no matter which schema produced it, and a later
+                # migration would treat a brand-new run as legacy. The base
+                # metadata already records the real version; a terminal
+                # transition does not change it.
                 "lifecycle_state": "terminal",
                 "started_at": self.started_at,
                 "finished_at": self.finished_at,

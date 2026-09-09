@@ -28,7 +28,12 @@ from ..errors import NoFriendsError, UsageError
 from ..ids import validate_friend_name
 from ..presets import default_preset, effort_for, no_effort_note, unverifiable_note
 from ..prompt import available_lenses
-from ..qualification import DEFAULT_QUALIFICATION_POLICY, Qualification, qualify
+from ..qualification import (
+    DEFAULT_QUALIFICATION_POLICY,
+    Qualification,
+    qualify,
+    restore_frozen_qualification,
+)
 from ..readiness import (
     DenyProbeResult,
     ReadinessState,
@@ -402,7 +407,15 @@ def roster_for_run(
             if adapter is not None:
                 enforce(adapter, authority_policy.for_provider(spec.cli))
 
-    qualification = qualify(
+    # A resumed run replays a decision that was already made. Re-running
+    # admission would make acceptance a property of the current binary
+    # rather than of the run: a default that moved, or a refined predicate,
+    # would refuse a run that its own metadata records as qualified, and
+    # there would be no way to recover it. The frozen payload is authority
+    # for history; `restore_frozen_qualification` still refuses a payload
+    # that is malformed or names a policy this version does not know.
+    frozen = restore_frozen_qualification(getattr(args, "_resume_meta", None))
+    qualification = frozen or qualify(
         specs, getattr(args, "qualification_policy", None) or DEFAULT_QUALIFICATION_POLICY
     )
     resolved.qualification = qualification
@@ -420,6 +433,12 @@ def roster_for_run(
         # structurally could not check anything. This was a downgrade note
         # for every mode until a crossexam of this file found the exit-0
         # gate and the DEGRADED_MODES constant that was wired to nothing.
+        # A replayed verdict is still enforced. Replay fixes *which* rule is
+        # applied -- the one the run recorded, not the current default -- but
+        # a run whose own metadata says it never qualified must not become
+        # judgeable by being resumed. A legacy roster holding only an
+        # advisory host is exactly that case, and admitting it would rebuild
+        # the exit-0 gate this file already documents.
         if args.mode not in DEGRADED_MODES:
             names = ", ".join(qualification.qualifying_names) or "none"
             families = ", ".join(qualification.provider_families) or "none"
