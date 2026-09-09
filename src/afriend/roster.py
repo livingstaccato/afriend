@@ -117,6 +117,14 @@ def resolve(
     enforce: Callable[[Adapter], object] | None = None,
     authority_policy: AuthorityPolicy | None = None,
 ) -> list[FriendSpec]:
+    if not isinstance(min_workers, int) or isinstance(min_workers, bool) or min_workers < 1:
+        raise UsageError("min_workers must be a positive integer")
+    # `--lens` is an append action and a review profile's `lenses` list is not
+    # deduplicated either, so a repeat reaches here. Fanning a sole worker
+    # across a repeated lens would build two friends with one name, and names
+    # become run-directory paths -- a run that used to resolve one friend
+    # would die on a duplicate-name error naming nothing the operator typed.
+    lenses = list(dict.fromkeys(lenses))
     host = detect_host(env, host_provider=host_provider)
     effective_include_self = effective_host_inclusion(host, include_self)
     # NOTE for whoever wires a --roster file flag through `overrides`:
@@ -247,18 +255,37 @@ def resolve(
     # reached it. `min_workers` is how a caller says the run needs two
     # sessions and its policy will accept same-provider ones.
     #
-    # Only the sole-provider case fans out. Two providers already supply two
+    # The count that matters is INDEPENDENT WORKERS, not discovered
+    # providers. A discovered host becomes advisory host self-review, which
+    # `qualification.qualify` does not count -- so the ordinary Codex-host
+    # layout (advisory host plus one other provider) looks like two providers
+    # and has one worker. Gating on `available` there skipped the fan-out,
+    # refused, advised the policy flag, and refused the retry for a different
+    # reason with the advice gone: an operator loop.
+    #
+    # Only the sole-worker case fans out. Two workers already supply two
     # sessions, and that pair is the stronger roster -- a third session would
     # spend a friend to weaken the average. Extra sessions take further
     # lenses, never a repeated one: names are lens-derived and become run
     # directory paths (ids.py), so a repeat would collide rather than
     # disagree.
-    if len(available) == 1:
-        sole = available[0]
-        for lens in lenses[1:]:
-            if len(pairings) >= min_workers:
+    worker_providers = [cli for cli in available if cli != host]
+    if len(worker_providers) == 1:
+        sole = worker_providers[0]
+        taken = {lens for cli, lens in pairings if cli == sole}
+        # Counted in workers, for the same reason the gate above is: an
+        # advisory host pairing would otherwise fill the budget it is not
+        # eligible to satisfy, and the fan-out would stop before building
+        # anything.
+        workers = sum(1 for cli, _lens in pairings if cli != host)
+        for lens in lenses:
+            if workers >= min_workers:
                 break
+            if lens in taken:
+                continue
             pairings.append((sole, lens))
+            taken.add(lens)
+            workers += 1
     specs = []
     for cli, lens in pairings:
         adapter = registry[cli]

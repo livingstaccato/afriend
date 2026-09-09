@@ -535,3 +535,29 @@ def test_a_sole_provider_with_a_single_lens_is_not_fanned_out(registry):
     specs = _discover(registry, min_workers=2, lenses=["security"])
 
     assert [spec.name for spec in specs] == ["codex-security"]
+
+
+@pytest.mark.parametrize("bad", [0, -1, True, "2"])
+def test_min_workers_must_be_a_positive_integer(registry, bad):
+    """Mirrors the rule `max_friends` two functions above already enforces.
+    A silent no-op for 0 or -1 is a caller bug that discovery would absorb."""
+    with pytest.raises(UsageError, match="min_workers"):
+        _discover(registry, min_workers=bad)
+
+
+def test_fanning_out_stops_when_the_lenses_run_out(registry):
+    """Two lenses, three sessions asked for: two is what can be named. The
+    shortfall is the caller's to explain -- `resolve` cannot invent a lens,
+    and a repeated one would collide on the run-directory path."""
+    specs = _discover(registry, min_workers=3, lenses=["security", "ops"])
+
+    assert [spec.lens for spec in specs] == ["security", "ops"]
+
+
+def test_a_repeated_lens_is_collapsed_before_it_can_collide(registry):
+    """`--lens` is an append action and a profile's `lenses` list is not
+    deduplicated, so a repeat reaches discovery. Two friends named for one
+    lens share a run-directory path."""
+    specs = _discover(registry, min_workers=2, lenses=["ops", "ops", "security"])
+
+    assert [spec.name for spec in specs] == ["codex-ops", "codex-security"]

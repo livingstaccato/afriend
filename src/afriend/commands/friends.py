@@ -167,29 +167,58 @@ def _sessions_needed(args: argparse.Namespace) -> int:
     second session would double the cost of every single-provider run to
     satisfy a policy that is not being consulted.
     """
-    policy = getattr(args, "qualification_policy", None) or DEFAULT_QUALIFICATION_POLICY
-    judging = args.mode not in DEGRADED_MODES
-    return QUORUM_WORKERS if judging and policy == SAME_PROVIDER_POLICY else 1
+    if _policy(args) != SAME_PROVIDER_POLICY or args.mode in DEGRADED_MODES:
+        return 1
+    # Capacity is applied after discovery, so a session built beyond
+    # `--max-friends` is constructed only to be trimmed -- and the note about
+    # the roster would then describe friends that no longer exist.
+    capacity = getattr(args, "max_friends", None)
+    if isinstance(capacity, int) and capacity < QUORUM_WORKERS:
+        return max(capacity, 1)
+    return QUORUM_WORKERS
 
 
-def _note_same_provider_quorum(specs: list[FriendSpec], downgrades: list[str]) -> None:
+def _note_same_provider_quorum(specs: list[FriendSpec], downgrades: list[str], policy: str) -> None:
     """Say when a quorum came from one provider.
 
-    Reachable is not the same as equivalent: two sessions of one CLI share an
-    account, a model and a failure mode. Silence here would let the report
-    read as disagreement between independent reviewers.
+    Reachable is not the same as equivalent: sessions of one CLI share an
+    account and a failure mode. Silence would let the report read as
+    disagreement between independent reviewers.
+
+    Called once, from `roster_for_run`, beside the qualification it
+    describes. Wiring it into discovery instead left the documented
+    workaround -- `--friend codex:a --friend codex:b` -- and every roster
+    file undisclosed, because both replace discovery entirely.
+
+    The predicate is policy-agnostic (several workers, one family), so the
+    text takes the policy being applied rather than naming one: under
+    `distinct-models` these sessions do NOT share a model, and saying so
+    would be false.
     """
     workers = [spec for spec in specs if spec.independent and not spec.host_self_review]
     families = {spec.cli for spec in workers}
-    if len(workers) > 1 and len(families) == 1:
-        note = (
-            f"all {len(workers)} judging sessions run on the same provider "
-            f"({families.pop()}) under the {SAME_PROVIDER_POLICY!r} policy; they share an "
-            "account, a model and a failure mode, so agreement between them is weaker "
-            "evidence than agreement across providers"
-        )
-        if note not in downgrades:
-            downgrades.append(note)
+    if len(workers) < QUORUM_WORKERS or len(families) != 1:
+        return
+    shared = "an account and a failure mode"
+    if policy == SAME_PROVIDER_POLICY:
+        shared = "an account, a model and a failure mode"
+    note = (
+        f"all {len(workers)} judging sessions run on the same provider "
+        f"({families.pop()}) under the {policy!r} policy; they share {shared}, so "
+        "agreement between them is weaker evidence than agreement across providers"
+    )
+    if note not in downgrades:
+        downgrades.append(note)
+
+
+def _policy(args: argparse.Namespace) -> str:
+    """The qualification policy this run is being built and judged under.
+
+    One reader. Resolving it separately where the roster is built and where
+    it is admitted let the two disagree, which would produce a refusal that
+    discovery had just been told to satisfy.
+    """
+    return getattr(args, "qualification_policy", None) or DEFAULT_QUALIFICATION_POLICY
 
 
 def resolve_friends(
@@ -296,7 +325,6 @@ def resolve_friends(
                 authority_policy=authority_policy,
                 min_workers=_sessions_needed(args),
             )
-            _note_same_provider_quorum(specs, downgrades)
     if not specs:
         raise NoFriendsError(f"no usable friends for mode {args.mode!r}")
     if explicit:
@@ -406,7 +434,21 @@ def resolve_friends(
     )
 
 
-def _remedies(qualification: Qualification) -> str:
+def _effective_lenses(args: argparse.Namespace, registry: dict[str, Adapter]) -> list[str]:
+    """The lenses THIS run may assign, not every lens on disk.
+
+    `_remedies` used `available_lenses()` and so recommended a policy whose
+    roster this run could not build: under `--lens assumptions`, or a review
+    profile naming one lens, there is no second lens for a second session to
+    be named with.
+    """
+    try:
+        return _validated_selection_args(args, registry)[3]
+    except UsageError:
+        return list(available_lenses())
+
+
+def _remedies(qualification: Qualification, lenses: list[str], resumed: bool) -> str:
     """What an operator can actually do about this refusal.
 
     The reported case: a host with one ready provider was told to add a
@@ -416,21 +458,44 @@ def _remedies(qualification: Qualification) -> str:
     refusal simply never named it, while being constructed with the policy in
     hand.
 
-    Only offered when it is genuinely available: a second session needs a
-    worker to clone and a second lens to name it with, since friend names are
-    lens-derived and become run-directory paths.
+    Every option here has to be one that changes the outcome:
+
+    - A resumed run replays a frozen qualification, so the policy flag is
+      ignored by design and the roster cannot gain a friend. Both ordinary
+      remedies are inert, and printing them tells the operator to do two
+      things that provably do nothing.
+    - `distinct-sessions` and `distinct-models` do not ask for a second
+      PROVIDER, so naming one is wrong advice under two of the three
+      policies.
+    - A second session needs a second lens to be named with, because friend
+      names are lens-derived and become run-directory paths. Under a
+      restricted `--lens` (or a profile's `lenses` list) the lens count is
+      the real blocker, and the policy flag leads to an identical refusal.
     """
-    remedies = ["add a friend on a second provider"]
-    if (
-        qualification.policy != SAME_PROVIDER_POLICY
-        and qualification.qualifying_names
-        and len(available_lenses()) >= QUORUM_WORKERS
-    ):
-        remedies.append(
-            f"pass --qualification-policy {SAME_PROVIDER_POLICY} to accept "
-            f"{QUORUM_WORKERS} sessions of one provider as evidence (weaker: they share "
-            "an account, a model and a failure mode)"
+    if resumed:
+        return (
+            "A resumed run replays the qualification its ledger recorded, so neither the "
+            "roster nor --qualification-policy can change it. Start a new run to review "
+            "this artifact under a different policy or roster."
         )
+    remedies = []
+    if qualification.policy == DEFAULT_QUALIFICATION_POLICY:
+        remedies.append("add a friend on a second provider")
+    else:
+        remedies.append("add a friend that satisfies this policy")
+    if qualification.policy != SAME_PROVIDER_POLICY and qualification.qualifying_names:
+        if len(lenses) >= QUORUM_WORKERS:
+            remedies.append(
+                f"pass --qualification-policy {SAME_PROVIDER_POLICY} to accept "
+                f"{QUORUM_WORKERS} sessions of one provider as evidence (weaker: they share "
+                "an account, a model and a failure mode)"
+            )
+        else:
+            remedies.append(
+                f"configure a second lens -- {SAME_PROVIDER_POLICY} would accept "
+                f"{QUORUM_WORKERS} sessions of one provider, but each needs its own lens "
+                f"to be named with and this run has {len(lenses)}"
+            )
     remedies.append("use --mode report for a single reviewer's opinion")
     return "Options: " + "; ".join(remedies) + "."
 
@@ -452,6 +517,7 @@ def roster_for_run(
     """
     # A resumed run judges with the roster its ledger was written against.
     resume_roster = getattr(args, "_resume_roster", None)
+    resumed = resume_roster is not None
     if resume_roster is not None:
         _validated_selection_args(args, registry)
         specs = list(resume_roster)
@@ -489,10 +555,11 @@ def roster_for_run(
     # for history; `restore_frozen_qualification` still refuses a payload
     # that is malformed or names a policy this version does not know.
     frozen = restore_frozen_qualification(getattr(args, "_resume_meta", None))
-    qualification = frozen or qualify(
-        specs, getattr(args, "qualification_policy", None) or DEFAULT_QUALIFICATION_POLICY
-    )
+    qualification = frozen or qualify(specs, _policy(args))
     resolved.qualification = qualification
+    # Beside the qualification it describes, and after capacity trimming, so
+    # it speaks about the roster that will actually run.
+    _note_same_provider_quorum(specs, downgrades, qualification.policy)
     if not qualification.qualified:
         # §8.3. --friend REPLACES the roster rather than augmenting
         # discovery (see cliargs._specs_from_flags), so a single --friend
@@ -520,7 +587,8 @@ def roster_for_run(
                 f"roster does not satisfy qualification policy {qualification.policy!r}: "
                 f"workers ({names}); provider families ({families}); "
                 f"{qualification.reason}. Judging needs at least two independent "
-                f"friends under the selected policy. {_remedies(qualification)}"
+                f"friends under the selected policy. "
+                f"{_remedies(qualification, _effective_lenses(args, registry), resumed)}"
             )
         if len(specs) == 1:
             downgrades.append(
