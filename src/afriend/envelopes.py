@@ -326,25 +326,47 @@ def answer_is_complete(text: str, envelope: Envelope) -> bool:
         return False
 
 
+# How far back the terminal-event scan looks. Both bounds are about cost:
+# `answer_is_complete` runs on nearly every poll for an NDJSON friend, so the
+# work it does must not grow with the stream it is watching.
+TERMINAL_SCAN_LINES = 16
+TERMINAL_SCAN_BYTES = 65_536
+
+
 def _ndjson_stream_finished(text: str, envelope: Envelope) -> bool:
     """Whether the stream's declared terminal event has arrived.
 
-    Only the last complete line is parsed. An event stream grows, and the
-    question is about its end, so walking the whole buffer on every poll
-    would make the check cost more the longer the friend runs.
+    Scanned over a bounded window at the end of the buffer, and over several
+    trailing lines rather than the last one alone. Both halves were wrong in
+    the first version, in opposite directions:
+
+    Reading only the final line meant anything agy emitted after its
+    terminal `result` -- a trailing progress event, a plain-text banner on
+    the way out -- hid that event for the rest of the wait, and the run paid
+    the whole `--print-timeout` this check exists to avoid. agy writes
+    `result` and then does NOT exit, so emitting something afterwards is its
+    normal behaviour, not an edge case.
+
+    Reading the whole buffer to fix that would have cost more the longer a
+    friend ran, and this check fires on nearly every poll for NDJSON: each
+    line ends with `}`, so the cheap `_buffer_looks_finished` guard in the
+    caller almost never rejects it. Hence the window rather than a full
+    scan. Past that window a `result` under hundreds of later events is not
+    a stream that ended; it is a stream still running.
     """
     if not envelope.terminal_event:
         return False
-    for line in reversed(strip_ansi(text).splitlines()):
+    window = strip_ansi(text[-TERMINAL_SCAN_BYTES:])
+    for line in reversed(window.splitlines()[-TERMINAL_SCAN_LINES:]):
         line = line.strip()
         if not line:
             continue
         try:
             parsed = json.loads(line)
         except _JSON_ERRORS:
-            # A partial trailing line is the normal case mid-stream.
-            return False
-        return isinstance(parsed, dict) and (
-            parsed.get(envelope.match_field) == envelope.terminal_event
-        )
+            # A half-written trailing line mid-stream, or the CLI's own
+            # prose. Neither is the terminal event, and neither hides one.
+            continue
+        if isinstance(parsed, dict) and parsed.get(envelope.match_field) == envelope.terminal_event:
+            return True
     return False

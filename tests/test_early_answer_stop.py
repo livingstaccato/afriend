@@ -11,8 +11,13 @@ import json
 import sys
 import time
 
-from afriend import spawn
-from afriend.envelopes import Envelope, answer_is_complete
+from afriend import envelopes, spawn
+from afriend.envelopes import (
+    TERMINAL_SCAN_BYTES,
+    TERMINAL_SCAN_LINES,
+    Envelope,
+    answer_is_complete,
+)
 
 JSON_PATH = Envelope(kind="json_path", path="response")
 NDJSON = Envelope(kind="ndjson")
@@ -131,3 +136,71 @@ def test_an_early_stopped_answer_is_not_reported_as_a_failure(tmp_path):
     assert outcome.stopped_after_answer is True
     assert outcome.result.succeeded is True
     assert outcome.failure_reason is None, outcome.failure_reason
+
+
+AGY = Envelope(kind="ndjson", match_field="event", terminal_event="result")
+
+RESULT = json.dumps({"event": "result", "result": {"response": "done"}})
+PROGRESS = json.dumps({"event": "assistant", "message": "still thinking"})
+
+
+def test_the_declared_terminal_event_ends_the_stream():
+    assert answer_is_complete(PROGRESS + "\n" + RESULT + "\n", AGY) is True
+
+
+def test_an_event_after_the_terminal_one_does_not_reopen_the_stream():
+    """The bound this whole check exists to hold. agy writes `result` and
+    then does not exit; anything it emits on the way out -- a trailing
+    progress event, a flush -- used to hide the terminal event, because only
+    the last line was ever parsed. The run then paid the full
+    `--print-timeout`: seven to twelve minutes, the exact hang this file
+    documents.
+    """
+    assert answer_is_complete(RESULT + "\n" + PROGRESS + "\n", AGY) is True
+
+
+def test_a_non_json_banner_after_the_terminal_event_does_not_hide_it():
+    """CLIs write to the same pipe on their way out. A deprecation notice or
+    an ANSI-decorated banner is not an event, and must not read as one."""
+    assert answer_is_complete(RESULT + "\nwarning: agy 2.1 is deprecated\n", AGY) is True
+
+
+def test_a_stream_whose_last_event_is_not_terminal_is_not_finished():
+    """The other half: `result` is what ends it, not "some parseable event
+    arrived". Without this, every NDJSON friend is cut off at its first
+    complete line -- codex's answer is a later event than its progress."""
+    assert answer_is_complete(PROGRESS + "\n", AGY) is False
+
+
+def test_an_envelope_declaring_no_terminal_event_never_stops_early():
+    """opencode and codex declare none. Their streams end when the process
+    ends, and guessing a terminal event for them would truncate answers."""
+    assert answer_is_complete(RESULT + "\n", NDJSON) is False
+
+
+def test_a_terminal_event_older_than_the_scan_window_is_not_found():
+    """Deliberate, not an oversight. The window bounds the per-poll cost;
+    past it, a `result` followed by hundreds of further events is not a
+    stream that ended, it is a stream still running.
+    """
+    noise = "\n".join(PROGRESS for _ in range(TERMINAL_SCAN_LINES + 5))
+    assert answer_is_complete(RESULT + "\n" + noise + "\n", AGY) is False
+
+
+def test_the_check_does_not_read_more_of_the_buffer_as_it_grows(monkeypatch):
+    """The docstring's claim, asserted. Scanning the whole buffer on every
+    poll costs more the longer a friend runs, and this check fires on nearly
+    every poll for NDJSON -- each line ends with `}`, so the cheap guard
+    never rejects it.
+    """
+    seen: list[int] = []
+    original = envelopes.strip_ansi
+    monkeypatch.setattr(
+        envelopes, "strip_ansi", lambda text: seen.append(len(text)) or original(text)
+    )
+    huge = (PROGRESS + "\n") * 20_000
+
+    answer_is_complete(huge + RESULT + "\n", AGY)
+
+    assert seen and max(seen) <= TERMINAL_SCAN_BYTES
+    assert max(seen) < len(huge)
