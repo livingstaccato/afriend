@@ -155,3 +155,50 @@ def test_the_shipped_adapters_declare_only_supported_formats():
         assert adapter.models_format in {"lines", "tsv"}, name
         if adapter.models_argv:
             assert adapter.models_argv[0], name
+
+
+def test_a_listing_gets_the_same_filtered_environment_a_friend_would(monkeypatch, tmp_path):
+    """A listing is a convenience command, not an exemption. It used to
+    inherit the parent's whole environment, handing a provider CLI every
+    variable that adapter's `env.pass` deliberately withholds during a
+    review -- and no run record mentioned it, because no run was involved."""
+    captured: dict[str, object] = {}
+
+    def fake_run(*_a, **kwargs):
+        captured.update(kwargs)
+        return _completed("model-a\n")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setenv("A_PRIVATE_TOKEN", "secret")
+    list_models(_adapter(tmp_path))
+
+    assert "A_PRIVATE_TOKEN" not in captured["env"]
+
+
+def test_a_listing_is_never_handed_the_operators_terminal(monkeypatch, tmp_path):
+    """A CLI that decides to prompt would otherwise block for the whole
+    timeout, or eat keystrokes meant for afriend."""
+    captured: dict[str, object] = {}
+
+    def fake_run(*_a, **kwargs):
+        captured.update(kwargs)
+        return _completed("model-a\n")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    list_models(_adapter(tmp_path))
+
+    assert captured["stdin"] == subprocess.DEVNULL
+
+
+def test_a_provider_with_no_executable_is_not_exec_ed(monkeypatch, tmp_path):
+    """ollama is the HTTP transport and declares `binary = ""`. Declaring
+    models_argv for it would exec the empty string."""
+    calls: list[object] = []
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: calls.append(a) or _completed())
+    (tmp_path / "http.toml").write_text(
+        'name = "http"\nbinary = ""\nexternal_tools = "none"\nmodels_argv = ["models"]\n'
+    )
+    answer = list_models(load_adapters(tmp_path)["http"])
+
+    assert calls == []
+    assert answer.error is not None and "no executable" in answer.error

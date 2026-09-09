@@ -1,20 +1,33 @@
 """Manage user-owned provider enablement and model defaults."""
 
 import argparse
+import concurrent.futures
 import json
 
 from .. import providerconfig
-from ..adapters import load_adapters
+from ..adapters import Adapter, load_adapters
 from ..errors import UsageError
 from ..models import list_models, resolve_provider
 from ..paths import ADAPTER_DIR
 
+# Every listing is its own subprocess with its own MODELS_TIMEOUT_S, so a
+# serial sweep of the registry made the command's worst case the SUM of those
+# timeouts -- five providers, any of them uninstalled or slow to fetch a
+# catalogue, and nothing printed for over two minutes.
+MODELS_CONCURRENCY = 5
 
-def _models(args: argparse.Namespace) -> int:
+
+def _models(args: argparse.Namespace, registry: dict[str, Adapter]) -> int:
     """Ask providers what they offer. Never a list afriend made up."""
-    registry = load_adapters(ADAPTER_DIR)
     names = [args.name] if getattr(args, "name", None) else sorted(registry)
-    answers = [list_models(resolve_provider(registry, name)) for name in names]
+    adapters_to_ask = [resolve_provider(registry, name) for name in names]
+    if len(adapters_to_ask) == 1:
+        answers = [list_models(adapters_to_ask[0])]
+    else:
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=min(MODELS_CONCURRENCY, len(adapters_to_ask))
+        ) as pool:
+            answers = list(pool.map(list_models, adapters_to_ask))
     if args.json:
         print(
             json.dumps(
@@ -35,7 +48,12 @@ def _models(args: argparse.Namespace) -> int:
         return 0
     for answer in answers:
         if not answer.supported:
-            print(f"{answer.provider}\tno model listing: this CLI has no such command")
+            # What is actually known: this adapter declares no listing
+            # command. Whether the CLI has one is a claim about the CLI that
+            # nothing here checked -- `ollama list` exists, and printing "this
+            # CLI has no such command" for it would be exactly the answer from
+            # memory that this whole command exists to replace.
+            print(f"{answer.provider}\tno model listing: this adapter declares no listing command")
             continue
         if answer.error is not None:
             print(f"{answer.provider}\tunavailable: {answer.error}")
@@ -46,10 +64,11 @@ def _models(args: argparse.Namespace) -> int:
 
 
 def cmd_providers(args: argparse.Namespace) -> int:
-    known = set(load_adapters(ADAPTER_DIR))
+    registry = load_adapters(ADAPTER_DIR)
+    known = set(registry)
     action = args.provider_command
     if action == "models":
-        return _models(args)
+        return _models(args, registry)
     if action == "enable":
         providerconfig.set_enabled(args.name, True, known=known)
     elif action == "disable":

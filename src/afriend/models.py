@@ -14,6 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import subprocess
 
+from . import childenv
 from .adapters import Adapter
 from .errors import UsageError
 
@@ -61,6 +62,12 @@ def list_models(adapter: Adapter, *, timeout_s: int = MODELS_TIMEOUT_S) -> Provi
     """Ask one provider for its models, or report why it cannot be asked."""
     if not adapter.models_argv:
         return ProviderModels(adapter.name, supported=False)
+    if not adapter.binary:
+        # ollama is the HTTP transport and declares no binary. Declaring
+        # models_argv for it would exec the empty string.
+        return ProviderModels(
+            adapter.name, supported=True, error="this provider has no executable to ask"
+        )
     argv = [adapter.binary, *adapter.models_argv]
     try:
         completed = subprocess.run(
@@ -69,6 +76,17 @@ def list_models(adapter: Adapter, *, timeout_s: int = MODELS_TIMEOUT_S) -> Provi
             text=True,
             timeout=timeout_s,
             check=False,
+            # The same filtered environment every dispatched friend gets. This
+            # used to inherit the parent's whole environment, so a listing --
+            # a convenience command -- handed a provider CLI every variable
+            # that adapter's `env.pass` deliberately withholds from it during
+            # a review, and the run record's withheld list was silent about
+            # it because no run was involved.
+            env=childenv.build(adapter.env_pass),
+            # And no terminal. An inherited stdin lets a CLI that decides to
+            # prompt block for the full timeout, or swallow keystrokes meant
+            # for afriend.
+            stdin=subprocess.DEVNULL,
         )
     except FileNotFoundError:
         return ProviderModels(adapter.name, supported=True, error="executable is not installed")
