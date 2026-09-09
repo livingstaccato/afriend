@@ -6,10 +6,7 @@ from typing import Any
 
 from ..dispatch import STDERR_TAIL_CHARS, _stderr_tail, failure_summary
 from ..errors import UsageError
-from ..jsonio import MAX_JSON_FILE_BYTES, decode_json_object
-from ..orchestrator import QUESTION_EXTRACT, QUESTION_MERGE, REQUEST_NAME, RESPONSE_NAME
 from ..outcomes import MAX_JSON_SAFE_INTEGER
-from ..secureio import secure_read_bytes, secure_regular_exists
 from ..snapshots import SnapshotIdentity, history_from_meta
 from ..verdicts import CONTESTED, INCOMPLETE, TERMINAL_STATES, UNPROVEN
 from ..workspaceassets import normalize_workspace_asset_audits
@@ -292,34 +289,12 @@ def normalize_repeat_tracker(value: object) -> dict[str, object]:
     return normalized
 
 
-def _legacy_halt_is_outstanding(meta: dict[str, Any], run_dir: Path) -> bool:
-    saved = meta.get("invocation")
-    if type(saved) is not dict:
-        return False
-    iteration = meta.get("resume_iteration", meta.get("iterations_run", 1))
-    max_rounds = saved.get("max_rounds", 1)
-    if type(iteration) is not int or iteration < 1 or type(max_rounds) is not int:
-        return False
-    round_dir = run_dir / f"round-{(iteration - 1) * max_rounds + 1}"
-    request_path = round_dir / REQUEST_NAME
-    try:
-        request_exists = secure_regular_exists(request_path, root=run_dir)
-        applied_exists = secure_regular_exists(round_dir / f"{RESPONSE_NAME}.applied", root=run_dir)
-    except OSError:
-        return False
-    if not request_exists or applied_exists:
-        return False
-    try:
-        payload = secure_read_bytes(request_path, root=run_dir, max_bytes=MAX_JSON_FILE_BYTES)
-        request = decode_json_object(payload, path=request_path, label="orchestrator request")
-    except (OSError, UsageError):
-        return False
-    return type(request) is dict and request.get("question") in {QUESTION_MERGE, QUESTION_EXTRACT}
-
-
-def validate_lifecycle_and_snapshot(meta: dict[str, Any], *, run_dir: Path, legacy: bool) -> None:
+def validate_lifecycle_and_snapshot(meta: dict[str, Any], *, run_dir: Path) -> None:
     lifecycle = meta.get("lifecycle_state")
-    if not legacy and lifecycle not in {
+    # `in` against a set raises TypeError on an unhashable value, and this
+    # reads a hostile run.json, so the type is checked before membership: a
+    # saved `lifecycle_state` of `[]` must be refused, not crash.
+    if not isinstance(lifecycle, str) or lifecycle not in {
         "waiting-for-orchestrator",
         "response-applying",
         "response-applied",
@@ -328,9 +303,5 @@ def validate_lifecycle_and_snapshot(meta: dict[str, Any], *, run_dir: Path, lega
             "cannot resume: saved lifecycle_state must be waiting-for-orchestrator "
             "or a response-applying/response-applied recovery state"
         )
-    if legacy and lifecycle not in (None, "waiting-for-orchestrator"):
-        raise UsageError("cannot resume: saved lifecycle_state must be waiting-for-orchestrator")
-    if legacy and not _legacy_halt_is_outstanding(meta, run_dir):
-        raise UsageError("cannot resume: legacy metadata has no outstanding orchestrator halt")
     current = SnapshotIdentity.from_current_meta(meta)
     history_from_meta(meta, current)

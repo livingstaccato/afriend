@@ -239,7 +239,14 @@ def test_an_empty_response_is_a_real_answer(tmp_path):
     assert not [r for r in _ledger(tmp_path) if r["type"] == "alias"]
 
 
-def test_resumed_v020_authority_stays_legacy_unknown_while_current_grant_dispatches(tmp_path):
+def test_external_tool_authority_must_be_reasserted_to_resume(tmp_path):
+    """The grant does not survive in the run directory across a resume.
+
+    Saved metadata records that the halted run held the grant, which is an
+    audit fact, not a standing authority. The resume command line has to carry
+    it again or dispatch is refused, so possession of the run directory never
+    amounts to possession of the grant.
+    """
     halted = _halt(
         tmp_path,
         "judge_uphold_a",
@@ -248,11 +255,6 @@ def test_resumed_v020_authority_stays_legacy_unknown_while_current_grant_dispatc
         extra=("--allow-external-tools=*",),
     )
     assert halted.returncode == 10, halted.stderr
-    meta = _run_json(tmp_path)
-    meta.pop("schema_version")
-    meta.pop("lifecycle_state")
-    meta.pop("external_tool_policy")
-    _write_run_json(tmp_path, meta)
     _respond(tmp_path, [])
 
     refused = _resume(tmp_path)
@@ -262,12 +264,12 @@ def test_resumed_v020_authority_stays_legacy_unknown_while_current_grant_dispatc
     resumed = _resume(tmp_path, extra=("--allow-external-tools=*",))
     assert resumed.returncode == 0, resumed.stderr
     terminal = _run_json(tmp_path)
-    assert terminal["external_tool_policy"] == "legacy-unknown"
+    assert terminal["external_tool_policy"] == "allow"
     assert any(
         row["round"] == 2 and row["external_tool_policy"] == "allow" for row in terminal["friends"]
     )
     report = (_run_dir(tmp_path) / "report.md").read_text()
-    assert "Status: `legacy-unknown`" in report
+    assert "Status: `explicitly-allowed`" in report
 
 
 def test_a_terminal_run_cannot_be_resumed_twice(tmp_path):

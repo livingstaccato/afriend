@@ -35,11 +35,11 @@ from ..themes import MAX_THEME_PROPOSALS, ThemeProposal, bounded_theme_metadata
 from ..trust import MODEL_RE, validate_roster_entry
 from ..verdicts import judges_for, loop_should_terminate
 from .exits import decide_exit
-from .runmeta_migration import (
-    CURRENT_SCHEMA_VERSION as CURRENT_SCHEMA_VERSION,
-    migrate_meta as migrate_meta,
-)
 from .runmeta_outcome import _terminal_event_summary, build_terminal_outcome, finalize_meta
+from .runmeta_schema import (
+    CURRENT_SCHEMA_VERSION as CURRENT_SCHEMA_VERSION,
+    validated_meta as validated_meta,
+)
 
 if TYPE_CHECKING:
     from ..progress import Progress

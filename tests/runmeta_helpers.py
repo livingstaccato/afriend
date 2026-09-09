@@ -46,7 +46,7 @@ def _run_dir(tmp_path: Path, meta: dict[str, object]) -> Path:
 
 
 def _resume_meta() -> dict[str, object]:
-    meta = load_fixture("run_meta_v020_halted.json")
+    meta = load_fixture("run_meta_current_halted.json")
     meta["invocation"].update(
         {
             "allow_unsandboxed_friend": False,

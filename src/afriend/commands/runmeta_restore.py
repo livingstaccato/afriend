@@ -16,7 +16,6 @@ from .checkpoint import (
     normalize_repeat_tracker,
     validate_lifecycle_and_snapshot,
 )
-from .legacyroles import reduce_legacy_host_checkpoint
 from .runmeta import (
     _RESUMABLE_ARGS,
     _SECURITY_GRANTS,
@@ -26,9 +25,9 @@ from .runmeta import (
     _validate_saved_grant,
     _validate_saved_setting,
     _validated_roster_entries,
-    migrate_meta,
 )
 from .runmeta_checkpoint import _normalized_checkpoint
+from .runmeta_schema import validated_meta
 
 
 def _find_run_dir(run_id: str, out: str | None) -> Path:
@@ -53,8 +52,7 @@ def restore_args(args: argparse.Namespace) -> argparse.Namespace:
         meta = load_json_object(meta_path, label="saved run metadata")
     except UsageError as exc:
         raise UsageError(f"cannot resume: {exc}") from exc
-    raw_version = meta.get("schema_version", 1)
-    meta = migrate_meta(meta)
+    meta = validated_meta(meta)
     resumevalidation.validate_metadata_bound(meta)
     saved = meta.get("invocation")
     if not isinstance(saved, dict):
@@ -101,17 +99,6 @@ def restore_args(args: argparse.Namespace) -> argparse.Namespace:
         raise UsageError("cannot resume: external_tool_grants disagrees with the saved invocation")
     host_context_known, detected_host, effective_include_self = _frozen_host_context(meta, saved)
     raw_roster = meta.get("roster", [])
-    legacy_host_role_migration = (
-        host_context_known
-        and detected_host is not None
-        and isinstance(raw_roster, list)
-        and any(
-            isinstance(entry, dict)
-            and entry.get("cli") == detected_host
-            and ("independent" not in entry or "host_self_review" not in entry)
-            for entry in raw_roster
-        )
-    )
     roster_entries = _validated_roster_entries(
         raw_roster,
         detected_host=detected_host,
@@ -120,21 +107,28 @@ def restore_args(args: argparse.Namespace) -> argparse.Namespace:
     validate_roster_entry_uniqueness(
         roster_entries, judging=saved.get("mode", "report") != "report"
     )
-    ambiguous_host_entries = (
-        not host_context_known
-        and isinstance(raw_roster, list)
-        and any(
-            isinstance(entry, dict)
-            and can_be_host_provider(entry.get("cli"))
-            and ("independent" not in entry or "host_self_review" not in entry)
-            for entry in raw_roster
-        )
+    # Not a version check. The current schema always serializes both role
+    # fields, so a roster entry missing them is malformed rather than old,
+    # and resume treats run.json as hostile input. Failing closed here keeps
+    # an advisory host from being read as an independent judge.
+    #
+    # This does not depend on whether the frozen host is known. When it is,
+    # the roles can be *derived* for a row that omits them -- but the
+    # authority state saved alongside that row was computed by whatever wrote
+    # it, under a host-role model this version cannot confirm. Deriving the
+    # roles and carrying that state forward is how an advisory host reaches a
+    # judging verdict.
+    ambiguous_host_entries = isinstance(raw_roster, list) and any(
+        isinstance(entry, dict)
+        and can_be_host_provider(entry.get("cli"))
+        and ("independent" not in entry or "host_self_review" not in entry)
+        for entry in raw_roster
     )
     if saved.get("mode", "report") in JUDGING_MODES and ambiguous_host_entries:
         raise UsageError(
-            "cannot resume judging: this run predates frozen host-role metadata, "
+            "cannot resume judging: a roster entry omits its host-role fields, "
             "so an advisory host could be mistaken for an independent judge. "
-            "rerun the review with the current afriend version."
+            "rerun the review rather than editing run.json."
         )
     roster_roles = {
         entry["name"]: (entry["independent"], entry["host_self_review"]) for entry in roster_entries
@@ -149,12 +143,10 @@ def restore_args(args: argparse.Namespace) -> argparse.Namespace:
     )
     # The normalized metadata is the sole input to carried_outcome and the
     # resumed report. Keeping only _resume_roster normalized would let those
-    # readers reconstruct omitted legacy fields with FriendSpec's independent
+    # readers reconstruct omitted role fields with FriendSpec's independent
     # default and silently restore the host's judging authority.
     meta["roster"] = [dict(entry) for entry in roster_entries]
-    if saved.get("mode", "report") in JUDGING_MODES and legacy_host_role_migration:
-        meta = reduce_legacy_host_checkpoint(meta, roster_entries, run_dir)
-    validate_lifecycle_and_snapshot(meta, run_dir=run_dir, legacy=raw_version == 1)
+    validate_lifecycle_and_snapshot(meta, run_dir=run_dir)
     if host_context_known:
         meta["detected_host"] = detected_host
         meta["effective_include_self"] = effective_include_self

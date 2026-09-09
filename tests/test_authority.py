@@ -14,6 +14,7 @@ from afriend.authority import (
 )
 from afriend.commands.checkpoint import legacy_successful_friend_ids
 from afriend.commands.runmeta import _restore_args
+from afriend.commands.runmeta_schema import CURRENT_SCHEMA_VERSION
 from afriend.dispatch import _dispatch
 from afriend.errors import UsageError
 from afriend.normalize import NormalizeResult
@@ -364,9 +365,13 @@ def _write_resume_fixture(
         "predecessor": None,
     }
     meta = {
-        "schema_version": 2,
+        "schema_version": CURRENT_SCHEMA_VERSION,
         "lifecycle_state": "waiting-for-orchestrator",
         "invocation": {"artifact": artifact, "friend": [], **invocation},
+        # The audit copy of the grants and the invocation that produced them
+        # must agree, and resume refuses the run when they do not. The current
+        # schema writes both, so a fixture states both.
+        "external_tool_grants": sorted(invocation.get("allow_external_tools") or []),
         "roster": roster or [],
         "snapshot": snapshot,
         "snapshot_history": [snapshot],

@@ -3,12 +3,18 @@
   "artifact": "spec.md",
   "artifact_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
   "artifact_path": "/tmp/adversarial-friends/spec.md",
+  "attempted_calls": 0,
   "ceiling_hit": null,
   "claim_states": {
     "c-0001@1": "settled-upheld"
   },
   "downgrades": [],
+  "duration_s": null,
   "env_withheld": [],
+  "exit_code": null,
+  "external_tool_grants": [],
+  "external_tool_policy": "legacy-unknown",
+  "finished_at": null,
   "friends": [
     {
       "effort": null,
@@ -20,6 +26,7 @@
   ],
   "incomplete": false,
   "invocation": {
+    "allow_external_tools": [],
     "allow_unsandboxed_friend": false,
     "artifact": "/tmp/adversarial-friends/spec.md",
     "attributed": false,
@@ -46,14 +53,22 @@
     "timeout": 900,
     "unsafe_extra_args": null
   },
+  "lifecycle_state": "terminal",
   "merge": "exact",
   "mode": "crossexam",
   "preset": "balanced",
+  "qualification_policy": "distinct-sessions",
+  "repeat_tracker": {
+    "count": {},
+    "disabled": {},
+    "last": {}
+  },
   "repo_root": null,
   "roster": [
     {
       "cli": "fake",
       "effort": null,
+      "fresh_host_worker": false,
       "lens": "ops",
       "model": null,
       "name": "fake-ops-0",
@@ -63,5 +78,31 @@
   ],
   "roster_source": null,
   "rounds_run": 2,
-  "snapshot_sha": null
+  "schema_version": 4,
+  "snapshot": {
+    "artifact_bound_to_snapshot": false,
+    "artifact_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "artifact_path": "/tmp/adversarial-friends/spec.md",
+    "commit": null,
+    "predecessor": null,
+    "repo_root": null,
+    "source_path": null,
+    "tree": null
+  },
+  "snapshot_history": [
+    {
+      "artifact_bound_to_snapshot": false,
+      "artifact_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "artifact_path": "/tmp/adversarial-friends/spec.md",
+      "commit": null,
+      "predecessor": null,
+      "repo_root": null,
+      "source_path": null,
+      "tree": null
+    }
+  ],
+  "snapshot_sha": null,
+  "spent_calls": 0,
+  "started_at": null,
+  "stop_reason": null
 }

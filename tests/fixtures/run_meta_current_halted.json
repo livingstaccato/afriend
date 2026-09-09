@@ -2,9 +2,15 @@
   "artifact": "spec.md",
   "artifact_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
   "artifact_path": "/tmp/adversarial-friends/spec.md",
+  "attempted_calls": 4,
   "downgrades": [],
   "dry_streak": 1,
+  "duration_s": null,
   "env_withheld": [],
+  "exit_code": null,
+  "external_tool_grants": [],
+  "external_tool_policy": "legacy-unknown",
+  "finished_at": null,
   "friends": [
     {
       "effort": null,
@@ -17,6 +23,7 @@
   "halted_round_dry": true,
   "halted_round_failed": false,
   "invocation": {
+    "allow_external_tools": [],
     "allow_unsandboxed_friend": true,
     "artifact": "/tmp/adversarial-friends/spec.md",
     "attributed": false,
@@ -46,9 +53,11 @@
     "unsafe_extra_args": "--legacy-option"
   },
   "iterations_run": 1,
+  "lifecycle_state": "waiting-for-orchestrator",
   "merge": "orchestrator",
   "mode": "loop",
   "preset": "balanced",
+  "qualification_policy": "distinct-sessions",
   "repeat_tracker": {
     "count": {
       "fake-ops-0": 2
@@ -65,6 +74,7 @@
     {
       "cli": "fake",
       "effort": null,
+      "fresh_host_worker": false,
       "lens": "ops",
       "model": null,
       "name": "fake-ops-0",
@@ -73,6 +83,31 @@
     }
   ],
   "roster_source": null,
+  "schema_version": 4,
+  "snapshot": {
+    "artifact_bound_to_snapshot": true,
+    "artifact_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "artifact_path": "/tmp/adversarial-friends/spec.md",
+    "commit": "2222222222222222222222222222222222222222",
+    "predecessor": null,
+    "repo_root": "/tmp/adversarial-friends/repo",
+    "source_path": "spec.md",
+    "tree": null
+  },
+  "snapshot_history": [
+    {
+      "artifact_bound_to_snapshot": true,
+      "artifact_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "artifact_path": "/tmp/adversarial-friends/spec.md",
+      "commit": "2222222222222222222222222222222222222222",
+      "predecessor": null,
+      "repo_root": "/tmp/adversarial-friends/repo",
+      "source_path": "spec.md",
+      "tree": null
+    }
+  ],
   "snapshot_sha": "2222222222222222222222222222222222222222",
-  "spent_calls": 4
+  "spent_calls": 4,
+  "started_at": null,
+  "stop_reason": null
 }
