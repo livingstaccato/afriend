@@ -9,7 +9,7 @@
   "env_withheld": [],
   "exit_code": null,
   "external_tool_grants": [],
-  "external_tool_policy": "legacy-unknown",
+  "external_tool_policy": "deny",
   "finished_at": null,
   "friends": [
     {

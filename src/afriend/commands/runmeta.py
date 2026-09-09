@@ -132,7 +132,6 @@ def _base_meta(
     started_at: str | None = None,
     theme_proposals: list[ThemeProposal] | None = None,
     produced_new_themes: bool = False,
-    prior_external_tool_policy: object = None,
     detected_host: str | None = None,
     effective_include_self: bool | None = None,
     repository_scope_mode: str | None = "automatic",
@@ -161,11 +160,7 @@ def _base_meta(
         "artifact_path": str(stable_artifact_path(artifact)),
         "artifact_hash": digest,
         "friends": friends_meta,
-        "external_tool_policy": (
-            "legacy-unknown"
-            if prior_external_tool_policy == "legacy-unknown"
-            else authority_policy.audit_summary
-        ),
+        "external_tool_policy": authority_policy.audit_summary,
         "external_tool_grants": list(authority_policy.allowed_providers),
         "downgrades": downgrades,
         "invocation": {

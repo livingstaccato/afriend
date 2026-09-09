@@ -398,8 +398,8 @@ def test_judging_retry_reuses_a_successor_persisted_before_the_crash(monkeypatch
     assert [saved.id for saved in store.ledger.claims()] == [claim.id, successor.id]
     assert not any(saved.id.endswith("@3") for saved in outcome.claims)
     assert [row["transport"] for row in outcome.friends_meta] == [
-        "legacy-unknown",
-        "legacy-unknown",
+        "unrecorded",
+        "unrecorded",
     ]
 
 

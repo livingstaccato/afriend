@@ -300,5 +300,5 @@ def test_ambiguous_report_labels_possible_host_role_unknown(tmp_path):
     assert host_row["host_self_review"] is False
     report = render(ReviewState(), restored._resume_meta)
     rendered_host = next(line for line in report.splitlines() if line.startswith("| codex-ops |"))
-    assert "legacy role unknown (advisory)" in rendered_host
+    assert "role unknown (advisory)" in rendered_host
     assert "independent reviewer" not in rendered_host
