@@ -56,11 +56,17 @@ def _normalize_fixture(cli_name: str, fixture_name: str) -> normalize.NormalizeR
     )
 
 
-# --- agy: captured json_path envelope ("response") -------------------------
+# --- agy: captured stream-json envelope (result.response) ------------------
+#
+# agy moved to stdin, which it accepts only under --input-format stream-json,
+# so its answers arrive as an event stream rather than one JSON object. The
+# `{"event":"result",...}` framing here is captured from the real CLI; the
+# payload inside each `response` is the same text these fixtures already held,
+# rewrapped rather than re-elicited.
 
 
 def test_agy_success_findings_fixture_unwraps_to_the_real_finding():
-    result = _normalize_fixture("agy", "agy_success_findings.json")
+    result = _normalize_fixture("agy", "agy_success_findings.ndjson")
     assert result.succeeded is True
     assert result.payload["findings"][0]["claim"] == "the guard is missing"
     assert result.payload["findings"][0]["severity"] == "high"
@@ -77,7 +83,7 @@ def test_agy_success_response_ok_fixture_is_a_legible_non_json_failure():
     parse as JSON (it's the whole wrapper object), just with no findings
     key -- so the final result carries the structured_output hint, the same
     outcome as the error fixture below, not a bare 'no parseable JSON'."""
-    result = _normalize_fixture("agy", "agy_success_response_ok.json")
+    result = _normalize_fixture("agy", "agy_success_response_ok.ndjson")
     assert result.succeeded is False
     assert result.payload is not None  # the raw envelope itself parsed as JSON
     assert any("envelope path" in e for e in result.errors)
@@ -90,25 +96,33 @@ def test_agy_error_fixture_falls_back_and_reports_legibly():
     normalize() falls back to scanning the raw envelope object directly --
     which DOES parse as JSON (it's the whole wrapper) but has no findings
     key, so the structured_output hint applies."""
-    result = _normalize_fixture("agy", "agy_error.json")
+    result = _normalize_fixture("agy", "agy_error.ndjson")
     assert result.succeeded is False
     assert result.payload is not None  # the raw envelope itself parsed as JSON
     assert any("envelope path" in e for e in result.errors)
 
 
-def test_agy_response_prose_with_top_level_findings_still_succeeds():
-    """Regression (post-wave re-review): a captured-shape envelope whose
-    `response` field holds unrelated prose (agy answering conversationally
-    instead of with JSON) while the ENVELOPE OBJECT ITSELF -- one level up
-    -- also happens to carry a valid top-level `findings` array. Before the
-    fix, committing to the unwrapped `response` text exclusively (it fails
-    to parse, since it's plain prose) discarded this real, schema-valid
-    `findings` array sitting right next to it -- an outcome that used to
-    succeed via the plain raw-text scan, before this adapter had an
-    envelope at all."""
-    result = _normalize_fixture("agy", "agy_response_prose_with_top_level_findings.json")
-    assert result.succeeded is True
-    assert result.payload["findings"][0]["claim"] == "missing rate limit on login endpoint"
+def test_findings_beside_prose_are_out_of_the_fallbacks_reach_in_a_stream():
+    """The raw-text fallback cannot see inside an event, and this records it.
+
+    The original of this fixture was a single JSON object whose `response`
+    held prose while the object ITSELF carried a valid `findings` array one
+    level up. Committing to the unwrapped prose discarded it, so normalize()
+    learned to retry the scan against the untouched envelope, which parsed
+    and yielded the findings.
+
+    A stream has no "one level up" the scan can reach: it parses line by
+    line, and the line it reaches first is the `init` event. So the same
+    payload now fails, and says why -- structured JSON with no findings.
+
+    Kept rather than deleted because it is the honest cost of moving agy to
+    stdin, and because the shape does not arise on the real path: under
+    --json-schema agy returns the schema-conforming object as the `response`
+    string, which agy_success_findings covers.
+    """
+    result = _normalize_fixture("agy", "agy_response_prose_with_top_level_findings.ndjson")
+    assert result.succeeded is False
+    assert any("no findings" in e for e in result.errors)
 
 
 # --- opencode: captured ndjson envelope (the "error" event only) ----------
@@ -252,7 +266,7 @@ def test_agy_error_envelope_leads_the_failure_with_agys_own_words():
     `"error":"timeout waiting for response"` with an empty `response`. The
     failure used to read "the adapter may need an envelope path" -- a
     diagnosis of the adapter, when the CLI had already diagnosed itself."""
-    result = _normalize_fixture("agy", "agy_error_captured.json")
+    result = _normalize_fixture("agy", "agy_error_captured.ndjson")
     assert result.succeeded is False
     assert result.errors[0] == (
         "the CLI reported an error in place of an answer: 'timeout waiting for response'"

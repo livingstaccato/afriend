@@ -2,10 +2,16 @@
 name = "opencode"
 binary = "opencode"
 base_argv = ["run", "--format", "json"]
-prompt_mode = "trailing-arg"
+# Verified against `opencode run --format json` with the prompt piped: it
+# reads stdin and emits its usual NDJSON. argv was the E2BIG exposure issue
+# #4 documented for claude -- Linux caps a single argument near 128KB, and a
+# composed review context passes that easily.
+prompt_mode = "stdin"
 readonly_argv = []
 schema_flag = ""
 model_flag = "--model"
+models_argv = ["models"]
+models_format = "lines"
 internal_timeout_flag = ""
 effort_kind = "unverified"
 structured_output = true

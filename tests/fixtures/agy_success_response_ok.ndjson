@@ -1,0 +1,2 @@
+{"event":"init","conversation_id":"fixture","init":{"cwd":"/tmp","tools":[],"permission_mode":"always-proceed"}}
+{"event":"result","result":{"conversation_id":"94e637c0-08c9-4497-b2ab-4c6c12fdfa16","status":"SUCCESS","duration_seconds":7.53,"num_turns":1,"response":"ok\n","usage":{"input_tokens":16464,"output_tokens":91,"thinking_tokens":90,"cache_read_tokens":0,"total_tokens":16555},"error":""}}

@@ -1,4 +1,5 @@
 import hashlib
+import json
 
 import pytest
 
@@ -72,9 +73,11 @@ def test_opencode_passes_both_google_api_key_names_without_broadening_env(regist
     assert "AWS_SECRET_ACCESS_KEY" not in passed
 
 
-def test_agy_prompt_is_the_last_argument(registry, files):
-    """agy's --print takes the prompt as its value; anything after it is
-    ignored."""
+def test_agy_takes_its_prompt_on_stdin_as_a_stream_json_message(registry, files):
+    """agy reads a prompt from stdin only under --input-format stream-json,
+    which wants one JSON message per line rather than the raw text. --print
+    still needs a value and gets an empty one; the readonly flags stay where
+    they were."""
     prompt, schema = files
     argv, stdin, _ = _build_argv(
         registry["agy"],
@@ -82,15 +85,18 @@ def test_agy_prompt_is_the_last_argument(registry, files):
         prompt_file=prompt,
         schema_file=schema,
     )
-    assert argv[-2] == "--print"
-    assert argv[-1] == "CHALLENGE THIS ARTIFACT"
-    print_index = argv.index("--print")
-    assert argv_contains_sequence(argv[:print_index], ["--agent", "afriend-reviewer"])
-    assert "--disable-slash-commands" in argv[:print_index]
-    assert argv_contains_sequence(argv[:print_index], ["--mode", "plan"])
-    assert "--sandbox" in argv[:print_index]
+    assert stdin is not None
+    message = json.loads(stdin)
+    assert message["event"] == "user"
+    assert message["message"]["content"][0]["text"] == "CHALLENGE THIS ARTIFACT"
+    assert "CHALLENGE THIS ARTIFACT" not in argv
+    assert argv_contains_sequence(argv, ["--input-format", "stream-json"])
+    assert argv_contains_sequence(argv, ["--output-format", "stream-json"])
+    assert argv_contains_sequence(argv, ["--agent", "afriend-reviewer"])
+    assert "--disable-slash-commands" in argv
+    assert argv_contains_sequence(argv, ["--mode", "plan"])
+    assert "--sandbox" in argv
     assert argv.count("--mode") == 1
-    assert stdin is None
 
 
 def test_codex_takes_prompt_on_stdin(registry, files):
@@ -226,9 +232,9 @@ def test_doc_argv_never_grants_access(registry):
         trust.check_denied_values(list(adapter.doc_argv))
 
 
-def test_capability_for_flag_value_adapter(registry, files):
-    """Capability must be computed correctly for prompt_mode='flag-value'
-    adapters too, not just trailing-arg/stdin ones."""
+def test_capability_for_a_templated_stdin_adapter(registry, files):
+    """Capability must be computed correctly for an adapter whose stdin is a
+    template rather than the raw prompt."""
     prompt, schema = files
     _argv, stdin, cap = _build_argv(
         registry["agy"],
@@ -239,7 +245,7 @@ def test_capability_for_flag_value_adapter(registry, files):
     assert cap.readonly is True
     assert cap.schema is True
     assert cap.effort == "native"
-    assert stdin is None
+    assert stdin is not None and stdin.startswith('{"event":"user"')
 
 
 def test_opencode_effort_is_unverified(registry, files):

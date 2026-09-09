@@ -52,7 +52,7 @@ import warnings
 
 from .claimschema import CLAIM_CONTRACT
 from .contracts import PayloadContract
-from .envelopes import Envelope, answer_is_complete
+from .envelopes import Envelope, answer_is_complete, envelope_error
 from .normalize import NormalizeResult, normalize
 from .procgroup import _terminate_group
 from .procio import (
@@ -110,6 +110,12 @@ class SpawnResult:
     # reader comparing a short stdout against a long duration otherwise has
     # no way to tell truncation from a friend that simply said little.
     output_truncated: bool = False
+    # What the CLI itself said went wrong, taken from its declared envelope
+    # rather than from stderr. A provider that fails for a reason it states
+    # plainly -- a quota, a rejected model -- states it in its structured
+    # output, and the audit row used to fold in the stderr tail instead and
+    # leave the actual reason readable only in the raw capture.
+    provider_error: str | None = None
     # True only when dispatch successfully wrapped this executable in an OS
     # confinement command. Read-only CLI flags are a separate guarantee.
     os_confined: bool = False
@@ -253,13 +259,23 @@ def run_process(
     stdout_thread.start()
     stderr_thread.start()
 
-    # Hoisted out of the loop. `answer_is_complete` rejects every ndjson
-    # envelope unconditionally, so for those adapters the guard below could
-    # never succeed -- while `_buffer_looks_finished` is TRUE on almost every
-    # poll, since each NDJSON line ends with `}`. The whole buffer was
-    # therefore being joined ~20 times a second to answer a question already
-    # settled by the envelope kind.
-    early_envelope = envelope if envelope is not None and envelope.kind == "json_path" else None
+    # Hoisted out of the loop. An envelope that cannot answer "has it
+    # finished?" must not reach the guard below: `_buffer_looks_finished` is
+    # TRUE on almost every NDJSON poll, since each line ends with `}`, so the
+    # whole buffer would be joined ~20 times a second to answer a question
+    # the envelope kind had already settled.
+    #
+    # An ndjson envelope qualifies only once it declares the event that ends
+    # its stream. Then the check is real and cheap: only the last line is
+    # parsed.
+    early_envelope = (
+        envelope
+        if envelope is not None
+        and (
+            envelope.kind == "json_path" or (envelope.kind == "ndjson" and envelope.terminal_event)
+        )
+        else None
+    )
 
     deadline = started + timeout_s
     timed_out = False
@@ -432,6 +448,13 @@ def run_process(
         failure_reason = f"exit {process.returncode}"
     elif not result.succeeded:
         failure_reason = "; ".join(result.errors) or "unusable output"
+    # Only on the failure path: envelope_error must never turn a working
+    # answer into a failure.
+    provider_error = (
+        envelope_error(stdout, envelope)
+        if failure_reason is not None and envelope is not None
+        else None
+    )
     return SpawnResult(
         argv,
         process.returncode,
@@ -443,5 +466,6 @@ def run_process(
         failure_reason,
         orphans_suspected,
         stopped_after_answer=answered,
+        provider_error=provider_error,
         output_truncated=stderr_overflow.is_set() or stderr_failed.is_set(),
     )

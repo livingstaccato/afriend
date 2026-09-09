@@ -1,9 +1,21 @@
 # --print takes the prompt as its VALUE, so it must come last (verified trap).
 name = "agy"
 binary = "agy"
-base_argv = ["--output-format", "json"]
-prompt_mode = "flag-value"
-prompt_flag = "--print"
+# stdin, not the value of --print. As one argv element the prompt hit the
+# same ~128KB single-argument cap on Linux that issue #4 documented for
+# claude, and afriend was reduced to warning about its own dispatch.
+#
+# agy reads a prompt from stdin only under --input-format stream-json, which
+# it refuses to pair with plain json output, so the answer arrives as an
+# event stream too. --print still requires a value and accepts an empty one.
+# Verified end to end against the installed CLI.
+base_argv = [
+  "--input-format", "stream-json",
+  "--output-format", "stream-json",
+  "--print", "",
+]
+prompt_mode = "stdin"
+stdin_template = '{"event":"user","message":{"role":"user","content":[{"type":"text","text":{prompt}}]}}'
 # Installed agy 1.1.22 documents these invocation-local controls in
 # `agy --help`. Keep every option here because --print consumes its next
 # token as the prompt value and therefore must remain last.
@@ -15,6 +27,8 @@ readonly_argv = [
 ]
 schema_flag = "--json-schema"
 model_flag = "--model"
+models_argv = ["models"]
+models_format = "tsv"
 internal_timeout_flag = "--print-timeout"
 effort_kind = "native"
 structured_output = true
@@ -50,14 +64,26 @@ high = ["--effort", "high"]
 # nothing," so normalize() falls back to scanning the raw envelope, which
 # still degrades cleanly (structured_output=true keeps that fallback's
 # failure message legible).
+# stream-json closes with a `result` event carrying both the answer and,
+# on the failure path, the reason. Declaring it terminal is what stops the
+# wait: agy writes its result and then does not exit until --print-timeout
+# elapses, which cost between seven and twelve minutes per hung run.
 [envelope]
-kind = "json_path"
-path = "response"
-# Captured from a real run on 2026-08-26: {"status":"ERROR","response":"",
-# "error":"timeout waiting for response",...}. Read only once normalizing
-# has failed, so the failure reason leads with agy's own words instead of
-# "the adapter may need an envelope path".
-error_path = "error"
+kind = "ndjson"
+match_field = "event"
+terminal_event = "result"
+
+[[envelope.rules]]
+type = "result"
+field = "result.response"
+
+[[envelope.error_rules]]
+type = "result"
+# Captured from a real run: {"event":"result","result":{"status":"ERROR",
+# "response":"","error":"stream input ... is missing the \"message\" field"}}.
+# Read only once normalizing has failed, so the failure reason leads with
+# agy's own words instead of "the adapter may need an envelope path".
+field = "result.error"
 
 # Captured verbatim from a real failure: a crossexam run on 2026-08-26 whose
 # agy login had lapsed. Exit status was 1 and stdout empty, so this sentence

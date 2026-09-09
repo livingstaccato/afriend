@@ -443,6 +443,9 @@ def run_rounds(
             )
             results = batch.results
             round_auth_abort = batch.auth_abort
+            # Judging prompts are the larger ones and the later ones, so a
+            # quota is at least as likely to run out here as in critique.
+            outcome.downgrades.extend(batch.quota_notes)
             outcome.dispatch_error = batch.error
         finally:
             prune_undispatched_prompts(judge_specs, prompt_for, results, store)

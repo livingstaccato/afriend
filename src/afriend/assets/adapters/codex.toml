@@ -90,6 +90,14 @@ doc_argv = ["--skip-git-repo-check"]
 kind = "ndjson"
 match_field = "type"
 
+# Where codex says why it failed, rather than what it answered. Captured
+# from a real quota exhaustion: `{"type":"error","message":"You've hit your
+# usage limit. ... try again at Sep 14th, 2026 6:51 PM."}` on stdout, while
+# stderr held only the "Reading prompt from stdin..." banner.
+[[envelope.error_rules]]
+type = "error"
+field = "message"
+
 [[envelope.rules]]
 type = "item.completed"
 # Both halves of what the note above describes. Matching on `type` alone
@@ -127,6 +135,17 @@ xhigh = ["--config", "model_reasoning_effort=xhigh"]
 # authentication: a rate limit is 429 and a server fault is 5xx, so neither
 # reaches this string. The longer sentence is kept first because it is
 # unambiguous even if OpenAI ever reuses 401 for something else.
+# Captured verbatim on 2026-09-09, when a review dispatched two friends and
+# this one came back in five seconds:
+#   {"type":"error","message":"You've hit your usage limit. Visit
+#    https://chatgpt.com/codex/settings/usage to purchase more credits or
+#    try again at Sep 14th, 2026 6:51 PM."}
+# It is matched against the envelope's own error message rather than stderr,
+# which held only the "Reading prompt from stdin..." banner.
+[quota]
+provider_error_contains = ["usage limit"]
+remediation = "wait for the quota to reset, pick a model on a separate allowance (afriend providers models codex), or run this friend on another provider"
+
 [auth]
 stderr_contains = [
   "Missing bearer or basic authentication in header",

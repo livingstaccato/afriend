@@ -59,6 +59,11 @@ from .adapters import Adapter, AuthMarkers
 from .spawn import SpawnResult
 
 AUTH = "auth"
+# An exhausted allowance, which is not a broken credential. Re-running fixes
+# nothing and neither does logging in; a different model on a separate quota,
+# or a different provider, may. Deliberately not AUTH: auth aborts the whole
+# run, and one friend running out must not stop the friends that have not.
+QUOTA = "quota"
 UNKNOWN = "unknown"
 
 # How many consecutive identical failures before a friend is considered
@@ -86,19 +91,30 @@ def classify(outcome: SpawnResult, adapter: Adapter | None) -> str:
     """
     if outcome.failure_reason is None or outcome.timed_out:
         return UNKNOWN
-    markers = adapter.auth if adapter else AuthMarkers()
-    if not markers.declared():
-        return UNKNOWN
-    if outcome.exit_code is not None and outcome.exit_code in markers.exit_codes:
+    # Quota first: it is the more specific verdict, and a CLI that declares
+    # both would otherwise have an exhausted allowance read as a credential
+    # problem and abort the run.
+    if adapter is not None and _matches(outcome, adapter.quota):
+        return QUOTA
+    if adapter is not None and _matches(outcome, adapter.auth):
         return AUTH
+    return UNKNOWN
+
+
+def _matches(outcome: SpawnResult, markers: AuthMarkers) -> bool:
+    if not markers.declared():
+        return False
+    if outcome.exit_code is not None and outcome.exit_code in markers.exit_codes:
+        return True
     payload = outcome.result.payload
     for path, expected in markers.paths:
         if _dotted(payload, path) == expected:
-            return AUTH
+            return True
     for needle in markers.stderr:
         if needle in outcome.stderr:
-            return AUTH
-    return UNKNOWN
+            return True
+    provider_error = outcome.provider_error or ""
+    return any(needle in provider_error for needle in markers.provider_error)
 
 
 def failure_signature(outcome: SpawnResult) -> str | None:
@@ -185,6 +201,29 @@ class RepeatTracker:
             "this run. A friend that fails the same way twice is broken, not "
             "unlucky, and re-running it costs a full dispatch to learn nothing."
         )
+
+
+def quota_downgrade(friend: str, adapter: Adapter | None, alternatives: "list[str]") -> str:
+    """What an operator can do about a friend that ran out of allowance.
+
+    Not an abort, and not silence either. The run continues with whoever is
+    left -- the other friends have their own quotas -- but the report has to
+    say that this one did not review anything and what would let it, or the
+    roster silently shrank.
+
+    `alternatives` are model ids this provider itself listed. They are only
+    ever offered when the CLI answered; a made-up model name would fail at
+    dispatch instead of here.
+    """
+    base = f"{friend} exhausted its provider quota and reviewed nothing this round."
+    remediation = adapter.quota.remediation if adapter else ""
+    if remediation:
+        base = f"{base} {remediation}."
+    if alternatives:
+        shown = ", ".join(alternatives[:5])
+        more = "" if len(alternatives) <= 5 else f", and {len(alternatives) - 5} more"
+        base = f"{base} Models this provider reports: {shown}{more}."
+    return base
 
 
 def auth_abort_message(friend: str, adapter: Adapter | None) -> str:

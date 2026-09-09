@@ -6,6 +6,7 @@ speculation — see the spec's "verified invocation traps" section.
 """
 
 from dataclasses import dataclass, field
+import json
 from pathlib import Path
 import tomllib
 from typing import Any, Literal
@@ -52,6 +53,11 @@ class AuthMarkers:
 
     paths: tuple[tuple[str, str], ...] = ()
     exit_codes: tuple[int, ...] = ()
+    # Substrings of the CLI's own error message, as the envelope reports it.
+    # This is where a provider states an exhausted quota: codex writes
+    # "You've hit your usage limit..." to stdout as a structured error and
+    # leaves stderr holding nothing but a banner.
+    provider_error: tuple[str, ...] = ()
     # Substrings of stderr that mean auth failure. Allowed ONLY as a string
     # captured verbatim from a real failure of that CLI, never a guess at
     # what it might say: the first real capture (agy) carried the marker
@@ -62,7 +68,7 @@ class AuthMarkers:
     remediation: str = ""
 
     def declared(self) -> bool:
-        return bool(self.paths or self.exit_codes or self.stderr)
+        return bool(self.paths or self.exit_codes or self.stderr or self.provider_error)
 
 
 def parse_auth(data: dict[str, Any] | None) -> AuthMarkers:
@@ -76,8 +82,15 @@ def parse_auth(data: dict[str, Any] | None) -> AuthMarkers:
     )
     codes = tuple(int(c) for c in data.get("exit_codes", []) if isinstance(c, int))
     stderr = tuple(str(s) for s in data.get("stderr_contains", []) if isinstance(s, str) and s)
+    provider_error = tuple(
+        str(s) for s in data.get("provider_error_contains", []) if isinstance(s, str) and s
+    )
     return AuthMarkers(
-        paths=paths, exit_codes=codes, stderr=stderr, remediation=str(data.get("remediation", ""))
+        paths=paths,
+        exit_codes=codes,
+        stderr=stderr,
+        provider_error=provider_error,
+        remediation=str(data.get("remediation", "")),
     )
 
 
@@ -156,6 +169,11 @@ class Adapter:
     # captures a real auth failure -- guessing at stderr substrings is what
     # §14 explicitly rejects.
     auth: "AuthMarkers" = field(default_factory=lambda: AuthMarkers())
+    # The same marker shape, for a different verdict. An exhausted quota is
+    # not a broken credential: re-running fixes nothing, but a different
+    # model on a separate allowance, or a different provider, may. Kept
+    # apart from `auth` because auth aborts the whole run and this must not.
+    quota: "AuthMarkers" = field(default_factory=lambda: AuthMarkers())
     # §12.2: environment variables this CLI genuinely needs when it runs
     # confined. Its own credentials, essentially -- §12.3 already accepts
     # that a friend can exfiltrate those. Everything else is withheld.
@@ -177,6 +195,23 @@ class Adapter:
     # flags, plus bounded markers expected in its help/version output.
     deny_external_tools_probe_argv: tuple[str, ...] = ()
     deny_external_tools_probe_markers: tuple[str, ...] = ()
+    # stdin only. A CLI that reads a prompt from stdin does not necessarily
+    # read it as plain text: agy accepts one under --input-format stream-json,
+    # which wants a JSON message per line. The template carries `{prompt}`
+    # exactly once and the prompt is substituted JSON-encoded, so nothing in
+    # an artifact can break out of the string it lands in. Empty means the
+    # prompt is written verbatim, which is what every other adapter wants.
+    stdin_template: str = ""
+    # How to ask this CLI what models it offers, and how to read the answer.
+    # Empty argv means the CLI has no such command -- codex is the case, and
+    # saying so is better than presenting a guess as an inventory.
+    #
+    # `lines`: one id per line (opencode).
+    # `tsv`:   id, a tab, then a human label; lines without a tab are the
+    #          CLI's own progress chatter and are skipped (agy prints
+    #          "Fetching available models..." first).
+    models_argv: tuple[str, ...] = ()
+    models_format: str = "lines"  # lines | tsv
     workspace_assets: tuple[WorkspaceAsset, ...] = ()
     # An adapter may declare a static model that afriend should pass unless
     # a stronger source selects one. Shipped adapters intentionally leave
@@ -328,6 +363,34 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
             for value in access_failure_stderr
         ):
             raise UsageError(f"{path}: sandbox access failure markers must be nonempty strings")
+        stdin_template = data.get("stdin_template", "")
+        if not isinstance(stdin_template, str):
+            raise UsageError(f"{path}: stdin_template must be a string")
+        if stdin_template:
+            # A template that never names the placeholder would send the CLI
+            # a well-formed message with no artifact in it. The friend would
+            # answer something, and the run would record a review that
+            # reviewed nothing -- so this is refused at load rather than
+            # discovered in a report.
+            if data.get("prompt_mode", "stdin") != "stdin":
+                raise UsageError(f"{path}: stdin_template requires prompt_mode = 'stdin'")
+            placed = stdin_template.count(PROMPT_PLACEHOLDER)
+            if placed != 1:
+                raise UsageError(
+                    f"{path}: stdin_template must contain {PROMPT_PLACEHOLDER} exactly once, "
+                    f"found {placed}"
+                )
+            probe = stdin_template.replace(PROMPT_PLACEHOLDER, json.dumps("probe"))
+            try:
+                json.loads(probe)
+            except ValueError as exc:
+                raise UsageError(
+                    f"{path}: stdin_template must be valid JSON once the prompt is "
+                    f"substituted: {exc}"
+                ) from exc
+        models_format = data.get("models_format", "lines")
+        if models_format not in {"lines", "tsv"}:
+            raise UsageError(f"{path}: models_format must be 'lines' or 'tsv'")
         readonly = data.get("readonly")
         self_confines = data.get("self_confines")
         sandbox_confine = sandbox_data.get("os_confine", False)
@@ -375,6 +438,9 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
             base_argv=list(data.get("base_argv", [])),
             prompt_mode=data.get("prompt_mode", "stdin"),
             prompt_flag=data.get("prompt_flag", ""),
+            stdin_template=data.get("stdin_template", ""),
+            models_argv=tuple(data.get("models_argv", [])),
+            models_format=data.get("models_format", "lines"),
             readonly_argv=list(data.get("readonly_argv", [])),
             schema_flag=data.get("schema_flag", ""),
             schema_inline=bool(data.get("schema_inline", False)),
@@ -392,6 +458,7 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
             self_confines=self_confines,
             sandbox_readonly_workdir=readonly_workdir,
             auth=parse_auth(data.get("auth")),
+            quota=parse_auth(data.get("quota")),
             env_pass=tuple(data.get("env", {}).get("pass", [])),
             doc_argv=tuple(data.get("doc_argv", [])),
             structured_output=bool(data.get("structured_output", False)),
@@ -479,12 +546,28 @@ def build_argv(
     capability = capability_from_authority(adapter, authority)
 
     if adapter.prompt_mode == "stdin":
-        return argv, prompt, capability
+        return argv, encode_stdin_prompt(adapter, prompt), capability
     if adapter.prompt_mode == "trailing-arg":
         return [*argv, prompt], None, capability
     if adapter.prompt_mode == "flag-value":
         return [*argv, adapter.prompt_flag, prompt], None, capability
     raise UsageError(f"unknown prompt_mode {adapter.prompt_mode!r}")
+
+
+PROMPT_PLACEHOLDER = "{prompt}"
+
+
+def encode_stdin_prompt(adapter: Adapter, prompt: str) -> str:
+    """Wrap the prompt in whatever shape this CLI reads on stdin.
+
+    `json.dumps` produces the quoted, escaped literal that replaces the
+    placeholder, so the template's own JSON stays well-formed whatever the
+    artifact contains -- an artifact holding a quote, a brace or a newline is
+    data, and cannot become structure.
+    """
+    if not adapter.stdin_template:
+        return prompt
+    return adapter.stdin_template.replace(PROMPT_PLACEHOLDER, json.dumps(prompt)) + "\n"
 
 
 def place_extra_args(argv: list[str], adapter: Adapter, extra_args: list[str]) -> list[str]:

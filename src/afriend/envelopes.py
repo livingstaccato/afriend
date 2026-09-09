@@ -85,6 +85,22 @@ class Envelope:
     # normalizing has failed, so it can never turn a working answer into a
     # failure; it makes the failure say what the CLI said.
     error_path: str = ""
+    # ndjson's equivalent. An event stream states its failure in an event
+    # rather than a field, and that event is not the answer, so it cannot be
+    # an ordinary rule: matching it in `rules` would splice the error text
+    # into the answer and leave the friend looking like it replied.
+    #
+    # Without this, a CLI that failed for a reason it stated plainly -- codex
+    # answering "You've hit your usage limit" -- was recorded as
+    # `failed: exit 1` with the stderr banner folded in, and the reason was
+    # readable only by opening the raw capture.
+    error_rules: tuple[EnvelopeRule, ...] = ()
+    # ndjson only: the `match_field` value carried by the event that ends the
+    # stream. It is what `answer_is_complete` needs to stop waiting on a CLI
+    # that has finished but not exited -- the same hang json_path solves by
+    # parsing a complete object, which an event stream cannot do because a
+    # later line may still carry the answer.
+    terminal_event: str = ""
 
 
 def parse_envelope(data: dict[str, Any] | None) -> "Envelope | None":
@@ -118,7 +134,24 @@ def parse_envelope(data: dict[str, Any] | None) -> "Envelope | None":
             for rule in data.get("rules", [])
             if isinstance(rule, dict) and rule.get("type") and rule.get("field")
         )
-        return Envelope(kind="ndjson", match_field=data.get("match_field", "type"), rules=rules)
+        error_rules = tuple(
+            EnvelopeRule(
+                match_value=rule["type"],
+                field=rule["field"],
+                where=rule.get("where", "") if isinstance(rule.get("where"), str) else "",
+                equals=rule.get("equals", "") if isinstance(rule.get("equals"), str) else "",
+            )
+            for rule in data.get("error_rules", [])
+            if isinstance(rule, dict) and rule.get("type") and rule.get("field")
+        )
+        terminal_event = data.get("terminal_event", "")
+        return Envelope(
+            kind="ndjson",
+            match_field=data.get("match_field", "type"),
+            rules=rules,
+            error_rules=error_rules,
+            terminal_event=terminal_event if isinstance(terminal_event, str) else "",
+        )
     return None
 
 
@@ -199,6 +232,32 @@ def _unwrap_ndjson(raw: str, envelope: Envelope) -> str | None:
     return "\n".join(reversed(extracted))
 
 
+def _ndjson_error(raw: str, envelope: Envelope) -> str | None:
+    if not envelope.error_rules:
+        return None
+    found: str | None = None
+    for line in strip_ansi(raw).splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            parsed = json.loads(line)
+        except _JSON_ERRORS:
+            continue
+        if not isinstance(parsed, dict):
+            continue
+        type_value = parsed.get(envelope.match_field)
+        for rule in envelope.error_rules:
+            if rule.match_value != type_value:
+                continue
+            if rule.where and _dotted_get(parsed, rule.where) != rule.equals:
+                continue
+            value = _dotted_get(parsed, rule.field)
+            if isinstance(value, str) and value.strip():
+                found = value.strip()
+    return found
+
+
 def unwrap_envelope(raw: str, envelope: Envelope) -> str | None:
     """Return the friend's answer text as described by `envelope`, or None
     if the envelope's own path/rules found nothing to extract -- "found
@@ -212,9 +271,16 @@ def unwrap_envelope(raw: str, envelope: Envelope) -> str | None:
 
 
 def envelope_error(raw: str, envelope: Envelope) -> str | None:
-    """The CLI's own error message, when its json_path envelope declares
-    where one lives and `raw` carries a non-empty one. None otherwise --
-    including for every ndjson envelope, whose error events are rules."""
+    """The CLI's own error message, when its envelope declares where one
+    lives and `raw` carries a non-empty one.
+
+    Read only after normalizing has failed, so it can never turn a working
+    answer into a failure. For an ndjson stream the last matching error event
+    wins, on the same reasoning as the answer scan: later events supersede
+    earlier ones.
+    """
+    if envelope.kind == "ndjson":
+        return _ndjson_error(raw, envelope)
     if envelope.kind != "json_path" or not envelope.error_path:
         return None
     try:
@@ -247,6 +313,8 @@ def answer_is_complete(text: str, envelope: Envelope) -> bool:
     The cheap guard first: a complete object ends with `}`, so the parse is
     attempted only when the buffer looks finished rather than on every poll.
     """
+    if envelope.kind == "ndjson":
+        return _ndjson_stream_finished(text, envelope)
     if envelope.kind != "json_path":
         return False
     text = text.strip()
@@ -256,3 +324,27 @@ def answer_is_complete(text: str, envelope: Envelope) -> bool:
         return isinstance(json.loads(text), dict)
     except (ValueError, RecursionError):
         return False
+
+
+def _ndjson_stream_finished(text: str, envelope: Envelope) -> bool:
+    """Whether the stream's declared terminal event has arrived.
+
+    Only the last complete line is parsed. An event stream grows, and the
+    question is about its end, so walking the whole buffer on every poll
+    would make the check cost more the longer the friend runs.
+    """
+    if not envelope.terminal_event:
+        return False
+    for line in reversed(strip_ansi(text).splitlines()):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            parsed = json.loads(line)
+        except _JSON_ERRORS:
+            # A partial trailing line is the normal case mid-stream.
+            return False
+        return isinstance(parsed, dict) and (
+            parsed.get(envelope.match_field) == envelope.terminal_event
+        )
+    return False

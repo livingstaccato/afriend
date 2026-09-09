@@ -218,6 +218,11 @@ def run_critique(
         )
         results = batch.results
         outcome.auth_abort = batch.auth_abort
+        # A friend that ran out of allowance reviewed nothing, and the run
+        # continues without it. That is a smaller roster than the operator
+        # asked for, so it belongs with the downgrades rather than only in
+        # that friend's status cell.
+        outcome.downgrades.extend(batch.quota_notes)
         outcome.dispatch_error = batch.error
     finally:
         prune_undispatched_prompts(dispatchable, prompt_for, results, store)
