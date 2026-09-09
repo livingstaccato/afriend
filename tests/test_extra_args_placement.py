@@ -38,8 +38,8 @@ def files():
     return prompt, schema
 
 
-def _argv_for(name: str, files):
-    registry = load_adapters(ADAPTER_DIR)
+def _argv_for(name: str, files, registry=None):
+    registry = registry if registry is not None else load_adapters(ADAPTER_DIR)
     adapter = registry[name]
     spec = FriendSpec(
         name=name, cli=name, lens="ops", model=None, effort=None, scope="repo", timeout=60
@@ -53,13 +53,24 @@ def _argv_for(name: str, files):
     return adapter, argv
 
 
-def test_a_trailing_arg_adapter_keeps_the_prompt_last(files):
-    """opencode. The prompt IS the last element, so appending displaced it.
+def test_a_trailing_arg_adapter_keeps_the_prompt_last(files, tmp_path):
+    """The prompt IS the last element, so appending displaced it.
 
-    This used claude until claude moved to stdin (issue #4). The behaviour
-    under test belongs to the argv transport, not to a particular provider.
+    Built from a synthetic adapter because no shipped one is left in this
+    mode: claude moved to stdin for issue #4 and opencode followed once it
+    was verified to read stdin. The behaviour belongs to the argv transport,
+    not to a provider, and a user-authored TOML can still declare it.
     """
-    adapter, argv = _argv_for("opencode", files)
+    (tmp_path / "trailing.toml").write_text(
+        'name = "trailing"\nbinary = "trailing"\n'
+        'prompt_mode = "trailing-arg"\n'
+        # Declared so the adapter is cleanly deniable; an undeclared one is
+        # "unknown", which the policy blocks before argv is ever built.
+        'external_tools = "none"\n'
+    )
+    registry = load_adapters(tmp_path)
+    adapter, argv = _argv_for("trailing", files, registry)
+    assert adapter.prompt_mode == "trailing-arg"
     placed = place_extra_args(argv, adapter, EXTRA)
     assert placed[-1] == "REVIEW THIS"
     assert placed[-3:-1] == EXTRA
@@ -89,9 +100,9 @@ def test_no_extra_args_leaves_argv_identical(files):
 def test_the_prompt_text_is_never_duplicated_or_dropped(files):
     """The failure this would show up as: a prompt appearing twice, or not at
     all, because it was moved rather than kept."""
-    # One adapter per prompt mode: trailing-arg, flag-value, stdin. claude is
-    # kept alongside codex because it changed modes (issue #4) and the
-    # invariant should hold for it in its new one.
+    # Every shipped adapter, whatever its mode. Both providers that changed
+    # mode -- claude for issue #4, opencode once it was verified to read
+    # stdin -- are here so the invariant is checked in their new one.
     for name in ("opencode", "agy", "codex", "claude"):
         adapter, argv = _argv_for(name, files)
         placed = place_extra_args(argv, adapter, EXTRA)
