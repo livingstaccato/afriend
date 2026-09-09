@@ -338,9 +338,14 @@ def test_a_resumed_run_is_not_offered_remedies_that_cannot_apply(only_codex, tmp
     design, and the roster cannot gain a friend. Printing both remedies tells
     the operator to do two things that provably change nothing."""
     args = _args(tmp_path, "--mode", "crossexam")
+    # `fake` deliberately, not a real provider: `validate_resume_capabilities`
+    # takes `which` as a DEFAULT ARGUMENT, bound to `shutil.which` at import,
+    # so the fixture's patch cannot reach it. With a real cli this test passed
+    # only on a machine that happened to have that binary installed, and CI
+    # failed with "saved provider 'codex' is unavailable".
     spec = adapters.FriendSpec(
-        name="codex-assumptions",
-        cli="codex",
+        name="fake-assumptions",
+        cli="fake",
         lens="assumptions",
         model=None,
         effort=None,
