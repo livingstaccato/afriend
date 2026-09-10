@@ -1,5 +1,78 @@
 # Changelog
 
+## 0.10.2
+
+**A scalar where a list belongs granted a friend the whole filesystem.**
+`readonly_argv`, `[sandbox] read` and `[sandbox] write` went straight into
+`list()`/`tuple()` with no type check, unlike every sibling list field, so a
+TOML string was accepted and shredded into its characters. For
+`write = "~/.gemini"` -- brackets omitted, the same slip the format invites
+everywhere else -- that yields the members `~` and `/`, which the policy
+builder expanduser/resolves into $HOME and the filesystem root. The friend
+got `--bind-try / /` on Linux and `(allow file-read* file-write* (subpath
+"/"))` on macOS, read-write, while the run record reported it
+`os_confined: true`. That is worse than no sandbox, because the record
+certifies a confinement that does not exist. `readonly_argv = 0` had a
+second shape: falsy, so it slipped past the declaration gate and then raised
+`TypeError` out of `load_adapters` rather than a refusal naming the file --
+and one bad file disables every adapter.
+
+**Four places asked a different question from the one dispatch answers.**
+Dispatch confines a friend when `not is_self_confining or sandbox_confine`;
+the confinement notes, the guided roster, and the readiness path each asked
+`is_readonly` instead. The two agreed until 0.10.1 gave agy a declared
+read-only mode AND OS confinement, and then disagreed about exactly the one
+adapter this release is about. agy was therefore absent from the note naming
+whose filesystem is unconfined -- and because the mechanism is only probed
+when that list is non-empty, a roster of agy alone never looked for a
+sandbox at all. `init --guided` never mentioned that agy is sandboxed, and
+the note it withheld would have said "no read-only mode" and "doc scope",
+both false for agy. The refusal message said the same thing to the
+operator's face. There is now one predicate, `needs_os_confinement`, and the
+message states the reason it means.
+
+**A skipped sandbox no longer reports the protection it did not provide.**
+agy's `readonly = true` holds only while `sandbox.readonly_workdir` engages,
+so a run with no mechanism available and `--allow-unsandboxed-friend`
+recorded `write_protected: true` beside `os_confined: false`, and report.md
+described the friend as write-protected but not OS-confined -- the audit
+artifact asserting the one property the run had just lost. Dispatch already
+withdrew readonly for unvalidated extra args; it now makes the same
+withdrawal when the sandbox that was going to provide the protection never
+ran. Readiness gained the matching admission: `afriend doctor` printed agy
+ready and exited 0 on hosts where every agy run was refused, so an upgrade
+from 0.10.0 turned a working friend into a per-run refusal with the
+documented readiness check still green. The row stays ready -- the
+executable is there, and the override still runs it -- and now says the
+sandbox it needs is missing.
+
+**Four tests and four comments still described the release they document.**
+`test_only_adapters_without_a_readonly_mode_are_confined` derived the
+confined set from `not readonly_argv` and asserted `{"opencode"}`, which is
+still that predicate's answer, so the one test named for which adapters are
+confined stayed green while naming a policy the code had stopped
+implementing. The self-confining fixture in `test_confinement_record.py`
+silently stopped being self-confining when declaration-by-argv was removed,
+and its assertion went on passing only because a detected sandbox meant no
+note was due either way. A docs test pinned `--mode plan`, which the adapter
+deliberately no longer emits, requiring README and troubleshooting.md to
+keep asserting it -- a drift detector holding drift in place. The
+`readonly`/`self_confines` field comment still promised the inference this
+project deleted, which is the belief that shipped agy unconfined. Deleting
+`tests/test_plugin_command_alias.py` in 0.10.1 also took the only
+success-path coverage of `copy_expected`, the destructive half of
+`make plugin-sync-copy`; both assertions are back, retargeted at the
+`.claude-plugin/` manifest that now lives beside it.
+
+**`--range v0.10.0..HEAD` was refused for every annotated tag.** The review
+context resolved a range endpoint and then required its object type to be
+`commit`. An annotated tag resolves to its own tag object, so the error --
+"range endpoint must resolve to a commit" -- named the one thing the tag
+does resolve to once peeled. It is peeled now. Separately, every fixture
+that builds a git repository set `user.name` and `user.email` but left
+`commit.gpgsign` inherited, so a contributor with global commit signing and
+a path-scoped signing key had 33 tests error at setup with exit 128.
+
 ## 0.10.1
 
 **agy ran unconfined on flags that restricted nothing.** An adapter counted
