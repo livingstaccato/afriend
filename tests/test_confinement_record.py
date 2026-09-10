@@ -152,15 +152,29 @@ def test_a_variable_only_one_adapter_receives_is_named_not_folded_in(env, monkey
 
 
 def test_a_self_confining_friend_still_has_its_environment_filtered(env, monkeypatch):
-    """Confinement keys on the adapter having no read-only mode of its own
-    (§12.2), but environment filtering does not: a read-only flag stops a
-    CLI writing files and does nothing about what it reads out of its own
-    environment. The two were gated on one condition, so codex, claude and
-    agy inherited every exported secret while the run recorded nothing."""
-    monkeypatch.setattr("afriend.sandbox.detect", lambda *a, **k: "sandbox-exec")
-    registry = {"codex": _adapter("codex", readonly=("--sandbox", "read-only"))}
+    """Confinement keys on whether the friend restrains itself, but
+    environment filtering does not: a read-only flag stops a CLI writing
+    files and does nothing about what it reads out of its own environment.
+    The two were gated on one condition, so the CLIs that confine
+    themselves inherited every exported secret while the run recorded
+    nothing.
+
+    Declared, not inferred, and with NO mechanism available. The fixture
+    used to set `readonly_argv` alone; once declaration-by-argv was removed
+    that adapter stopped being self-confining, and the assertion below went
+    on passing only because a detected sandbox meant no note was due either
+    way -- the branch it names had not been exercised since.
+    """
+    monkeypatch.setattr("afriend.sandbox.detect", lambda *a, **k: None)
+    codex = dataclasses.replace(
+        _adapter("codex", readonly=("--sandbox", "read-only")),
+        readonly=True,
+        self_confines=True,
+    )
     downgrades: list[str] = []
-    withheld = confinement_downgrades(_args(), [_spec("codex")], registry, downgrades)
+
+    withheld = confinement_downgrades(_args(), [_spec("codex")], {"codex": codex}, downgrades)
+
     assert "SECRET_TOKEN" in withheld, withheld
     # It confines itself, so no sandbox note is due -- only the env record.
     assert not any("is not confined" in d for d in downgrades), downgrades

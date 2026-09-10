@@ -171,6 +171,13 @@ def _exception_outcome(argv: list[str], exc: BaseException) -> SpawnResult:
     )
 
 
+def _no_confinement_reason(adapter: Adapter) -> str:
+    """Why this friend needs the OS to confine it, in the operator's terms."""
+    if adapter.is_readonly:
+        return f"{adapter.name}'s own flags do not confine it"
+    return f"{adapter.name} has no read-only mode"
+
+
 def _refused_unsandboxed(argv: list[str], spec: FriendSpec, adapter: Adapter) -> SpawnResult:
     """§12.2's refusal: this friend cannot confine itself and the OS offers
     no way to confine it.
@@ -190,7 +197,13 @@ def _refused_unsandboxed(argv: list[str], spec: FriendSpec, adapter: Adapter) ->
         timed_out=False,
         result=NormalizeResult(None, [], False),
         failure_reason=(
-            f"refused: {adapter.name} has no read-only mode, and no OS sandbox "
+            # The refusal is keyed on whether the CLI restrains ITSELF, not
+            # on whether it has a read-only mode -- agy declares one and is
+            # refused here anyway, because its flags were measured and none
+            # of them restricted anything. Saying "no read-only mode" for
+            # agy contradicts both `afriend doctor` and report.md on the
+            # same host.
+            f"refused: {_no_confinement_reason(adapter)}, and no OS sandbox "
             f"({sandbox.SANDBOX_EXEC} on macOS, {sandbox.BWRAP} on Linux) is "
             "available to confine it. An artifact under review is untrusted "
             "text and could tell it to read anything this user can. Install "
@@ -390,10 +403,9 @@ def _dispatch(
             # ~/.ssh, listed it.
             #
             # **Deliberately keyed on the ADAPTER, not the capability.**
-            # `build_argv` emits a readonly flag only for repo scope, so a
-            # doc-scope claude reports `readonly=False` -- and every friend
-            # is downgraded to doc scope whenever the artifact is not inside
-            # a git repository. Keying on the capability would put CLIs whose
+            # Every friend is downgraded to doc scope whenever the artifact
+            # is not inside a git repository, and a doc-scope friend reports
+            # `readonly=False`, so keying on the capability would put CLIs whose
             # credential paths this project has NOT verified under a sandbox
             # that silently breaks their authentication. claude is the live
             # example: its credentials are in the macOS Keychain, and

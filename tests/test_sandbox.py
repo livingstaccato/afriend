@@ -14,6 +14,7 @@ installs it (see .github/workflows/ci.yml) to keep the linux path from being
 exercised only on whoever happens to have it.
 """
 
+import dataclasses
 from pathlib import Path
 import shutil
 import subprocess
@@ -449,23 +450,28 @@ def _spec_for(name="unconfinable"):
     )
 
 
-def test_only_adapters_without_a_readonly_mode_are_confined():
-    """The narrowing that keeps this shippable.
+def test_dispatch_confines_every_exec_friend_that_does_not_restrain_itself():
+    """Which adapters the OS confines, derived the way dispatch derives it.
 
-    `build_argv` emits a readonly flag only for repo scope, so a doc-scope
-    claude also reports `readonly=False` -- and EVERY friend is downgraded to
-    doc scope when the artifact is not inside a git repository. Keying the
-    sandbox on the capability would therefore refuse every friend for any
-    artifact outside a repo.
+    This asserted `not a.readonly_argv` and expected `{"opencode"}`. That
+    predicate described dispatch until agy opted in while keeping declared
+    flags, and then described nothing: the set stayed `{"opencode"}` and the
+    test stayed green while its name and assertion named a policy the code
+    no longer implemented.
+
+    Keyed on the capability instead it would be worse than stale. A friend
+    is downgraded to doc scope whenever the artifact is outside a git
+    repository, so a capability-keyed sandbox would refuse every friend for
+    every such artifact.
     """
     from afriend.adapters import load_adapters
     from afriend.paths import ADAPTER_DIR
 
     registry = load_adapters(ADAPTER_DIR)
     needs_sandbox = {
-        n for n, a in registry.items() if a.transport == "exec" and not a.readonly_argv
+        n for n, a in registry.items() if a.transport == "exec" and a.needs_os_confinement
     }
-    assert needs_sandbox == {"opencode"}, needs_sandbox
+    assert needs_sandbox == {"agy", "codex", "opencode"}, needs_sandbox
 
 
 def test_an_unconfinable_adapter_declares_where_its_credentials_live():
@@ -497,6 +503,41 @@ def test_a_friend_with_no_readonly_mode_is_refused_without_a_mechanism(monkeypat
     assert outcome.failure_reason is not None
     assert "refused" in outcome.failure_reason
     assert outcome.exit_code is None, "the process must never have been started"
+
+
+def test_the_refusal_does_not_tell_a_friend_with_a_readonly_mode_it_has_none(monkeypatch, tmp_path):
+    """agy declares `readonly = true` and is refused by this path anyway.
+
+    The refusal is keyed on `is_self_confining`, but its text was written
+    when the two were the same thing, so it told the operator agy "has no
+    read-only mode" while `afriend doctor` on the same host printed
+    readonly=True for agy and report.md printed write-protected=True. Three
+    mutually contradictory statements about one friend, with nothing to
+    reconcile them.
+    """
+    from afriend import dispatch
+    from afriend.adapters import load_adapters
+    from afriend.authority import AuthorityPolicy
+    from afriend.paths import ADAPTER_DIR
+
+    monkeypatch.setattr(sandbox, "detect", lambda *a, **k: None)
+    agy = dataclasses.replace(load_adapters(ADAPTER_DIR)["agy"], binary="true", schema_flag="")
+    prompt = tmp_path / "p.prompt"
+    prompt.write_text("hi")
+
+    _spec, _cap, outcome, _policy = dispatch._dispatch(
+        dataclasses.replace(_spec_for(), cli="agy"),
+        tmp_path,
+        {"agy": agy},
+        None,
+        prompt,
+        tmp_path / "s.json",
+        authority_policy=AuthorityPolicy(("agy",)),
+    )
+
+    assert outcome.failure_reason is not None
+    assert "refused" in outcome.failure_reason
+    assert "has no read-only mode" not in outcome.failure_reason
 
 
 def test_the_override_lets_it_run_unconfined(monkeypatch, tmp_path):

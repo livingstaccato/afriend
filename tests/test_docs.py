@@ -746,7 +746,6 @@ def test_operator_docs_pin_provider_authority_and_agy_harness_contracts():
         "staged into the run's isolated workspace",
         "--agent",
         "--disable-slash-commands",
-        "--mode plan",
         "--sandbox",
         "external_tools=uncontrolled",
         "explicitly-allowed",

@@ -455,13 +455,15 @@ what it was doing wrong rather than treating the run as complete.
 
 **A refused friend is a security refusal, not a bug.** A friend reported as
 `refused: ... no OS sandbox ... available to confine it` was never started.
-Its CLI has no read-only mode, so nothing constrains what it reads, and an
-artifact under review is untrusted text that could tell it to read anything
-the user can. Prefer making `sandbox-exec` (macOS) or `bwrap` (Linux)
-available, or using a provider with a verified read-only/write-protection
-mode. That mode controls writes, not filesystem reads, and does not replace OS
-read confinement. A provider with that verified mode does not need
-`--allow-unsandboxed-friend`; that flag is explicit risk acceptance, not a
+Its CLI does not restrain itself -- either it has no read-only mode, or its
+flags were measured and none of them restricted anything -- so nothing
+constrains what it reads, and an artifact under review is untrusted text that
+could tell it to read anything the user can. Prefer making `sandbox-exec`
+(macOS) or `bwrap` (Linux) available. A verified read-only mode is not a
+substitute: it controls writes, not filesystem reads, and does not replace OS
+read confinement. An adapter may declare one and still require OS confinement
+-- agy declares `readonly = true` and is refused by this path, because the
+sandbox is what provides its write protection. `--allow-unsandboxed-friend` is explicit risk acceptance, not a
 normal fix, and lets the affected provider run without OS confinement with
 same-user filesystem read access.
 
