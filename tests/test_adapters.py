@@ -319,6 +319,42 @@ def test_outer_readonly_workdir_requires_outer_confinement(tmp_path):
         adapters.load_adapters(tmp_path)
 
 
+def test_sandbox_paths_given_as_a_string_are_refused_not_split_into_characters(tmp_path):
+    """`write = "~/.gemini"` is one path a maintainer meant, not nine of them.
+
+    `tuple("~/.gemini")` yields the characters, and policy_for expanduser/
+    resolves `~` to $HOME and `/` to the filesystem root -- so a missing pair
+    of brackets grants the whole filesystem read-write while the run record
+    still reports the friend as OS-confined.
+    """
+    (tmp_path / "shred.toml").write_text(
+        'name = "shred"\nbinary = "shred"\n[sandbox]\nos_confine = true\nwrite = "~/.gemini"\n'
+    )
+
+    with pytest.raises(UsageError, match=r"sandbox\.write"):
+        adapters.load_adapters(tmp_path)
+
+
+def test_readonly_argv_given_as_a_string_is_refused_not_split_into_characters(tmp_path):
+    (tmp_path / "shred.toml").write_text(
+        'name = "shred"\nbinary = "shred"\n'
+        'readonly_argv = "--sandbox"\nreadonly = true\nself_confines = true\n'
+    )
+
+    with pytest.raises(UsageError, match="readonly_argv"):
+        adapters.load_adapters(tmp_path)
+
+
+def test_a_non_list_readonly_argv_is_refused_before_it_reaches_iteration(tmp_path):
+    """`readonly_argv = 0` is falsy, so it slips past the declaration gate and
+    used to raise TypeError out of load_adapters -- which refuses the whole
+    directory with no file named, disabling every adapter."""
+    (tmp_path / "broken.toml").write_text('name = "broken"\nbinary = "broken"\nreadonly_argv = 0\n')
+
+    with pytest.raises(UsageError, match="readonly_argv"):
+        adapters.load_adapters(tmp_path)
+
+
 def test_duplicate_adapter_name_raises(tmp_path):
     (tmp_path / "a.toml").write_text('name = "dup"\nbinary = "x"\n')
     (tmp_path / "b.toml").write_text('name = "dup"\nbinary = "y"\n')

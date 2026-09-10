@@ -286,6 +286,21 @@ def capability_from_authority(adapter: Adapter, authority: AuthorityDecision) ->
     )
 
 
+def _string_list(path: Path, field: str, value: object) -> list[str]:
+    """Refuse a scalar where a list of strings belongs.
+
+    `list("--sandbox")` is nine single characters, not one flag, and nothing
+    downstream can tell the difference. For a sandbox path list it is worse
+    than noise: `_add_declared` expanduser/resolves each member, so the
+    characters `~` and `/` become $HOME and the filesystem root -- one
+    missing pair of brackets grants a friend the whole filesystem while the
+    run record still reports it OS-confined.
+    """
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise UsageError(f"{path}: {field} must be a list of strings")
+    return list(value)
+
+
 def _validate_capability_probe(path: Path, probe_argv: list[str], probe_markers: list[str]) -> None:
     """Keep adapter probes bounded and structurally incapable of a model call."""
     if (
@@ -343,6 +358,9 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
         if not isinstance(sandbox_data, dict):
             raise UsageError(f"{path}: sandbox must be a table")
         access_failure_stderr = sandbox_data.get("access_failure_stderr", [])
+        readonly_argv = _string_list(path, "readonly_argv", data.get("readonly_argv", []))
+        sandbox_read = _string_list(path, "sandbox.read", sandbox_data.get("read", []))
+        sandbox_write = _string_list(path, "sandbox.write", sandbox_data.get("write", []))
         transport = data.get("transport", "exec")
         default_model = _validate_default_model(path, data.get("default_model"))
         workspace_assets = parse_workspace_assets(
@@ -432,7 +450,7 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
         # trusted rebuilds the hole, and defaulting to untrusted would
         # silently confine a CLI whose credentials the sandbox cannot reach
         # (claude's live in the macOS Keychain). Someone has to say.
-        if data.get("readonly_argv") and (readonly is None or self_confines is None):
+        if readonly_argv and (readonly is None or self_confines is None):
             raise UsageError(
                 f"{path}: an adapter declaring readonly_argv must also declare "
                 "`readonly` and `self_confines`. Their presence is not evidence that "
@@ -472,7 +490,7 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
             stdin_template=stdin_template,
             models_argv=tuple(data.get("models_argv", [])),
             models_format=models_format,
-            readonly_argv=list(data.get("readonly_argv", [])),
+            readonly_argv=list(readonly_argv),
             schema_flag=data.get("schema_flag", ""),
             schema_inline=bool(data.get("schema_inline", False)),
             model_flag=data.get("model_flag", ""),
@@ -481,8 +499,8 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
             effort={k: list(v) for k, v in data.get("effort", {}).items()},
             transport=transport,
             endpoint=data.get("endpoint", ""),
-            sandbox_read=tuple(sandbox_data.get("read", [])),
-            sandbox_write=tuple(sandbox_data.get("write", [])),
+            sandbox_read=tuple(sandbox_read),
+            sandbox_write=tuple(sandbox_write),
             sandbox_access_failure_stderr=tuple(access_failure_stderr),
             sandbox_confine=sandbox_confine,
             readonly=readonly,
