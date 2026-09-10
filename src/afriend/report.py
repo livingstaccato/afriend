@@ -655,11 +655,15 @@ def render(
     exposed_seen: set[str] = set()
     for friend in run_meta["friends"]:
         name = _sanitize_display(friend["name"], single_line=True)
-        exposed = (
-            friend.get("transport", "exec") != "http"
-            and friend.get("write_protected", friend.get("readonly", False))
-            and not friend.get("os_confined", False)
-        )
+        # Confinement alone decides this. Write protection is irrelevant to
+        # what a process may OPEN, and gating on it dropped the friend that
+        # lost EVERY protection out of the warning the moment dispatch began
+        # withdrawing `readonly` for a skipped sandbox: agy and codex under
+        # --allow-unsandboxed-friend fell out while claude -- write-protected
+        # and never confined -- stayed in, so the least protected friend read
+        # as the safer one. An HTTP friend is excluded because it is a bare
+        # model behind an endpoint with no subprocess and no filesystem.
+        exposed = friend.get("transport", "exec") != "http" and not friend.get("os_confined", False)
         if exposed and name not in exposed_seen:
             exposed_seen.add(name)
             read_exposed.append(name)
@@ -667,8 +671,7 @@ def render(
         lines.extend(
             [
                 "",
-                "**Filesystem read scope:** "
-                + "The following executable friends are write-protected and not recorded "
+                "**Filesystem read scope:** " + "The following executable friends are not recorded "
                 "as OS-confined: "
                 + ", ".join(_escape_cell(name) for name in read_exposed)
                 + ". If started, each retained same-user filesystem read access outside "

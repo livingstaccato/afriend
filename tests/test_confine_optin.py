@@ -290,3 +290,88 @@ def test_no_shipped_adapter_relies_on_the_inference():
         if adapter.readonly_argv:
             assert adapter.readonly is not None, name
             assert adapter.self_confines is not None, name
+
+
+def _dispatch_argv(cli, tmp_path, *, allow_unsandboxed):
+    """Run one friend through the real dispatch path and return its argv.
+
+    `binary="true"` so the process actually starts and `outcome.argv` is the
+    argv dispatch decided on, rather than one reconstructed by the test.
+    """
+    import dataclasses
+
+    from afriend import dispatch
+    from afriend.adapters import FriendSpec
+    from afriend.authority import AuthorityPolicy
+
+    adapter = dataclasses.replace(_registry()[cli], binary="true", schema_flag="")
+    prompt = tmp_path / "p.prompt"
+    prompt.write_text("hi", encoding="utf-8")
+    spec = FriendSpec(
+        name=f"{cli}-ops-0", cli=cli, lens="ops", model=None, effort=None, scope="doc", timeout=9
+    )
+
+    _spec, capability, outcome, _policy = dispatch._dispatch(
+        spec,
+        tmp_path,
+        {cli: adapter},
+        None,
+        prompt,
+        tmp_path / "s.json",
+        allow_unsandboxed=allow_unsandboxed,
+        authority_policy=AuthorityPolicy((cli,)),
+    )
+    return outcome.argv, capability
+
+
+def test_no_outer_policy_means_the_weakening_sandbox_flag_is_not_emitted(monkeypatch, tmp_path):
+    """`--sandbox danger-full-access` is permitted ONLY under the outer policy.
+
+    `allow_outer_readonly` was computed purely from adapter declarations,
+    never from whether the policy engaged, so the one route that permits the
+    otherwise-denied value was granted on exactly the host where that policy
+    never materializes -- actively disabling codex's own inner sandbox with
+    nothing outside it. codex.toml states the value "is refused when the
+    outer mechanism is unavailable"; this is that invariant.
+    """
+    from afriend import sandbox
+
+    monkeypatch.setattr(sandbox, "detect", lambda *a, **k: None)
+
+    argv, capability = _dispatch_argv("codex", tmp_path, allow_unsandboxed=True)
+
+    assert "danger-full-access" not in argv
+    # Nothing is asserted about what codex's own default sandbox does: the
+    # capability records the write protection as withdrawn either way.
+    assert capability.readonly is False
+
+
+def test_no_outer_policy_keeps_the_rest_of_readonly_argv(monkeypatch, tmp_path):
+    """Suppressing the WHOLE list would strip the harness, not the weakening.
+
+    agy's `readonly_argv` also carries the staged reviewer agent and the
+    slash-command switch, so dropping all of it on an unconfined run hands
+    the friend a LARGER authority than it has today -- on precisely the run
+    that already has no OS confinement.
+    """
+    from afriend import sandbox
+
+    monkeypatch.setattr(sandbox, "detect", lambda *a, **k: None)
+
+    argv, _ = _dispatch_argv("agy", tmp_path, allow_unsandboxed=True)
+
+    assert "--agent" in argv and "afriend-reviewer" in argv
+    assert "--disable-slash-commands" in argv
+
+
+def test_an_engaged_outer_policy_still_emits_the_flag_it_exists_for(monkeypatch, tmp_path):
+    """The exception must survive on the hosts it was written for."""
+    from afriend import sandbox
+
+    monkeypatch.setattr(sandbox, "detect", lambda *a, **k: "bwrap")
+    monkeypatch.setattr(sandbox, "wrap", lambda argv, *a, **k: list(argv))
+
+    argv, capability = _dispatch_argv("codex", tmp_path, allow_unsandboxed=False)
+
+    assert "danger-full-access" in argv
+    assert capability.readonly is True

@@ -318,3 +318,107 @@ def test_readiness_revalidates_asset_digest_before_executable_contact(monkeypatc
     assert rows["friend"].state is ReadinessState.POLICY_BLOCKED
     assert "digest mismatch" in rows["friend"].reason
     assert executable_probes == []
+
+
+def test_confinement_is_decided_from_an_injected_seam_not_the_real_host(registry):
+    """Readiness must be a function of its inputs on every machine.
+
+    The probe called `sandbox.detect()` with no argument, so it consulted the
+    real `shutil.which` while every other availability question went through
+    the injected `which`. That made one row depend on whether the machine
+    running the suite happens to have bubblewrap installed.
+    """
+    rows = assess_all(
+        registry,
+        ProviderPolicy({}),
+        env={"AF_NO_HTTP_DISCOVERY": "1"},
+        which=lambda name: f"/bin/{name}",
+        probe=lambda _: False,
+        authority_policy=AuthorityPolicy(("*",)),
+        detect_confinement=lambda: None,
+    )
+
+    assert rows["agy"].state is ReadinessState.READY
+    assert "no OS sandbox" in rows["agy"].reason
+
+
+def test_the_injected_which_is_not_used_as_the_confinement_oracle(registry):
+    """`which` means "is this adapter's binary installed", nothing else.
+
+    Answering the confinement question with it would report every mechanism
+    absent whenever a test injects a `which` that names one adapter -- which
+    is what every readiness test does -- so the qualification would appear on
+    hosts that do have a sandbox.
+    """
+    rows = assess_all(
+        registry,
+        ProviderPolicy({}),
+        env={"AF_NO_HTTP_DISCOVERY": "1"},
+        which=lambda name: f"/bin/{name}" if name == "codex" else None,
+        probe=lambda _: False,
+        detect_confinement=lambda: "bwrap",
+    )
+
+    assert rows["codex"].state is ReadinessState.READY
+    assert rows["codex"].reason == "executable is available"
+
+
+def _self_confining_but_opted_in() -> Adapter:
+    """An adapter with a working read-only mode that opts into OS confinement.
+
+    claude.toml's comment weighs exactly this combination, and the loader
+    permits it: only `readonly_workdir` forces `self_confines` False.
+    """
+    return Adapter(
+        name="both",
+        binary="both",
+        base_argv=[],
+        prompt_mode="stdin",
+        prompt_flag="",
+        readonly_argv=["--read-only"],
+        schema_flag="",
+        model_flag="",
+        internal_timeout_flag="",
+        effort_kind="none",
+        readonly=True,
+        self_confines=True,
+        sandbox_confine=True,
+    )
+
+
+def test_a_self_confining_friend_is_not_told_its_runs_will_be_refused():
+    """The row predicted refusal with a predicate dispatch does not use.
+
+    Dispatch refuses on `not is_self_confining`; the row asked
+    `needs_os_confinement`, which is also true for a friend that opted into
+    OS confinement while having a read-only mode of its own. Such a friend
+    is not refused -- it falls back to its own flags and loses READ
+    protection -- so the row must not tell the operator otherwise.
+    """
+    rows = assess_all(
+        {"both": _self_confining_but_opted_in()},
+        ProviderPolicy({}),
+        env={"AF_NO_HTTP_DISCOVERY": "1"},
+        which=lambda name: f"/bin/{name}",
+        probe=lambda _: False,
+        detect_confinement=lambda: None,
+    )
+
+    assert rows["both"].state is ReadinessState.READY
+    assert "no OS sandbox" in rows["both"].reason
+    assert "refused" not in rows["both"].reason
+
+
+def test_a_friend_with_no_read_only_mode_is_still_told_runs_are_refused(registry):
+    """The other leg of the same predicate must keep its warning."""
+    rows = assess_all(
+        registry,
+        ProviderPolicy({}),
+        env={"AF_NO_HTTP_DISCOVERY": "1"},
+        which=lambda name: f"/bin/{name}",
+        probe=lambda _: False,
+        authority_policy=AuthorityPolicy(("*",)),
+        detect_confinement=lambda: None,
+    )
+
+    assert "refused without --allow-unsandboxed-friend" in rows["agy"].reason

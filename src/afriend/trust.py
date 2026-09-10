@@ -102,6 +102,48 @@ def check_denied_values(argv: list[str], *, allow_outer_readonly: bool = False) 
                 )
 
 
+def strip_outer_readonly_argv(argv: list[str]) -> list[str]:
+    """Drop the sandbox-weakening tokens an adapter emits for the outer policy.
+
+    `--sandbox danger-full-access` is permitted by `check_denied_values` only
+    while afriend's own read-only OS policy binds the review workdir. On a
+    host with no mechanism that policy never materializes, and emitting the
+    flag anyway actively disables the CLI's own inner sandbox with nothing
+    outside it -- strictly worse than emitting no flag at all, and a breach
+    of codex.toml's own stated invariant that the value "is refused when the
+    outer mechanism is unavailable".
+
+    Only the flag and its denied value are dropped. Suppressing the whole of
+    `readonly_argv` would strip the harness rather than the weakening: agy's
+    list also carries `--agent afriend-reviewer` and
+    `--disable-slash-commands`, so dropping all of it would hand the friend a
+    LARGER authority on precisely the run that already has no confinement,
+    and it would no longer be the reviewer the report claims it was.
+
+    Nothing here asserts what the CLI's own default sandbox does. Dispatch
+    withdraws `readonly` from the capability for this case, so the run
+    records the protection as lost rather than assuming a default holds.
+    """
+    kept: list[str] = []
+    skip_value = False
+    for index, token in enumerate(argv):
+        if skip_value:
+            skip_value = False
+            continue
+        flag, separator, inline_value = token.partition("=")
+        if flag in ("-s", "--sandbox"):
+            # Both spellings, for the same reason check_denied_values
+            # partitions: a real CLI accepts `--flag value` and `--flag=value`
+            # alike, and a strip written for one form leaves the other.
+            if separator and inline_value in DENIED_SANDBOX_VALUES:
+                continue
+            if not separator and index + 1 < len(argv) and argv[index + 1] in DENIED_SANDBOX_VALUES:
+                skip_value = True
+                continue
+        kept.append(token)
+    return kept
+
+
 def contain_path(base: Path, candidate: Path) -> Path:
     """Guarantee a constructed output path stays under the run directory."""
     base_resolved = Path(base).resolve()

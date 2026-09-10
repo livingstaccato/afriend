@@ -32,8 +32,13 @@ def repository(tmp_path):
     _git(repo, "config", "user.email", "test@example.invalid")
     # A contributor with global commit signing on has no signing key in
     # scope for a repo under $TMPDIR, so an inherited `commit.gpgsign` makes
-    # every fixture commit exit 128.
+    # every fixture commit exit 128. `tag.gpgsign` is the same trap one
+    # object type over, and this module is the only place in the suite that
+    # creates an annotated tag: `git tag -a` exits 128 with "unable to sign
+    # the tag". Belt and braces beside conftest's GIT_CONFIG_GLOBAL, which
+    # covers both and whatever the next inherited setting turns out to be.
     _git(repo, "config", "commit.gpgsign", "false")
+    _git(repo, "config", "tag.gpgsign", "false")
     code = repo / "code.txt"
     code.write_text("first\n", encoding="utf-8")
     _git(repo, "add", "code.txt")
@@ -229,8 +234,13 @@ def test_compose_supports_sha256_git_object_ids(tmp_path):
     _git(repo, "config", "user.email", "test@example.invalid")
     # A contributor with global commit signing on has no signing key in
     # scope for a repo under $TMPDIR, so an inherited `commit.gpgsign` makes
-    # every fixture commit exit 128.
+    # every fixture commit exit 128. `tag.gpgsign` is the same trap one
+    # object type over, and this module is the only place in the suite that
+    # creates an annotated tag: `git tag -a` exits 128 with "unable to sign
+    # the tag". Belt and braces beside conftest's GIT_CONFIG_GLOBAL, which
+    # covers both and whatever the next inherited setting turns out to be.
     _git(repo, "config", "commit.gpgsign", "false")
+    _git(repo, "config", "tag.gpgsign", "false")
     code = repo / "code.txt"
     code.write_text("first\n", encoding="utf-8")
     _git(repo, "add", "code.txt")
@@ -394,3 +404,29 @@ def test_manifest_parser_refuses_non_reconstructible_or_extra_json_fields(tmp_pa
     sidecar.symlink_to(target)
     with pytest.raises(UsageError, match="regular file, not a symlink"):
         load_manifest(sidecar)
+
+
+def test_a_tag_pointing_at_a_tree_gets_the_intended_message_not_a_bare_git_error(
+    repository, tmp_path
+):
+    """The peeling branch's own rejection could never fire.
+
+    `_git_text` allows only returncode 0 and the peel call passes `--quiet`,
+    so a tag that names a tree either returned a commit id or raised
+    `_git_error` with nothing in stderr to report -- surfacing
+    "git rev-parse ... failed: git command failed" instead of the
+    "must resolve to a commit" the branch below it was written to raise.
+    """
+    repo, base, _head = repository
+    tree = _git(repo, "rev-parse", f"{base}^{{tree}}")
+    _git(repo, "tag", "-a", "treetag", "-m", "points at a tree", tree)
+    plan = tmp_path / "plan.md"
+    plan.write_text("# plan\n", encoding="utf-8")
+
+    with pytest.raises(UsageError, match="must resolve to a commit"):
+        compose(
+            repo=repo,
+            out=tmp_path / "composite.md",
+            plan=plan,
+            ranges=(f"treetag..{base}",),
+        )

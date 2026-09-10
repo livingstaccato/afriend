@@ -368,3 +368,61 @@ def test_guided_apply_requires_explicit_changes_before_creating_config(tmp_path,
 
     assert not sessionconfig.config_path().exists()
     assert not providerconfig.config_path().exists()
+
+
+def test_the_roster_does_not_claim_confinement_on_a_host_that_has_none(tmp_path, monkeypatch):
+    """The note asserted a mechanism the host does not have.
+
+    `_render_roster` selected on the readiness state and read only
+    `assessed.model`, discarding the qualification the row now carries. So on
+    a Linux box without bubblewrap it wrote agy into the roster and told the
+    operator agy "runs under OS confinement" -- describing a mechanism that
+    is absent and a run dispatch will refuse.
+    """
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    target = tmp_path / "roster.toml"
+    rows = {
+        "agy": readiness.FriendReadiness(
+            "agy", readiness.ReadinessState.READY, "available", "/bin/agy", None
+        )
+    }
+    monkeypatch.setattr(init_module, "assess_all", lambda *_args, **_kwargs: rows)
+    monkeypatch.setattr(init_module.sandbox, "detect", lambda *_a, **_k: None)
+
+    init_module.cmd_init(_args("--apply", "--default-profile", "balanced", "--out", str(target)))
+
+    note = next(
+        (line for line in target.read_text(encoding="utf-8").splitlines() if "agy: " in line),
+        None,
+    )
+
+    assert note is not None, "agy got no confinement note at all"
+    assert "runs under OS confinement" not in note
+    assert "no OS sandbox" in note
+    assert "--allow-unsandboxed-friend" in note
+
+
+def test_the_roster_note_states_the_scope_without_calling_it_a_limit(tmp_path, monkeypatch):
+    """`repo` is the WIDER of the two scopes -- a git worktree of the code
+    under review, against a doc-only directory -- so "limited to repo scope"
+    reassures the operator with the larger of the two access grants."""
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    target = tmp_path / "roster.toml"
+    rows = {
+        "agy": readiness.FriendReadiness(
+            "agy", readiness.ReadinessState.READY, "available", "/bin/agy", None
+        )
+    }
+    monkeypatch.setattr(init_module, "assess_all", lambda *_args, **_kwargs: rows)
+    monkeypatch.setattr(init_module.sandbox, "detect", lambda *_a, **_k: "bwrap")
+
+    init_module.cmd_init(_args("--apply", "--default-profile", "balanced", "--out", str(target)))
+
+    note = next(
+        (line for line in target.read_text(encoding="utf-8").splitlines() if "agy: " in line),
+        None,
+    )
+
+    assert note is not None
+    assert "limited to repo scope" not in note
+    assert "runs at repo scope" in note

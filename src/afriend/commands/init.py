@@ -22,7 +22,7 @@ import shutil
 import sys
 import tempfile
 
-from .. import providerconfig, reviewprofiles, sessionconfig
+from .. import providerconfig, reviewprofiles, sandbox, sessionconfig
 from ..adapters import Adapter, load_adapters
 from ..authority import AuthorityPolicy
 from ..errors import NoFriendsError, UsageError
@@ -100,6 +100,19 @@ def _render_roster(
     lenses = available_lenses()
     notes: list[str] = []
     entries = []
+    # Probed lazily and at most once, the same way readiness does it: a
+    # roster of HTTP friends alone must not cause any confinement probing,
+    # and the answer cannot change within one render.
+    mechanism: str | None = None
+    mechanism_probed = False
+
+    def confinement_mechanism() -> str | None:
+        nonlocal mechanism, mechanism_probed
+        if not mechanism_probed:
+            mechanism = sandbox.detect()
+            mechanism_probed = True
+        return mechanism
+
     for index, cli in enumerate(selected):
         adapter = registry[cli]
         assessed = readiness[cli]
@@ -134,13 +147,32 @@ def _render_roster(
             # reason and the scope this entry actually got: agy has a
             # read-only mode, runs at repo scope, and is still confined, so
             # the older wording was wrong about it three ways over.
-            reason = (
-                "its own flags do not confine it" if adapter.is_readonly else "no read-only mode"
-            )
-            notes.append(
-                f"{cli}: {reason}, so it runs under OS confinement "
-                f"(§12.2) and is limited to {entry['scope']} scope."
-            )
+            #
+            # The reason comes from the adapter rather than a branch of its
+            # own -- one decision, two subjects, so this note and dispatch's
+            # refusal cannot drift apart.
+            reason = adapter.confinement_reason()
+            # "at", not "limited to": `repo` is the WIDER of the two scopes
+            # -- a git worktree of the code under review, against a doc-only
+            # directory -- so calling it a limit reassures the operator with
+            # the larger of the two access grants.
+            if confinement_mechanism() is None:
+                # The note used to assert confinement unconditionally, on a
+                # host that may have no mechanism to provide it. Writing the
+                # entry is still right (`--allow-unsandboxed-friend` runs it,
+                # and installing bubblewrap fixes it), but the roster must
+                # not describe a sandbox that is absent and a run dispatch
+                # will refuse.
+                notes.append(
+                    f"{cli}: {reason}, and no OS sandbox is available here "
+                    f"(§12.2), so it runs at {entry['scope']} scope only with "
+                    "--allow-unsandboxed-friend."
+                )
+            else:
+                notes.append(
+                    f"{cli}: {reason}, so it runs under OS confinement "
+                    f"(§12.2) and runs at {entry['scope']} scope."
+                )
         if adapter.effort_kind == "unverified":
             notes.append(
                 f"{cli}: effort cannot be verified -- its effort flag accepts "

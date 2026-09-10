@@ -1,9 +1,10 @@
 import hashlib
 import json
+from pathlib import Path
 
 import pytest
 
-from afriend import adapters, trust
+from afriend import adapters, dispatch, trust
 from afriend.authority import ExternalToolPolicy
 from afriend.dispatch import argv_size_warning
 from afriend.errors import UsageError
@@ -482,3 +483,103 @@ def test_a_stdin_adapter_never_carries_an_argv_size_warning():
     warning = argv_size_warning("claude-ops-0", adapter, "x" * 200_000)
 
     assert warning is None
+
+
+def test_an_empty_sandbox_path_is_refused_rather_than_resolved_to_the_cwd(tmp_path):
+    """`write = [""]` is one bracket pair away from the shredded-string grant.
+
+    `_add_declared` turns `""` into `Path(".")` and resolves it, so an empty
+    placeholder grants the invoking directory read-write while the run record
+    still reports the friend OS-confined. Every sibling validator in
+    load_adapters already requires `isinstance(value, str) and value`.
+    """
+    (tmp_path / "empty.toml").write_text(
+        'name = "empty"\nbinary = "empty"\n'
+        '[sandbox]\nos_confine = true\nread = [""]\nwrite = [""]\n'
+    )
+
+    with pytest.raises(UsageError, match=r"sandbox\.(read|write)"):
+        adapters.load_adapters(tmp_path)
+
+
+def test_a_scalar_effort_is_refused_rather_than_raising_out_of_load_adapters(tmp_path):
+    """`effort = "high"` reached `.items()` and raised AttributeError, which
+    names no file and disables every adapter in the directory."""
+    (tmp_path / "broken.toml").write_text('name = "broken"\nbinary = "broken"\neffort = "high"\n')
+
+    with pytest.raises(UsageError, match="effort"):
+        adapters.load_adapters(tmp_path)
+
+
+def test_a_scalar_env_is_refused_rather_than_raising_out_of_load_adapters(tmp_path):
+    """`env = "PATH"` reached `.get()` and raised AttributeError."""
+    (tmp_path / "broken.toml").write_text('name = "broken"\nbinary = "broken"\nenv = "PATH"\n')
+
+    with pytest.raises(UsageError, match="env"):
+        adapters.load_adapters(tmp_path)
+
+
+def test_an_effort_level_given_as_a_string_is_refused_not_split_into_characters(tmp_path):
+    (tmp_path / "shred.toml").write_text(
+        'name = "shred"\nbinary = "shred"\n[effort]\nhigh = "--effort"\n'
+    )
+
+    with pytest.raises(UsageError, match="effort"):
+        adapters.load_adapters(tmp_path)
+
+
+def test_env_pass_given_as_a_string_is_refused_not_split_into_characters(tmp_path):
+    """`pass = "AWS_SECRET_ACCESS_KEY"` became 21 single-character variable
+    names in the allowlist that decides what a confined child inherits."""
+    (tmp_path / "shred.toml").write_text(
+        'name = "shred"\nbinary = "shred"\n[env]\npass = "AWS_SECRET_ACCESS_KEY"\n'
+    )
+
+    with pytest.raises(UsageError, match=r"env\.pass"):
+        adapters.load_adapters(tmp_path)
+
+
+def test_base_argv_given_as_a_string_is_refused_not_split_into_characters(tmp_path):
+    (tmp_path / "shred.toml").write_text('name = "shred"\nbinary = "shred"\nbase_argv = "exec"\n')
+
+    with pytest.raises(UsageError, match="base_argv"):
+        adapters.load_adapters(tmp_path)
+
+
+def test_doc_argv_given_as_a_string_is_refused_not_split_into_characters(tmp_path):
+    (tmp_path / "shred.toml").write_text(
+        'name = "shred"\nbinary = "shred"\ndoc_argv = "--skip-git-repo-check"\n'
+    )
+
+    with pytest.raises(UsageError, match="doc_argv"):
+        adapters.load_adapters(tmp_path)
+
+
+def test_models_argv_given_as_a_string_is_refused_not_split_into_characters(tmp_path):
+    (tmp_path / "shred.toml").write_text(
+        'name = "shred"\nbinary = "shred"\nmodels_argv = "models"\n'
+    )
+
+    with pytest.raises(UsageError, match="models_argv"):
+        adapters.load_adapters(tmp_path)
+
+
+def test_the_confinement_reason_is_one_branch_serving_both_operator_messages(registry):
+    """Dispatch's refusal and the guided roster's note asked the same
+    question in two implementations and two wordings -- a fifth copy of the
+    drift the four `is_readonly` sites already demonstrated."""
+    from afriend.commands import init as init_module
+
+    agy = registry["agy"]
+    opencode = registry["opencode"]
+
+    # agy HAS a read-only mode; its flags were measured and restrict nothing.
+    assert agy.confinement_reason() == "its own flags do not confine it"
+    assert agy.confinement_reason(subject="agy") == "agy's own flags do not confine it"
+    # opencode has no read-only mode at all.
+    assert opencode.confinement_reason() == "it has no read-only mode"
+    assert opencode.confinement_reason(subject="opencode") == "opencode has no read-only mode"
+
+    # Neither call site may keep a branch of its own.
+    assert not hasattr(dispatch, "_no_confinement_reason")
+    assert "no read-only mode" not in Path(init_module.__file__).read_text(encoding="utf-8")

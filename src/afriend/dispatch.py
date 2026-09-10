@@ -24,7 +24,7 @@ from .claimschema import CLAIM_CONTRACT
 from .contracts import PayloadContract
 from .normalize import NormalizeResult
 from .spawn import SpawnResult, run_process
-from .trust import check_denied_values
+from .trust import check_denied_values, strip_outer_readonly_argv
 
 _DispatchResult = tuple[FriendSpec, Capability, SpawnResult, ExternalToolPolicy]
 
@@ -171,13 +171,6 @@ def _exception_outcome(argv: list[str], exc: BaseException) -> SpawnResult:
     )
 
 
-def _no_confinement_reason(adapter: Adapter) -> str:
-    """Why this friend needs the OS to confine it, in the operator's terms."""
-    if adapter.is_readonly:
-        return f"{adapter.name}'s own flags do not confine it"
-    return f"{adapter.name} has no read-only mode"
-
-
 def _refused_unsandboxed(argv: list[str], spec: FriendSpec, adapter: Adapter) -> SpawnResult:
     """§12.2's refusal: this friend cannot confine itself and the OS offers
     no way to confine it.
@@ -203,7 +196,7 @@ def _refused_unsandboxed(argv: list[str], spec: FriendSpec, adapter: Adapter) ->
             # of them restricted anything. Saying "no read-only mode" for
             # agy contradicts both `afriend doctor` and report.md on the
             # same host.
-            f"refused: {_no_confinement_reason(adapter)}, and no OS sandbox "
+            f"refused: {adapter.confinement_reason(subject=adapter.name)}, and no OS sandbox "
             f"({sandbox.SANDBOX_EXEC} on macOS, {sandbox.BWRAP} on Linux) is "
             "available to confine it. An artifact under review is untrusted "
             "text and could tell it to read anything this user can. Install "
@@ -349,13 +342,29 @@ def _dispatch(
         argv, stdin_text, capability = build_argv(
             adapter, spec, prompt_file, schema_file, provider_policy
         )
+        binary_present = bool(adapter.binary and shutil.which(adapter.binary))
+        # Probed BEFORE the argv is screened, and once. `allow_outer_readonly`
+        # used to be computed purely from adapter declarations, so the one
+        # route that permits an otherwise-denied `danger-full-access` was
+        # granted on exactly the host where the outer policy never engages.
+        # The exception is about a policy that BINDS, so the screen has to
+        # know whether it will.
+        mechanism = sandbox.detect() if binary_present and adapter.needs_os_confinement else None
+        declares_outer_readonly = (
+            adapter.sandbox_readonly_workdir
+            and adapter.sandbox_confine
+            and not adapter.is_self_confining
+        )
+        if declares_outer_readonly and mechanism is None:
+            # Stripped rather than refused here: the refusal below is keyed
+            # on whether the CLI restrains ITSELF, and this is only about not
+            # emitting a flag whose precondition is absent. A friend the
+            # operator allowed through with --allow-unsandboxed-friend runs
+            # without the weakening flag instead of with it.
+            argv = strip_outer_readonly_argv(argv)
         check_denied_values(
             argv,
-            allow_outer_readonly=(
-                adapter.sandbox_readonly_workdir
-                and adapter.sandbox_confine
-                and not adapter.is_self_confining
-            ),
+            allow_outer_readonly=declares_outer_readonly and mechanism is not None,
         )
         envelope = adapter.envelope
         structured_output = adapter.structured_output
@@ -380,7 +389,6 @@ def _dispatch(
         # authenticates under this allowlist, because their credentials are
         # files under HOME rather than variables.
         child_env = childenv.build(adapter.env_pass, pass_env)
-        binary_present = bool(adapter.binary and shutil.which(adapter.binary))
         # A read-only mode of its own stops a friend WRITING and says
         # nothing about what it may READ, so a self-confining CLI can still
         # open ~/.ssh. `sandbox_confine` is how an adapter opts into OS
@@ -412,7 +420,10 @@ def _dispatch(
             # granting that would hand a friend every credential the operator
             # has. So opting in stays a per-adapter statement that someone
             # ran that CLI confined and watched it work.
-            mechanism = sandbox.detect()
+            #
+            # `mechanism` was probed above, before the argv screen, because
+            # the denied-value exception is about a policy that BINDS and the
+            # screen has to know whether it will.
             if mechanism is None:
                 # Refusal is only right for a CLI that enforces NOTHING on
                 # its own. One that opted in still has its own read-only
@@ -484,34 +495,38 @@ def _dispatch(
                 # comment said self-confining CLIs were excluded here, which
                 # stopped being true the moment one of them opted in.
                 child_env.update(private_env)
-    if spec.cli != "fake" and registry[spec.cli].sandbox_readonly_workdir and not os_confined:
-        # Its write protection IS the sandbox. `readonly_workdir` is the
-        # adapter saying "my own flags do not restrict writes; the outer
-        # policy does" -- so with no wrapper there is nothing holding, and
-        # the capability has to say so. Without this, a run that skipped
-        # confinement still recorded `write_protected: true`, and report.md
-        # went on to describe the friend as write-protected but not
-        # OS-confined: the audit artifact asserting the exact property the
-        # run had just lost. Same withdrawal the extra-args branch below
-        # makes, for the case that was missed.
-        capability = dataclasses.replace(capability, readonly=False)
-    if extra_args and spec.cli != "fake":
-        # §13: their presence forces readonly False in the header regardless
-        # of what the argv appears to say. The runner cannot know what an
-        # unvalidated flag does -- it may well have re-enabled writes -- so
-        # the honest report is that read-only was not verified, not that the
-        # flag the adapter emitted is still in force.
-        argv = place_extra_args(argv, adapter, extra_args)
-        # Re-screened, because the argv checked earlier is not the argv that
-        # runs. `parse_unsafe_extra_args` refuses a DENIED_FLAG, but nothing
-        # looked at denied VALUES on these tokens -- so
-        # `--unsafe-extra-args "--sandbox danger-full-access"` passed the
-        # flag-name screen and reached the CLI, re-enabling exactly the write
-        # access `check_denied_values` exists to refuse. The escape hatch is
-        # for "I need one more option", never for "run with no guardrails",
-        # which is the line its own docstring already draws.
-        check_denied_values(extra_args)
-        capability = dataclasses.replace(capability, readonly=False)
+    if spec.cli != "fake":
+        # Two things withdraw read-only, and both used to test `spec.cli !=
+        # "fake"` and perform the same `dataclasses.replace` separately --
+        # while the first also re-looked-up an `adapter` already bound on
+        # every path that reaches here.
+        #
+        # A skipped sandbox: `readonly_workdir` is the adapter saying "my own
+        # flags do not restrict writes; the outer policy does", so with no
+        # wrapper there is nothing holding and the capability has to say so.
+        # Without this a run that skipped confinement still recorded
+        # `write_protected: true`, and report.md described the friend as
+        # write-protected but not OS-confined -- the audit artifact asserting
+        # the exact property the run had just lost.
+        #
+        # §13's extra args: the runner cannot know what an unvalidated flag
+        # does, and it may well have re-enabled writes, so the honest report
+        # is that read-only was not verified rather than that the flag the
+        # adapter emitted is still in force.
+        skipped_sandbox = adapter.sandbox_readonly_workdir and not os_confined
+        if extra_args:
+            argv = place_extra_args(argv, adapter, extra_args)
+            # Re-screened, because the argv checked earlier is not the argv
+            # that runs. `parse_unsafe_extra_args` refuses a DENIED_FLAG, but
+            # nothing looked at denied VALUES on these tokens -- so
+            # `--unsafe-extra-args "--sandbox danger-full-access"` passed the
+            # flag-name screen and reached the CLI, re-enabling exactly the
+            # write access `check_denied_values` exists to refuse. The escape
+            # hatch is for "I need one more option", never for "run with no
+            # guardrails", which is the line its own docstring already draws.
+            check_denied_values(extra_args)
+        if skipped_sandbox or extra_args:
+            capability = dataclasses.replace(capability, readonly=False)
     outcome = run_process(
         argv,
         stdin_text,

@@ -1,5 +1,130 @@
 # Changelog
 
+## 0.10.3
+
+**A friend allowed through without a sandbox was handed a flag that
+disabled its own.** `--sandbox danger-full-access` is codex's declared
+`readonly_argv`, permitted by `check_denied_values` through a single
+adapter-only exception whose whole justification is that afriend's outer
+read-only OS policy binds the workdir instead. `allow_outer_readonly` was
+computed from adapter declarations alone -- `sandbox_readonly_workdir and
+sandbox_confine and not is_self_confining` -- and never from whether that
+policy engaged, so on a host with no bwrap or sandbox-exec the exception was
+granted on precisely the run where the policy never materializes. With
+`--allow-unsandboxed-friend` the argv was `codex exec --json --sandbox
+danger-full-access` with nothing outside it: the release recorded the lost
+protection rather than not destroying it, and codex.toml's own stated
+invariant -- the value "is refused when the outer mechanism is unavailable"
+-- did not hold. The mechanism is probed before the argv is screened now,
+and when it is absent `strip_outer_readonly_argv` drops the flag and its
+denied value. Only that pair: agy's `readonly_argv` also carries `--agent
+afriend-reviewer` and `--disable-slash-commands`, so suppressing the whole
+list would have stripped the reviewer harness and re-enabled slash-command
+expansion on exactly the run that already had no confinement -- a larger
+authority than before the fix, and no longer the reviewer the report claims
+it was. Nothing asserts what codex's own default sandbox does: dispatch
+withdraws `readonly` from the capability either way, so the run records the
+protection as lost rather than assuming a default holds.
+
+**Readiness asked the real `shutil.which` while every other question went
+through the injected one.** The confinement probe called `sandbox.detect()`
+with no argument, so one row in `assess_all` was decided by whether the
+machine running it happened to have bubblewrap rather than by the inputs it
+was given -- and the existing test pinning codex's unqualified reason
+therefore passed on macOS and in CI and failed on a contributor's Linux box.
+`detect_confinement` is its own seam rather than a reuse of `which`, which
+answers "is this ADAPTER's binary installed": every readiness test injects a
+`which` naming a single adapter, so answering the confinement question with
+it would report every mechanism absent on hosts that have one. The row also
+predicted refusal with `needs_os_confinement` while dispatch refuses on `not
+is_self_confining` -- two predicates for one statement, this release's own
+defect in the row that reports it. An adapter with a working read-only mode
+that opts into OS confinement anyway (the combination claude.toml's comment
+weighs, and the loader permits) is not refused: it falls back to its own
+flags and loses read protection only, and now says so.
+
+**The friend that lost every protection read as the safer one.** report.md's
+"Filesystem read scope" warning was gated on `write_protected and not
+os_confined`. Once dispatch began withdrawing `readonly` for a skipped
+sandbox, agy and codex under `--allow-unsandboxed-friend` reported
+`write_protected: false` and dropped out of the warning entirely, while
+claude -- write-protected and never confined -- stayed in it. Read exposure
+is decided by confinement alone; write protection is irrelevant to what a
+process may open, and the sentence no longer claims a property those friends
+do not have. Separately, scope is chosen before dispatch and confinement is
+decided per run, so `roster.py` and `cliargs.py` grant repo scope from
+`is_readonly` -- true for agy only BECAUSE of its `[sandbox]` block. Moving
+those three sites to `needs_os_confinement` would drop agy and codex to doc
+scope on every host, including the ones where `readonly_workdir` genuinely
+engages, so the mismatch is recorded as a downgrade where the run knows what
+engaged rather than repaired by narrowing scope everywhere.
+
+**A scalar in five more fields, and an empty string in two.** 0.10.2 routed
+`readonly_argv` and the sandbox path lists through `_string_list` and left
+`effort` and `env` unchecked, where a scalar reached `.items()`/`.get()` and
+raised `AttributeError` out of `load_adapters` -- naming no file and
+disabling every adapter in the directory, the exact defect shape that commit
+fixed one field over. `base_argv`, `doc_argv`, `models_argv` and `env.pass`
+were still shredded silently: `pass = "AWS_SECRET_ACCESS_KEY"` became 21
+single-character names in the allowlist deciding what a confined child
+inherits. The guard against a shredded path also stopped one bracket pair
+short of the grant it exists to prevent: `_string_list` accepted `""`, which
+resolves to the process working directory, so `[sandbox] write = [""]` --
+what an unfinished placeholder looks like -- handed the invoking repository
+over read-write while the record still reported `os_confined: true`. Refused
+for path and name lists; still accepted for argv lists, where an empty
+member is a legitimate flag value (agy's `base_argv` ends `"--print", ""`,
+and that empty string is what satisfies `--print`).
+
+**The guided roster described a sandbox the host did not have.**
+`_render_roster` selected on the readiness state and read only
+`assessed.model`, discarding the qualification the row carries, so on a
+Linux box without bubblewrap `afriend init --guided --apply` wrote agy and
+codex into the roster and told the operator each "runs under OS confinement
+(§12.2)" -- a mechanism that is absent and a run dispatch will refuse. The
+note it printed also called `repo` a limit ("limited to repo scope") while
+`repo` is the WIDER of the two grants: a git worktree of the code under
+review, against a doc-only directory. And the two-branch reason behind it
+lived twice, in dispatch's refusal and inline in `init.py`, in two wordings
+free to drift apart exactly as the four `is_readonly` copies did; it is one
+`Adapter.confinement_reason` now, with a subject argument so dispatch's
+message -- quoted verbatim in troubleshooting.md -- keeps its wording.
+
+**Three of the five lines added for annotated tags could not run.**
+`_git_text` allows only returncode 0, so `rev-parse --verify --quiet
+'<sha>^{commit}'` either returned a commit id or raised git's own error: the
+`UsageError("...must resolve to a commit")` written for a tag pointing at a
+tree could never fire, and the re-run `cat-file -t` after it could only
+confirm what `^{commit}` had already settled, at two extra subprocesses per
+endpoint. Returncode 1 is allowed now so the rejection is reachable, the
+identity guard stays on the peeled value that reaches the manifest, and the
+second type lookup is gone. The outer non-commit check remains: an endpoint
+that is DIRECTLY a tree or a blob never enters the tag branch at all.
+
+**The signing fix was nine per-fixture copies in two spellings, and it
+missed the trap one object type over.** `commit.gpgsign false` is set at
+nine call sites across three modules while two other git-using modules set
+nothing, so the release's one new test -- the only place in the suite that
+creates an annotated tag -- inherited `tag.gpgsign` and would exit 128 with
+"unable to sign the tag" for any contributor with global tag signing. An
+autouse fixture in `tests/conftest.py` points `GIT_CONFIG_GLOBAL` and
+`GIT_CONFIG_SYSTEM` at os.devnull, covering commit.gpgsign, tag.gpgsign,
+gpg.format, core.hooksPath, commit.template and init.defaultBranch at once.
+"One place" turned out to be two: `e2e_helpers._env()` builds a FIXED
+environment dict and forwards only HOME, so roughly forty end-to-end git
+invocations would have kept reading `~/.gitconfig` while the conftest
+variable never reached them. Both are set, and the per-fixture lines stay.
+
+**Also.** The withdrawal added in 0.10.2 re-looked-up an adapter already
+bound on every path reaching it and re-tested `spec.cli != "fake"`, which
+the branch immediately after tested again and whose body performed the
+identical `dataclasses.replace`; one guarded block computes both reasons
+once. Adapter TOML validation moved to `adapterschema.py`, which is what the
+777-line cap is for. The claim that removing the `--mode plan` docs pin left
+the flag unasserted was withdrawn: `tests/test_confine_optin.py` and
+`tests/test_adapters.py` already prohibit it, at token level, and a
+re-addition fails three assertions across two files.
+
 ## 0.10.2
 
 **A scalar where a list belongs granted a friend the whole filesystem.**

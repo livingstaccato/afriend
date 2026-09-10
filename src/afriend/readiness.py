@@ -219,12 +219,21 @@ def assess_all(
     authority_policy: AuthorityPolicy | None = None,
     selection_policy: bool = True,
     capability_probe: Callable[[Adapter, str], DenyProbeResult] | None = None,
+    detect_confinement: Callable[[], str | None] | None = None,
 ) -> dict[str, FriendReadiness]:
     """Assess providers once, optionally ignoring automatic-selection policy.
 
     Explicitly named friends set ``selection_policy=False``: naming a friend
     overrides enabled/host/discovery selection, but never availability,
     configuration, adapter validation, or authority.
+
+    ``detect_confinement`` is its own seam rather than a reuse of ``which``.
+    ``which`` answers "is this ADAPTER's binary installed", and every test
+    injects one that names a single adapter, so answering the confinement
+    question with it would report every mechanism absent on a host that has
+    one -- and calling ``sandbox.detect()`` with no argument at all, as this
+    did, makes the row depend on the machine running the suite rather than on
+    the inputs it was given.
     """
     environ = os.environ if env is None else env
     probe_fn = http_transport.probe if probe is None else probe
@@ -241,11 +250,12 @@ def assess_all(
     # doctor tests assert by recording every executable lookup.
     mechanism: str | None = None
     mechanism_probed = False
+    detect_fn = sandbox.detect if detect_confinement is None else detect_confinement
 
     def confinement_mechanism() -> str | None:
         nonlocal mechanism, mechanism_probed
         if not mechanism_probed:
-            mechanism = sandbox.detect()
+            mechanism = detect_fn()
             mechanism_probed = True
         return mechanism
 
@@ -376,9 +386,25 @@ def assess_all(
         ):
             # Still READY: the executable is there, and
             # --allow-unsandboxed-friend runs it. Qualified, not withheld.
-            reason += (
-                "; it requires OS confinement and no OS sandbox is available here, so "
-                "runs are refused without --allow-unsandboxed-friend"
-            )
+            #
+            # Two legs, because dispatch has two. It refuses on
+            # `not is_self_confining` (dispatch.py's mechanism-is-None
+            # branch), NOT on `needs_os_confinement` -- which is also true
+            # for a friend that has a working read-only mode AND opted into
+            # OS confinement anyway, the combination claude.toml's comment
+            # weighs and the loader permits. That friend is not refused: it
+            # falls back to its own flags and loses READ protection only.
+            # Predicting a refusal for it would be this release's own defect
+            # -- one statement, two predicates -- in the row that reports it.
+            if adapter.is_self_confining:
+                reason += (
+                    "; it opts into OS confinement and no OS sandbox is available here, so "
+                    "runs fall back to its own read-only mode without read protection"
+                )
+            else:
+                reason += (
+                    "; it requires OS confinement and no OS sandbox is available here, so "
+                    "runs are refused without --allow-unsandboxed-friend"
+                )
         rows[name] = _row(name, ReadinessState.READY, reason, where, setting.model)
     return rows

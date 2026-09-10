@@ -349,16 +349,25 @@ def _resolve_commit(repo: Path, token: object) -> str:
         raise UsageError("review context range endpoint did not resolve to one commit identity")
     object_type = _git_text(repo, "cat-file", "-t", raw)
     if object_type == "tag":
-        # An annotated tag resolves to its own tag object, so peel it to the commit it
-        # names. Without this, `--range v0.10.0..HEAD` is refused for every annotated
-        # tag while the identical lightweight tag is accepted.
-        raw = _git_text(
-            repo, "rev-parse", "--verify", "--quiet", "--end-of-options", f"{raw}^{{commit}}"
+        # An annotated tag resolves to its own tag object, so peel it to the
+        # commit it names -- without this `--range v0.10.0..HEAD` is refused
+        # for every annotated tag while the identical lightweight tag works.
+        #
+        # Returncode 1 is allowed so the rejection below can actually fire:
+        # `_git_text` permits only 0, so a tag naming a tree or blob raised
+        # git's own error and the message written for it was unreachable. The
+        # identity guard stays on the peeled value, which reaches the manifest
+        # -- `^{commit}` fixes the TYPE, not that one full id came back.
+        peel = ("rev-parse", "--verify", "--quiet", "--end-of-options", f"{raw}^{{commit}}")
+        peeled = _git_bytes(
+            repo, *peel, limit=_MAX_GIT_ERROR_BYTES, allowed_returncodes=frozenset({0, 1})
         )
+        raw = peeled.decode("utf-8", errors="replace").strip()
         if _COMMIT_RE.fullmatch(raw) is None:
             raise UsageError("review context range endpoint must resolve to a commit")
-        object_type = _git_text(repo, "cat-file", "-t", raw)
+        return raw
     if object_type != "commit":
+        # Reachable: a DIRECT tree/blob endpoint skips the branch above.
         raise UsageError("review context range endpoint must resolve to a commit")
     return raw
 

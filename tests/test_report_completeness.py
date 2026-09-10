@@ -49,7 +49,7 @@ def test_read_exposed_names_are_stably_deduplicated():
     out = render([], [], meta(friends=[dict(repeated, round=1), dict(repeated, round=2)]))
     sentence = next(line for line in out.splitlines() if line.startswith("**Filesystem"))
     assert sentence.count("claude-security") == 1
-    assert "write-protected and not recorded as OS-confined" in sentence
+    assert "not recorded as OS-confined" in sentence
     assert "If started" in sentence
     assert "same-user filesystem read access" in sentence
 
@@ -73,3 +73,53 @@ def test_read_scope_does_not_claim_a_failed_before_launch_friend_ran_unconfined(
     assert "not recorded as OS-confined" in sentence
     assert "If started, each retained same-user filesystem read access" in sentence
     assert "ran without OS confinement" not in sentence
+
+
+def test_the_friend_that_lost_every_protection_is_still_named_as_read_exposed():
+    """The withdrawal dropped the fully-unprotected friend out of the warning.
+
+    The section was gated on `write_protected and not os_confined`. Once
+    dispatch withdrew `readonly` for a skipped sandbox, agy and codex under
+    `--allow-unsandboxed-friend` reported `write_protected: false` and fell
+    out of the list -- while claude, write-protected and never confined,
+    stayed in it. The friend that lost EVERY protection read as safer than
+    one with partial protection. Read exposure is decided by confinement
+    alone; write protection is irrelevant to what a process may open.
+    """
+    unprotected = {
+        "name": "codex-security",
+        "model": None,
+        "effort": None,
+        "transport": "exec",
+        "write_protected": False,
+        "declared_scope": "repo",
+        "os_confined": False,
+        "status": "ok",
+        "round": 1,
+    }
+
+    out = render([], [], meta(friends=[unprotected]))
+    sentence = next(line for line in out.splitlines() if line.startswith("**Filesystem"))
+
+    assert "codex-security" in sentence
+    # And the prose must not assert the property these friends do not have.
+    assert "write-protected" not in sentence
+
+
+def test_an_http_friend_is_never_named_as_read_exposed():
+    """It is a bare model behind an endpoint: no subprocess, no filesystem."""
+    http_friend = {
+        "name": "ollama-ops",
+        "model": "llama",
+        "effort": None,
+        "transport": "http",
+        "write_protected": False,
+        "declared_scope": "doc",
+        "os_confined": False,
+        "status": "ok",
+        "round": 1,
+    }
+
+    out = render([], [], meta(friends=[http_friend]))
+
+    assert not [line for line in out.splitlines() if line.startswith("**Filesystem")]

@@ -56,6 +56,14 @@ def _env(extra=None):
         # these runs and tests would pass or fail depending on whether
         # their server happened to be up.
         "AF_NO_HTTP_DISCOVERY": "1",
+        # This dict is FIXED, and HOME below is the only thing forwarded from
+        # the real environment -- so the autouse `_isolate_git_config`
+        # fixture in conftest.py reaches none of the ~40 git invocations
+        # driven from here. Without these two, every one of them would still
+        # read the developer's `~/.gitconfig` through HOME, which is how
+        # `commit.gpgsign` broke fixtures in the first place.
+        "GIT_CONFIG_GLOBAL": os.devnull,
+        "GIT_CONFIG_SYSTEM": os.devnull,
     }
     if "HOME" in os.environ:
         env["HOME"] = os.environ["HOME"]

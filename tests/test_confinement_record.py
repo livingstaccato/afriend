@@ -189,3 +189,44 @@ def test_an_http_friend_has_no_child_environment_to_filter(env, monkeypatch):
     downgrades: list[str] = []
     assert confinement_downgrades(_args(), [_spec("ollama")], registry, downgrades) == []
     assert downgrades == []
+
+
+def test_a_repo_scope_friend_whose_write_protection_is_the_sandbox_is_recorded(env, monkeypatch):
+    """Scope is chosen before dispatch; confinement is decided per run.
+
+    `roster.py` and `cliargs.py` grant repo scope from `is_readonly`, and for
+    agy that property "is only true BECAUSE of the `[sandbox]` block" -- so on
+    a host with no mechanism the friend receives a repo-scope worktree on the
+    strength of a protection the same run records as `write_protected: false`.
+    Switching those sites to `needs_os_confinement` would drop agy and codex
+    to doc scope on EVERY host, including the ones where the protection does
+    hold, so the honest repair is here, where the run knows what engaged.
+    """
+    monkeypatch.setattr("afriend.commands.confinement.sandbox.detect", lambda *a, **k: None)
+    # Real agy also declares `readonly_workdir`: its write protection IS the
+    # outer policy, which is the whole reason the scope grant is unsound
+    # without one.
+    registry = {"agy": dataclasses.replace(_agy_shaped(), sandbox_readonly_workdir=True)}
+    spec = dataclasses.replace(_spec("agy"), scope="repo")
+    downgrades: list[str] = []
+
+    confinement_downgrades(_args(allow_unsandboxed_friend=True), [spec], registry, downgrades)
+
+    note = next((n for n in downgrades if "repo scope" in n), None)
+    assert note is not None, f"no scope note among {downgrades}"
+    assert "agy-ops-0" in note
+    assert "write protection" in note
+
+
+def test_a_doc_scope_friend_gets_no_repo_scope_note(env, monkeypatch):
+    monkeypatch.setattr("afriend.commands.confinement.sandbox.detect", lambda *a, **k: None)
+    downgrades: list[str] = []
+
+    confinement_downgrades(
+        _args(allow_unsandboxed_friend=True),
+        [_spec("agy")],
+        {"agy": dataclasses.replace(_agy_shaped(), sandbox_readonly_workdir=True)},
+        downgrades,
+    )
+
+    assert not [n for n in downgrades if "repo scope" in n]

@@ -11,10 +11,15 @@ from pathlib import Path
 import tomllib
 from typing import Any, Literal
 
+from .adapterschema import (
+    _string_list,
+    _string_table,
+    _validate_capability_probe,
+    _validate_default_model,
+)
 from .authority import AuthorityDecision, ExternalToolPolicy, enforce
 from .envelopes import Envelope, parse_envelope
 from .errors import UsageError
-from .trust import MODEL_RE
 from .workspaceassets import WorkspaceAsset, WorkspaceAssetAudit, parse_workspace_assets
 
 ModelSource = Literal[
@@ -271,6 +276,27 @@ class Adapter:
         """
         return not self.is_self_confining or self.sandbox_confine
 
+    def confinement_reason(self, *, subject: str | None = None) -> str:
+        """Why the OS must confine this friend, in the operator's terms.
+
+        Lived twice -- dispatch's refusal and the guided roster's note -- in
+        two wordings free to drift apart as the four `is_readonly` copies
+        did. `subject=None` gives the pronoun form for a sentence that has
+        already named the friend; naming one gives the standalone form
+        dispatch's refusal needs, quoted verbatim in troubleshooting.md.
+
+        The true branch is agy: it HAS a read-only mode whose flags were
+        measured to restrict nothing, so "no read-only mode" there would
+        contradict both `afriend doctor` and report.md on the same host.
+        """
+        if self.is_readonly:
+            if subject is None:
+                return "its own flags do not confine it"
+            return f"{subject}'s own flags do not confine it"
+        if subject is None:
+            return "it has no read-only mode"
+        return f"{subject} has no read-only mode"
+
 
 @dataclass(frozen=True)
 class Capability:
@@ -298,12 +324,6 @@ class FriendSpec:
     fresh_host_worker: bool = False
 
 
-_MAX_CAPABILITY_PROBE_ARGS = 32
-_MAX_CAPABILITY_PROBE_ARG_CHARS = 256
-_MAX_CAPABILITY_PROBE_MARKERS = 16
-_SAFE_CAPABILITY_PROBE_ACTIONS = {"--help", "--version", "help", "version"}
-
-
 def capability_from_authority(adapter: Adapter, authority: AuthorityDecision) -> Capability:
     """Project adapter declarations and an enforced decision into audit capability."""
     return Capability(
@@ -314,52 +334,6 @@ def capability_from_authority(adapter: Adapter, authority: AuthorityDecision) ->
         external_tool_sources=authority.sources,
         deny_external_tools_argv=authority.argv,
     )
-
-
-def _string_list(path: Path, field: str, value: object) -> list[str]:
-    """Refuse a scalar where a list of strings belongs.
-
-    `list("--sandbox")` is nine single characters, not one flag, and nothing
-    downstream can tell the difference. For a sandbox path list it is worse
-    than noise: `_add_declared` expanduser/resolves each member, so the
-    characters `~` and `/` become $HOME and the filesystem root -- one
-    missing pair of brackets grants a friend the whole filesystem while the
-    run record still reports it OS-confined.
-    """
-    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-        raise UsageError(f"{path}: {field} must be a list of strings")
-    return list(value)
-
-
-def _validate_capability_probe(path: Path, probe_argv: list[str], probe_markers: list[str]) -> None:
-    """Keep adapter probes bounded and structurally incapable of a model call."""
-    if (
-        len(probe_argv) > _MAX_CAPABILITY_PROBE_ARGS
-        or any(
-            len(value) > _MAX_CAPABILITY_PROBE_ARG_CHARS
-            or any(character in value for character in ("\x00", "\n", "\r"))
-            for value in probe_argv
-        )
-        or probe_argv[-1] not in _SAFE_CAPABILITY_PROBE_ACTIONS
-    ):
-        raise UsageError(f"{path}: deny capability probe must be bounded and end in help/version")
-    if len(probe_markers) > _MAX_CAPABILITY_PROBE_MARKERS or any(
-        len(marker) > _MAX_CAPABILITY_PROBE_ARG_CHARS
-        or any(character in marker for character in ("\x00", "\n", "\r"))
-        for marker in probe_markers
-    ):
-        raise UsageError(f"{path}: deny capability probe markers must be bounded")
-
-
-def _validate_default_model(path: Path, value: object) -> str | None:
-    """Accept the optional static adapter model only when it is safe to pass."""
-    if value is None:
-        return None
-    if not isinstance(value, str) or MODEL_RE.fullmatch(value) is None:
-        raise UsageError(
-            f"{path}: default_model must be null or match {MODEL_RE.pattern!r}; got {value!r}"
-        )
-    return value
 
 
 def load_adapters(directory: Path) -> dict[str, Adapter]:
@@ -389,8 +363,23 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
             raise UsageError(f"{path}: sandbox must be a table")
         access_failure_stderr = sandbox_data.get("access_failure_stderr", [])
         readonly_argv = _string_list(path, "readonly_argv", data.get("readonly_argv", []))
-        sandbox_read = _string_list(path, "sandbox.read", sandbox_data.get("read", []))
-        sandbox_write = _string_list(path, "sandbox.write", sandbox_data.get("write", []))
+        sandbox_read = _string_list(
+            path, "sandbox.read", sandbox_data.get("read", []), nonempty=True
+        )
+        sandbox_write = _string_list(
+            path, "sandbox.write", sandbox_data.get("write", []), nonempty=True
+        )
+        base_argv = _string_list(path, "base_argv", data.get("base_argv", []))
+        doc_argv = _string_list(path, "doc_argv", data.get("doc_argv", []))
+        models_argv = _string_list(path, "models_argv", data.get("models_argv", []))
+        effort_levels = _string_table(path, "effort", data.get("effort", {}))
+        env_data = data.get("env", {})
+        if not isinstance(env_data, dict):
+            raise UsageError(f"{path}: env must be a table")
+        # The allowlist deciding what a confined child inherits.
+        # `pass = "AWS_SECRET_ACCESS_KEY"` became 21 single-character names:
+        # not a leak, but it silently withheld the variable someone meant.
+        env_pass = _string_list(path, "env.pass", env_data.get("pass", []), nonempty=True)
         transport = data.get("transport", "exec")
         default_model = _validate_default_model(path, data.get("default_model"))
         workspace_assets = parse_workspace_assets(
@@ -514,11 +503,11 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
         registry[name] = Adapter(
             name=name,
             binary=data.get("binary", ""),
-            base_argv=list(data.get("base_argv", [])),
+            base_argv=list(base_argv),
             prompt_mode=data.get("prompt_mode", "stdin"),
             prompt_flag=data.get("prompt_flag", ""),
             stdin_template=stdin_template,
-            models_argv=tuple(data.get("models_argv", [])),
+            models_argv=tuple(models_argv),
             models_format=models_format,
             readonly_argv=list(readonly_argv),
             schema_flag=data.get("schema_flag", ""),
@@ -526,7 +515,7 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
             model_flag=data.get("model_flag", ""),
             internal_timeout_flag=data.get("internal_timeout_flag", ""),
             effort_kind=data.get("effort_kind", "none"),
-            effort={k: list(v) for k, v in data.get("effort", {}).items()},
+            effort=effort_levels,
             transport=transport,
             endpoint=data.get("endpoint", ""),
             sandbox_read=tuple(sandbox_read),
@@ -538,8 +527,8 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
             sandbox_readonly_workdir=readonly_workdir,
             auth=parse_auth(data.get("auth")),
             quota=parse_auth(data.get("quota")),
-            env_pass=tuple(data.get("env", {}).get("pass", [])),
-            doc_argv=tuple(data.get("doc_argv", [])),
+            env_pass=tuple(env_pass),
+            doc_argv=tuple(doc_argv),
             structured_output=bool(data.get("structured_output", False)),
             envelope=parse_envelope(data.get("envelope")),
             external_tools=external_tools,
