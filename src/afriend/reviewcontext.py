@@ -348,6 +348,16 @@ def _resolve_commit(repo: Path, token: object) -> str:
     if _COMMIT_RE.fullmatch(raw) is None:
         raise UsageError("review context range endpoint did not resolve to one commit identity")
     object_type = _git_text(repo, "cat-file", "-t", raw)
+    if object_type == "tag":
+        # An annotated tag resolves to its own tag object, so peel it to the commit it
+        # names. Without this, `--range v0.10.0..HEAD` is refused for every annotated
+        # tag while the identical lightweight tag is accepted.
+        raw = _git_text(
+            repo, "rev-parse", "--verify", "--quiet", "--end-of-options", f"{raw}^{{commit}}"
+        )
+        if _COMMIT_RE.fullmatch(raw) is None:
+            raise UsageError("review context range endpoint must resolve to a commit")
+        object_type = _git_text(repo, "cat-file", "-t", raw)
     if object_type != "commit":
         raise UsageError("review context range endpoint must resolve to a commit")
     return raw

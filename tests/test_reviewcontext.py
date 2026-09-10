@@ -146,6 +146,22 @@ def test_compose_includes_untracked_worktree_files_in_change_evidence(repository
     assert "new implementation" in text
 
 
+def test_compose_accepts_an_annotated_tag_as_a_range_endpoint(repository, tmp_path):
+    """An annotated tag names a tag object, not the commit; the endpoint must peel to it."""
+    repo, base, head = repository
+    _git(repo, "tag", "-a", "v1.0.0", "-m", "release", base)
+    assert _git(repo, "rev-parse", "v1.0.0") != base, "expected an annotated tag object"
+    plan = tmp_path / "plan.md"
+    plan.write_text("# plan\n", encoding="utf-8")
+    output = tmp_path / "composite.md"
+
+    manifest = compose(repo=repo, out=output, plan=plan, ranges=(f"v1.0.0..{head}",))
+
+    (change,) = manifest.changes
+    assert change.start == base
+    assert change.end == head
+
+
 def test_compose_escapes_paths_that_could_inject_markdown_structure(repository, tmp_path):
     repo, base, head = repository
     plan = tmp_path / "plan`\n## forged heading.md"
