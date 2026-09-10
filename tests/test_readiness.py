@@ -71,6 +71,33 @@ def test_disabled_cli_provider_is_not_probed(registry):
     assert "codex" not in executable_probes
 
 
+def test_a_friend_needing_an_absent_sandbox_is_ready_but_says_so(registry, monkeypatch):
+    """doctor printed agy ready on hosts where every agy run is refused.
+
+    Nothing in the readiness path was sandbox-aware, so upgrading 0.10.0 ->
+    0.10.1 on a Linux box without bubblewrap left doctor green and exiting 0
+    while dispatch refused agy on every run. The row stays READY -- the
+    executable is there and --allow-unsandboxed-friend still runs it -- but
+    it has to name the gap rather than assert an unqualified green.
+    """
+    monkeypatch.setattr("afriend.sandbox.detect", lambda *a, **k: None)
+
+    rows = assess_all(
+        registry,
+        ProviderPolicy({}),
+        env={"AF_NO_HTTP_DISCOVERY": "1"},
+        which=lambda name: f"/bin/{name}",
+        probe=lambda _: False,
+        authority_policy=AuthorityPolicy(("*",)),
+    )
+
+    assert rows["agy"].state is ReadinessState.READY
+    assert "no OS sandbox" in rows["agy"].reason
+    # codex confines itself under the outer policy too, but claude does not
+    # need one at all, so its row must stay unqualified.
+    assert "no OS sandbox" not in rows["claude"].reason
+
+
 def test_reachable_ollama_without_model_is_not_ready(registry):
     rows = assess_all(
         registry,

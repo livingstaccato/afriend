@@ -10,7 +10,7 @@ import signal
 import subprocess
 import threading
 
-from . import http_transport
+from . import http_transport, sandbox
 from .adapters import Adapter
 from .authority import AuthorityPolicy, ExternalToolPolicy, enforce as enforce_authority
 from .errors import UsageError
@@ -230,6 +230,24 @@ def assess_all(
     probe_fn = http_transport.probe if probe is None else probe
     host = detect_host(environ, host_provider=host_provider) if selection_policy else None
     rows: dict[str, FriendReadiness] = {}
+    # Readiness had no notion of confinement at all, so a friend dispatch
+    # will refuse for want of a sandbox still reported an unqualified
+    # "ready" and doctor exited 0 -- an upgrade could turn every run of a
+    # working friend into a refusal with the documented readiness check
+    # still green.
+    #
+    # Probed lazily and at most once: a disabled or excluded provider must
+    # not cause any probing at all, which is a property the end-to-end
+    # doctor tests assert by recording every executable lookup.
+    mechanism: str | None = None
+    mechanism_probed = False
+
+    def confinement_mechanism() -> str | None:
+        nonlocal mechanism, mechanism_probed
+        if not mechanism_probed:
+            mechanism = sandbox.detect()
+            mechanism_probed = True
+        return mechanism
 
     for name, adapter in sorted(registry.items()):
         setting = provider_policy.setting(name)
@@ -351,5 +369,16 @@ def assess_all(
         reason = (
             "endpoint is reachable" if adapter.transport == "http" else "executable is available"
         )
+        if (
+            adapter.transport != "http"
+            and adapter.needs_os_confinement
+            and confinement_mechanism() is None
+        ):
+            # Still READY: the executable is there, and
+            # --allow-unsandboxed-friend runs it. Qualified, not withheld.
+            reason += (
+                "; it requires OS confinement and no OS sandbox is available here, so "
+                "runs are refused without --allow-unsandboxed-friend"
+            )
         rows[name] = _row(name, ReadinessState.READY, reason, where, setting.model)
     return rows
