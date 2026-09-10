@@ -30,6 +30,10 @@ def repository(tmp_path):
     _git(repo, "init")
     _git(repo, "config", "user.name", "Test User")
     _git(repo, "config", "user.email", "test@example.invalid")
+    # A contributor with global commit signing on has no signing key in
+    # scope for a repo under $TMPDIR, so an inherited `commit.gpgsign` makes
+    # every fixture commit exit 128.
+    _git(repo, "config", "commit.gpgsign", "false")
     code = repo / "code.txt"
     code.write_text("first\n", encoding="utf-8")
     _git(repo, "add", "code.txt")
@@ -223,6 +227,10 @@ def test_compose_supports_sha256_git_object_ids(tmp_path):
         pytest.skip("installed Git does not support SHA-256 object format")
     _git(repo, "config", "user.name", "Test User")
     _git(repo, "config", "user.email", "test@example.invalid")
+    # A contributor with global commit signing on has no signing key in
+    # scope for a repo under $TMPDIR, so an inherited `commit.gpgsign` makes
+    # every fixture commit exit 128.
+    _git(repo, "config", "commit.gpgsign", "false")
     code = repo / "code.txt"
     code.write_text("first\n", encoding="utf-8")
     _git(repo, "add", "code.txt")

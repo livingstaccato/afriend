@@ -21,6 +21,7 @@ def repository(tmp_path: Path) -> tuple[Path, str, str]:
     repo.mkdir()
     _git(repo, "init")
     _git(repo, "config", "user.name", "Test User")
+    _git(repo, "config", "commit.gpgsign", "false")
     _git(repo, "config", "user.email", "test@example.invalid")
     source = repo / "code.txt"
     source.write_text("first\n", encoding="utf-8")
