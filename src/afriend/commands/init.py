@@ -124,14 +124,22 @@ def _render_roster(
                 "so this entry will not run until you name one. It has no "
                 "filesystem access of any kind, so it needs no confinement."
             )
-        if not adapter.is_readonly and adapter.transport != "http":
+        if adapter.needs_os_confinement and adapter.transport != "http":
             # Only an adapter that SPAWNS something can be confined. An HTTP
             # friend is a bare model behind an endpoint with no subprocess and
             # no filesystem access at all -- telling the operator it runs
             # under a sandbox would describe a mechanism that never engages.
+            #
+            # Keyed on the predicate dispatch decides with, and stating the
+            # reason and the scope this entry actually got: agy has a
+            # read-only mode, runs at repo scope, and is still confined, so
+            # the older wording was wrong about it three ways over.
+            reason = (
+                "its own flags do not confine it" if adapter.is_readonly else "no read-only mode"
+            )
             notes.append(
-                f"{cli}: no read-only mode, so it runs under OS confinement "
-                "(§12.2) and is limited to doc scope."
+                f"{cli}: {reason}, so it runs under OS confinement "
+                f"(§12.2) and is limited to {entry['scope']} scope."
             )
         if adapter.effort_kind == "unverified":
             notes.append(

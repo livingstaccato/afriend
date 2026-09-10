@@ -375,7 +375,7 @@ def _dispatch(
         # runs under it -- see the field's comment for why this is per
         # adapter and not blanket.
         self_confines = adapter.is_self_confining
-        if binary_present and (not self_confines or adapter.sandbox_confine):
+        if binary_present and adapter.needs_os_confinement:
             # §12.2. Two ways in, and they carry different consequences.
             #
             # A CLI with NO read-only mode enforces nothing on its own, and
@@ -472,6 +472,17 @@ def _dispatch(
                 # comment said self-confining CLIs were excluded here, which
                 # stopped being true the moment one of them opted in.
                 child_env.update(private_env)
+    if spec.cli != "fake" and registry[spec.cli].sandbox_readonly_workdir and not os_confined:
+        # Its write protection IS the sandbox. `readonly_workdir` is the
+        # adapter saying "my own flags do not restrict writes; the outer
+        # policy does" -- so with no wrapper there is nothing holding, and
+        # the capability has to say so. Without this, a run that skipped
+        # confinement still recorded `write_protected: true`, and report.md
+        # went on to describe the friend as write-protected but not
+        # OS-confined: the audit artifact asserting the exact property the
+        # run had just lost. Same withdrawal the extra-args branch below
+        # makes, for the case that was missed.
+        capability = dataclasses.replace(capability, readonly=False)
     if extra_args and spec.cli != "fake":
         # §13: their presence forces readonly False in the header regardless
         # of what the argv appears to say. The runner cannot know what an

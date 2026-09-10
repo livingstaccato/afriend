@@ -104,6 +104,44 @@ def test_codex_dispatch_makes_the_outer_workdir_readonly(monkeypatch, tmp_path):
     assert outcome.os_confined is True
 
 
+def test_a_skipped_sandbox_withdraws_the_write_protection_it_was_going_to_provide(
+    monkeypatch, tmp_path
+):
+    """agy's `readonly = true` is true only while the sandbox engages.
+
+    Its own flags restrict nothing -- that is why it opts in -- so its write
+    protection is `sandbox.readonly_workdir`, which exists only inside a
+    wrapper. With no mechanism on PATH and --allow-unsandboxed-friend, run.json
+    recorded `write_protected: true` beside `os_confined: false`: the audit
+    artifact asserting the one property the friend had just lost. Dispatch
+    already withdraws readonly for unvalidated extra args; this is the same
+    withdrawal for the case that was missed.
+    """
+    from afriend import dispatch, sandbox
+    from afriend.adapters import FriendSpec
+    from afriend.authority import AuthorityPolicy
+
+    agy = replace(_registry()["agy"], binary="true", base_argv=[], schema_flag="")
+    spec = FriendSpec("agy-ops-0", "agy", "ops", None, None, "repo", 5)
+    prompt = tmp_path / "prompt.md"
+    prompt.write_text("probe")
+    monkeypatch.setattr(sandbox, "detect", lambda: None)
+
+    _spec, capability, outcome, _policy = dispatch._dispatch(
+        spec,
+        tmp_path,
+        {"agy": agy},
+        None,
+        prompt,
+        tmp_path / "schema.json",
+        allow_unsandboxed=True,
+        authority_policy=AuthorityPolicy(("agy",)),
+    )
+
+    assert outcome.os_confined is False
+    assert capability.readonly is False
+
+
 def test_codex_declares_its_measured_sandbox_access_failure_marker():
     codex = _registry()["codex"]
 

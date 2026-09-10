@@ -222,6 +222,37 @@ def test_guided_apply_also_generates_the_normal_roster(tmp_path, monkeypatch, ca
     assert set(rows) <= set(registry)
 
 
+def test_the_roster_tells_the_operator_which_friends_the_os_confines(tmp_path, monkeypatch):
+    """agy is sandboxed and the roster never said so.
+
+    The note keyed on `is_readonly`, which agy declares true; the predicate
+    dispatch decides with is `needs_os_confinement`, true for agy as well.
+    So the one friend in the shipped set whose confinement changed in 0.10.1
+    was the one friend the guided roster stayed silent about -- and the note
+    it would have printed says "no read-only mode", which agy has.
+    """
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    target = tmp_path / "roster.toml"
+    rows = {
+        "agy": readiness.FriendReadiness(
+            "agy", readiness.ReadinessState.READY, "available", "/bin/agy", None
+        )
+    }
+    monkeypatch.setattr(init_module, "assess_all", lambda *_args, **_kwargs: rows)
+
+    init_module.cmd_init(_args("--apply", "--default-profile", "balanced", "--out", str(target)))
+
+    written = target.read_text(encoding="utf-8")
+    note = next((line for line in written.splitlines() if "agy: " in line), None)
+
+    assert note is not None, "agy got no confinement note at all"
+    assert "OS confinement" in note
+    # Two things the old note's wording asserts that are false for agy: it
+    # HAS a read-only mode, and its entry above is written at repo scope.
+    assert "no read-only mode" not in note
+    assert "doc scope" not in note
+
+
 def test_guided_apply_refuses_an_existing_roster_before_config_writes(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     target = tmp_path / "roster.toml"

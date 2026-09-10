@@ -241,6 +241,19 @@ class Adapter:
         """
         return False if self.self_confines is None else self.self_confines
 
+    @property
+    def needs_os_confinement(self) -> bool:
+        """Whether dispatch requires an OS sandbox before it runs this friend.
+
+        The single predicate dispatch decides with. Anything that asks
+        `is_readonly` instead gets a different answer for agy, which has a
+        read-only mode AND opts into confinement: true here, and true for
+        `is_readonly`, so a check written as `not is_readonly` drops it --
+        which is how agy came to be missing from the downgrade notes that
+        name whose filesystem is unconfined.
+        """
+        return not self.is_self_confining or self.sandbox_confine
+
 
 @dataclass(frozen=True)
 class Capability:

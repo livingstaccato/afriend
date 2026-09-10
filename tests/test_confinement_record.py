@@ -48,6 +48,34 @@ def env(monkeypatch):
     monkeypatch.setattr("os.environ", {"SECRET_TOKEN": "x", "OPENAI_API_KEY": "y", "PATH": "/bin"})
 
 
+def _agy_shaped(name="agy"):
+    """An adapter shaped like agy after 0.10.1: it has a read-only mode, its
+    flags do NOT confine it, and it opts into OS confinement."""
+    return dataclasses.replace(
+        _adapter(name, readonly=("--sandbox",)),
+        readonly=True,
+        self_confines=False,
+        sandbox_confine=True,
+    )
+
+
+def test_a_friend_that_needs_a_sandbox_is_named_when_no_mechanism_exists(env, monkeypatch):
+    """The note keyed on `is_readonly`, which dispatch does not decide with.
+
+    agy declares a read-only mode and still requires an OS sandbox, so
+    dispatch refuses it without one -- but `unconfined` filtered on
+    `is_readonly`, which is true for agy, leaving it out of the very list
+    that says whose filesystem is not confined. Worse, `mechanism` is only
+    probed `if unconfined`, so a roster of agy alone never even looked.
+    """
+    monkeypatch.setattr("afriend.sandbox.detect", lambda *a, **k: None)
+    downgrades: list[str] = []
+
+    confinement_downgrades(_args(), [_spec("agy")], {"agy": _agy_shaped()}, downgrades)
+
+    assert any("agy-ops-0" in note and "is not confined" in note for note in downgrades)
+
+
 def test_a_variable_the_adapter_passes_is_not_reported_as_withheld(env, monkeypatch):
     """`--pass-env` was handed to `withheld` in the ADAPTER slot, so the
     adapter's own pass list was never consulted: opencode declares six API
