@@ -67,6 +67,45 @@ def test_copy_rolls_back_when_staged_replace_fails(tmp_path, monkeypatch):
     assert not list(plugin.glob(".skills-backup-*"))
 
 
+def test_a_sync_copy_replaces_skills_and_leaves_a_sibling_manifest_alone(tmp_path, monkeypatch):
+    """The success path of the destructive half of `make plugin-sync-copy`.
+
+    Both surviving copy_expected tests exercise failures -- a refused
+    symlink and a rollback -- so nothing asserted that a copy returns 0,
+    that the expected bytes land, or that the wholesale replacement stops at
+    the skills/ boundary. `.claude-plugin/` and `.codex-plugin/` are the
+    hand-maintained manifests living beside it; if a refactor ever widened
+    the staged replacement from SKILLS to PLUGIN_ROOT, copy would delete
+    them, verify would still report 0 because it only diffs skills/, and the
+    breakage would surface as a plugin that will not install.
+    """
+    module = _module()
+    plugin = tmp_path / "plugin"
+    manifest = plugin / ".claude-plugin" / "plugin.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text('{"name": "afriend"}')
+    stale = plugin / "skills" / "afriend" / "gone.md"
+    stale.parent.mkdir(parents=True)
+    stale.write_text("stale")
+    monkeypatch.setattr(module, "PLUGIN_ROOT", plugin)
+    monkeypatch.setattr(module, "SKILLS", plugin / "skills")
+
+    assert module.copy_expected({Path("afriend/SKILL.md"): b"new"}) == 0
+
+    assert (plugin / "skills" / "afriend" / "SKILL.md").read_bytes() == b"new"
+    assert not stale.exists(), "a copy replaces the tree wholesale"
+    assert manifest.read_text() == '{"name": "afriend"}'
+
+
+def test_the_canonical_projection_never_names_a_path_outside_its_root():
+    """The only assertion that `expected_plugin_files` cannot emit outside
+    the projection root -- which is what makes the wholesale replacement
+    above safe to point at skills/ and nothing else."""
+    for relative in _module().expected_plugin_files():
+        assert not relative.is_absolute(), relative
+        assert ".." not in relative.parts, relative
+
+
 def test_verification_rejects_nested_plugin_symlink_without_following_it(tmp_path, monkeypatch):
     module = _module()
     plugin = tmp_path / "plugin"

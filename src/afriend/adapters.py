@@ -135,23 +135,40 @@ class Adapter:
     # authenticate, and looks like a broken friend. `~` is expanded at
     # policy-construction time so these stay portable between machines.
     #
-    # Empty is meaningful: an adapter with a real readonly mode is trusted
-    # to confine itself (§11) and never reaches the sandbox at all.
+    # Empty is meaningful: an adapter that restrains itself never reaches
+    # the sandbox at all. Having a readonly MODE is not that -- agy declares
+    # one and is confined anyway, because its flags were measured and none
+    # of them restricted anything. See `needs_os_confinement`.
     sandbox_read: tuple[str, ...] = ()
     # §12.2: paths this CLI must WRITE to in order to start at all, outside
-    # its isolation directory. Empty for every shipped adapter, and that is
-    # the point: opencode earned one by dying without a writable log
-    # directory, and then stopped needing it once `childenv.private_dirs`
-    # pointed its state at a private directory beside the isolation
-    # directory instead. Redirecting a CLI's own notion of where state
-    # lives beats punching a hole in the boundary, so reach for this only
-    # when redirection has failed.
+    # its isolation directory. opencode earned one by dying without a
+    # writable log directory, and then stopped needing it once
+    # `childenv.private_dirs` pointed its state at a private directory
+    # beside the isolation directory instead. Redirecting a CLI's own notion
+    # of where state lives beats punching a hole in the boundary, so reach
+    # for this only when redirection has failed -- codex and agy are the two
+    # that have, for token refresh and session state.
+    #
+    # A grant here is the whole subtree, and it OUTLIVES the run. Weigh what
+    # the friend could leave behind in it: a path that decides what the CLI
+    # executes on its next launch is a worse grant than a scratch directory,
+    # however similar they look in this list.
     sandbox_write: tuple[str, ...] = ()
     sandbox_access_failure_stderr: tuple[str, ...] = ()
     # A provider can rely on the outer OS policy for read-only enforcement
-    # when its own command sandbox cannot nest inside that policy. `None`
-    # retains the established declaration-by-argv behavior for adapters and
-    # test fixtures that predate this explicit split.
+    # when its own command sandbox cannot nest inside that policy.
+    #
+    # These two say what was MEASURED against the installed CLI, and are
+    # never inferred from the presence of flags. That inference is what
+    # handed agy an exemption from OS confinement for four flags that
+    # restricted nothing, and it could not tell them apart from claude's
+    # `--tools` allowlist, which holds.
+    #
+    # `None` means "not stated" and reads as restricting nothing, which is
+    # the safe direction: such an adapter is confined. load_adapters refuses
+    # a TOML that declares `readonly_argv` while leaving either of these
+    # unset, so `None` reaching here means an adapter with no flags at all
+    # -- or an Adapter built in code, which bypasses the loader entirely.
     readonly: bool | None = None
     self_confines: bool | None = None
     sandbox_readonly_workdir: bool = False
