@@ -381,7 +381,6 @@ def terminal_outcome(
         raise ValueError("abort_signum must be a positive integer")
 
     blocker_tuple = _stable_blocker_ids(blocking_ids)
-    gate_decision = None if mode != "gate" else ("blocked" if blocker_tuple else "clear")
 
     if abort_signum is not None:
         reason, exit_code, ceiling = StopReason.INTERRUPTED, 128 + abort_signum, None
@@ -413,6 +412,19 @@ def terminal_outcome(
         reason, exit_code, ceiling = StopReason.GATE_BLOCKED, 1, None
     else:
         reason, exit_code, ceiling = StopReason.COMPLETED, 0, None
+
+    # A gate verdict is a claim about a review that happened, so it is derived
+    # from the resolved stop reason -- not from the blocker list alone. With
+    # every friend failed there are no claims, so that list is empty for the
+    # exact state in which nothing was checked, and the old expression read
+    # that emptiness as "clear". `gate_blocked` in apply() is the boolean a
+    # host keys on in run.json, and it said false for a review that never ran.
+    if mode != "gate":
+        gate_decision = None
+    elif blocker_tuple or reason is not StopReason.COMPLETED:
+        gate_decision = "blocked"
+    else:
+        gate_decision = "clear"
 
     return RunOutcome(
         started_at=started_at,

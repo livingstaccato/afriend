@@ -113,6 +113,33 @@ def _slice_lines(text: str, location: Location) -> str:
     return "\n".join(lines[start:end])
 
 
+def _git_tracks(repo: Path, relpath: str) -> bool:
+    """Whether git would have captured `relpath` into the snapshot commit.
+
+    `isolation.snapshot_commit` builds the snapshot with `git add -A`, which
+    honours .gitignore -- so an ignored path is absent from the snapshot tree
+    whether or not it existed at the time. Without this distinction,
+    "not in the snapshot" was read as "created since the snapshot", and every
+    generated, vendored or ignored path passed the one check that makes a
+    `fixed` disposition mean anything.
+
+    Anything other than a clean "not ignored" answer is treated as ignored,
+    i.e. as unverifiable: for a disposition that asserts a fix landed, the
+    conservative direction is to refuse.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "check-ignore", "-q", "--", relpath],
+            cwd=str(repo),
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return False
+    # 1 is git's "not ignored"; 0 is "ignored"; anything else is an error.
+    return result.returncode != 1
+
+
 def _git_show(repo: Path, sha: str, relpath: str) -> str | None:
     """The file's content at the snapshot commit, or None if it was not
     tracked there (a newly created file, or a path outside the repo)."""
@@ -182,6 +209,12 @@ def verify_location(
     before_text = _git_show(resolved_root, snapshot_sha, relpath)
     exists_now = current_path.is_file()
     if before_text is None and not exists_now:
+        return UNVERIFIABLE
+    if before_text is None and _git_tracks(resolved_root, relpath):
+        # Absent from the snapshot because git never tracks it, not because
+        # it appeared since. Nothing can be reconstructed to compare against,
+        # so this is unverifiable -- which refuses `fixed` instead of
+        # rubber-stamping it.
         return UNVERIFIABLE
     if before_text is None or not exists_now:
         # Created since the snapshot, or deleted since it. Either way the
