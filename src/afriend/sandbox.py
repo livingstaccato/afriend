@@ -201,6 +201,25 @@ def _resolver_binds(root: Path = Path("/")) -> list[str]:
     return ["--ro-bind", str(source), str(namespace_target)]
 
 
+def _add_runtime(into: list[Path], raw: str) -> None:
+    """Add one path the RUNNER constructed, without variable expansion.
+
+    `_add_declared` expands `$VAR` so an adapter TOML stays portable. That is
+    wrong for a path this process built: a run directory whose own name
+    contains a literal `$BUILD_ID` (a CI `--out` the shell never expanded)
+    was granted under the expanded name while `policy.workdir` kept the
+    literal one, so the two halves of a single policy disagreed -- the friend
+    was denied its own prompt ("Failed to read output schema file") and its
+    private TMPDIR was --bind-try'd at a path that does not exist, silently
+    doing nothing. The resolved form is still added, for the same
+    symlink reason as below.
+    """
+    literal = Path(raw).expanduser()
+    for candidate in (literal, literal.resolve()):
+        if candidate not in into:
+            into.append(candidate)
+
+
 def _add_declared(into: list[Path], raw: str) -> None:
     """Expand one adapter-declared path and add it, with its real path.
 
@@ -337,7 +356,18 @@ def darwin_profile(policy: SandboxPolicy) -> str:
         "(allow file-read* " + " ".join(reads) + ")",
         "",
         "; Read-write: only explicitly declared private state paths.",
-        "(allow file-read* file-write* " + " ".join(writes) + ")",
+        #
+        # An `allow` with NO filter is unconditional in SBPL, so emitting this
+        # line with an empty `writes` would grant the whole filesystem
+        # read/write and void the `(deny default)` above it. Every shipped
+        # adapter always has a private-root write path, so this is latent
+        # rather than live -- but a profile that confines nothing must not be
+        # constructible at all, least of all by omission.
+        *(
+            ["(allow file-read* file-write* " + " ".join(writes) + ")"]
+            if writes
+            else ["; (no write paths declared -- nothing is writable)"]
+        ),
         "",
         "; Scratch space every runtime expects.",
         f"(allow file-write* (literal {_sbpl_string('/dev/null')}) "
@@ -413,15 +443,30 @@ def wrap(
 _INSTALL_SIBLINGS = ("lib", "lib64", "libexec", "share", "node_modules")
 
 
+# Shared XDG hierarchies that many tools populate at once. `~/.local` has a
+# `share/` and usually a `lib/`, so the sibling heuristic below reads it as one
+# CLI's installation -- but a binary in `~/.local/bin` is the shape a
+# curl-installer produces, and granting its "install root" hands the friend
+# `~/.local/state/afriend` (every past run's prompts and raw output) plus
+# `~/.local/share/keyrings`. An installation belongs to one tool; these do not.
+_SHARED_XDG_ROOTS = (".local", ".config", ".cache")
+
+
 def _is_install_root(root: Path) -> bool:
     """Whether `root` looks like one CLI's installation rather than a place
     executables happen to live.
 
     The home directory is never one, whatever it contains: granting it back
     would undo the boundary's stated purpose, and a heuristic is not a good
-    enough reason to do that.
+    enough reason to do that. Neither is a shared XDG root, for the same
+    reason -- the siblings that mark an installation are exactly what every
+    XDG hierarchy has, so the heuristic cannot tell them apart and must not
+    guess.
     """
-    if root == Path.home():
+    home = Path.home()
+    if root == home:
+        return False
+    if any(root == home / shared for shared in _SHARED_XDG_ROOTS):
         return False
     return any((root / sibling).is_dir() for sibling in _INSTALL_SIBLINGS)
 
@@ -432,6 +477,8 @@ def policy_for(
     adapter_read: tuple[str, ...],
     adapter_write: tuple[str, ...] = (),
     workdir_writable: bool = True,
+    runtime_read: tuple[str, ...] = (),
+    runtime_write: tuple[str, ...] = (),
 ) -> SandboxPolicy:
     """Build a policy for one friend.
 
@@ -494,9 +541,15 @@ def policy_for(
                     reads.append(root)
     for raw in adapter_read:
         _add_declared(reads, raw)
+    # Runner-constructed paths are kept separate from adapter-declared ones so
+    # they can skip variable expansion -- see _add_runtime.
+    for raw in runtime_read:
+        _add_runtime(reads, raw)
     writes: list[Path] = []
     for raw in adapter_write:
         _add_declared(writes, raw)
+    for raw in runtime_write:
+        _add_runtime(writes, raw)
     # Resolved for the same reason every declared path is: SBPL matches what
     # the kernel sees. An isolation directory under `/tmp` or `$TMPDIR` is
     # reached through a symlink on macOS, so granting the unresolved path

@@ -461,9 +461,11 @@ def _dispatch(
                 policy = sandbox.policy_for(
                     cwd,
                     adapter.binary,
-                    adapter.sandbox_read + inputs,
-                    (*adapter.sandbox_write, str(private_root)),
+                    adapter.sandbox_read,
+                    adapter.sandbox_write,
                     workdir_writable=not adapter.sandbox_readonly_workdir,
+                    runtime_read=inputs,
+                    runtime_write=(str(private_root),),
                 )
                 argv = sandbox.wrap(argv, mechanism, policy, prompt_file.with_suffix(".sandbox"))
                 os_confined = True
