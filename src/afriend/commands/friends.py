@@ -272,6 +272,18 @@ def resolve_friends(
     # are refused rather than silently ignored -- a typo would otherwise
     # quietly shrink the run to whichever lenses happened to match.
     explicit = bool(args.friend)
+    if getattr(args, "fresh_host_worker", False) and not explicit:
+        # Only the --friend branch below marks a spec fresh, so on the
+        # discovery and roster-file paths the flag was silently discarded and
+        # the host stayed advisory -- the opposite of what it asks for. The
+        # run then failed its own qualification policy ("fewer than two fresh
+        # worker invocations") with no remedy mentioning the flag that was
+        # thrown away. Refusing here says so at the point of the mistake.
+        raise UsageError(
+            "--fresh-host-worker requires an explicit matching --friend: it marks "
+            "a named friend as a separately launched worker, and neither "
+            "discovery nor a roster file selects one."
+        )
     if explicit:
         specs = _specs_from_flags(args.friend, args.timeout, registry, bool(fake_cmd))
         if getattr(args, "fresh_host_worker", False):
@@ -293,12 +305,31 @@ def resolve_friends(
                 "both --friend and --roster were given; --friend replaces the "
                 "roster entirely (§10.1), so the roster file was not read."
             )
+        if getattr(args, "lens", None):
+            # --lens restricts what DISCOVERY assigns; --friend names each
+            # lens itself, so there is nothing left for it to restrict. It
+            # used to be parsed, validated against the lens directory, and
+            # then dropped in silence -- the same courtesy --roster gets
+            # above is owed here.
+            downgrades.append(
+                "--lens was given with --friend; each --friend names its own "
+                "lens, so --lens selected nothing and was not applied."
+            )
     else:
         # §13: an explicitly named roster may live anywhere. Only the trusted
         # user-level path is ever picked up on its own -- a cloned repo must
         # not be able to choose who reviews it.
         roster_path = Path(args.roster) if args.roster else rosterfile.discover()
         if roster_path is not None:
+            if getattr(args, "lens", None):
+                # The roster file names each friend's lens explicitly, exactly
+                # like --friend, so --lens has nothing to restrict here
+                # either. Passing available_lenses() below (rather than the
+                # filtered list) was correct; saying nothing about it was not.
+                downgrades.append(
+                    "--lens was given with a roster file; the roster names each "
+                    "friend's lens, so --lens selected nothing and was not applied."
+                )
             specs = resolve(
                 registry,
                 available_lenses(),
@@ -310,6 +341,7 @@ def resolve_friends(
                 provider_policy=provider_policy,
                 host_provider=host_provider,
                 authority_policy=authority_policy,
+                notes=downgrades,
             )
             roster_source = str(roster_path)
         else:

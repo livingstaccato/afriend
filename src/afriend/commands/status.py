@@ -27,8 +27,18 @@ _CLAIM_STATES = TERMINAL_STATES | {CONTESTED, UNPROVEN, INCOMPLETE}
 
 
 def _as_root(value: str | None) -> Path:
-    """Return the caller-selected root without creating or resolving it."""
-    return (Path(value) if value else default_root()).absolute()
+    """Return the caller-selected root, resolved the way the writer reaches it.
+
+    `afriend run --out <symlink>` writes through the symlink and prints the
+    resolved run path; opening the same root here with secure_open_directory's
+    O_NOFOLLOW then failed with `[Errno 20] Not a directory` -- naming a path
+    that IS a directory -- so status, --json and --watch were unusable for
+    anyone whose --out or ~/.local/state is a link to another volume. The
+    reader must reach the root the writer reached. O_NOFOLLOW still guards
+    every component BELOW the root, which is where a swapped path would
+    matter; the root is the operator's own argument.
+    """
+    return (Path(value) if value else default_root()).resolve()
 
 
 def _open_directory(path: Path, *, root: Path) -> None:
@@ -52,7 +62,11 @@ def find_run(run_id_or_path: str, out: str | None) -> tuple[Path, Path]:
         raise
     supplied = Path(run_id_or_path)
     if supplied.is_absolute() or len(supplied.parts) != 1 or supplied.name in {"", ".", ".."}:
-        candidate = supplied.absolute()
+        # Resolved for the same reason as the root: the absolute path the user
+        # pastes back is the one `afriend run` printed, which is already
+        # resolved, and the containment check below compares it to a resolved
+        # root.
+        candidate = supplied.resolve()
     else:
         candidate = root / supplied.name
     try:
@@ -653,11 +667,21 @@ def _render(summary: dict[str, object]) -> str:
         )
     friends = summary["friends"]
     if isinstance(friends, dict) and isinstance(friends.get("rows"), list):
+        # Every row, whatever its status. Rendering only succeeded/failed made
+        # a skipped friend vanish: a two-friend run with one skip printed
+        # byte-identically to a one-friend run that passed, and
+        # review_completeness stays None unless NO friend answered, so the
+        # partial-skip case had no signal anywhere in the human output.
         for row in friends["rows"]:
-            if isinstance(row, dict) and row.get("status") in {"succeeded", "failed"}:
+            if isinstance(row, dict) and isinstance(row.get("status"), str):
                 lines.append(
-                    f"friend: {row['name']} {row['status']} scope={row['scope']} round={row['round']}"
+                    f"friend: {row['name']} {row['status']} "
+                    f"scope={row['scope']} round={row['round']}"
                 )
+        total = friends.get("total")
+        finished = friends.get("finished")
+        if isinstance(total, int) and isinstance(finished, int) and finished != total:
+            lines.append(f"friends: {finished} of {total} finished")
     review_completeness = summary["review_completeness"]
     if isinstance(review_completeness, dict):
         message = review_completeness.get("message")

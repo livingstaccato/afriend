@@ -20,7 +20,7 @@ from .ids import validate_friend_name
 from .presets import PRESETS
 from .qualification import QUALIFICATION_POLICIES
 from .resolutions import DISPOSITIONS, resolve_form_error
-from .trust import MODEL_RE
+from .trust import MODEL_RE, validate_lens
 
 RUN_MODES = ("report", "crossexam", "gate", "loop")
 MERGE_CHOICES = ("exact", "orchestrator")
@@ -609,6 +609,7 @@ def _specs_from_flags(
                     f"fake friend scope suffix must be 'repo' or 'doc', got {scope_suffix!r}"
                 )
             scope = scope_suffix or "doc"
+            validate_lens(lens)
         else:
             adapter = registry.get(cli)
             if adapter is None:
@@ -621,6 +622,7 @@ def _specs_from_flags(
             # default model and must be told which to run.
             lens, _, model_suffix = lens.partition(":")
             model = model_suffix or None
+            validate_lens(lens)
             # The model reaches argv through the adapter's model_flag, so it
             # crosses the same trust boundary a roster entry does and gets
             # the same validation rather than a weaker one.

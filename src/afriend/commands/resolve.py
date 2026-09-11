@@ -46,6 +46,7 @@ from ..resolutions import (
     resolve_form_error,
     verify_location,
 )
+from ..reviewcompleteness import from_friends
 from ..reviewstate import ReviewState
 from ..runstore import default_root
 from ..secureio import secure_open_read
@@ -182,11 +183,46 @@ def _write_command(run_dir: Path, claim: Claim) -> str:
     )
 
 
+def _saved_path(source: dict[str, Any], field: str) -> Path | None:
+    """A path field from saved metadata, or None when absent."""
+    value = source.get(field.rsplit(".", 1)[-1])
+    if value is None or value == "":
+        return None
+    if not isinstance(value, str):
+        raise UsageError(f"saved run metadata {field} must be a string, got {type(value).__name__}")
+    return Path(value)
+
+
+def _saved_round(meta: dict[str, Any]) -> int:
+    """The round a resolution is recorded against."""
+    value = meta.get("rounds_run", 1)
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise UsageError(f"saved run metadata rounds_run must be a positive integer, got {value!r}")
+    return value
+
+
 def _cmd_discovery(args: argparse.Namespace, run_dir: Path, meta: dict[str, Any]) -> int:
     """Render read-only unresolved-claim discovery from the durable ledger."""
     review = ReviewState.replay(_read_discovery_records(run_dir / "claims.jsonl", run_dir=run_dir))
     claims = _unresolved_claims(review, meta)
     if not claims:
+        # An empty ledger is not the same as a clean review. With every friend
+        # failed there are no claims at all, and reporting "no action needed"
+        # for that is the repo's own "a skip looks exactly like a pass" in the
+        # command whose job is to say what still blocks the gate. The friend
+        # rows that prove it are already in the meta loaded above, and this is
+        # the helper `afriend status` uses for the same decision.
+        completeness = from_friends(
+            meta["friends"] if isinstance(meta.get("friends"), list) else []
+        )
+        if completeness is not None:
+            message = completeness.get("message")
+            print(
+                "No unresolved claims, but this run did not complete a review: "
+                f"{message if isinstance(message, str) else 'no friend answered'}"
+            )
+            print("Resolution cannot clear a gate that never gathered evidence.")
+            return 1
         print("No unresolved claims. No resolution action is needed.")
         return 0
 
@@ -257,10 +293,16 @@ def cmd_resolve(args: argparse.Namespace) -> int:
     # does, and reading the mirror would read a field nothing writes.
     snapshot = meta.get("snapshot")
     snapshot = snapshot if isinstance(snapshot, dict) else {}
-    repo_root = Path(snapshot["repo_root"]) if snapshot.get("repo_root") else None
+    # Typed before use. This module already treats run.json as untrusted
+    # (_claim_states raises UsageError for a malformed claim_states, and
+    # status._rounds type-checks rounds_run with `type(saved) is int`), but
+    # these three reads coerced whatever was there -- so a truncated,
+    # hand-edited or foreign-version run.json escaped as a bare TypeError
+    # traceback, since cli.main catches only AfError.
+    repo_root = _saved_path(snapshot, "snapshot.repo_root")
     frozen_dir = run_dir / "artifact"
     frozen = next(iter(frozen_dir.iterdir()), None) if frozen_dir.is_dir() else None
-    artifact_path = Path(meta["artifact_path"]) if meta.get("artifact_path") else None
+    artifact_path = _saved_path(meta, "artifact_path")
     verified = verify_location(
         location,
         repo_root,
@@ -278,7 +320,7 @@ def cmd_resolve(args: argparse.Namespace) -> int:
         disposition=args.disposition,
         author=args.author or os.environ.get("USER") or "unknown",
         evidence=args.evidence,
-        round=int(meta.get("rounds_run", 1)),
+        round=_saved_round(meta),
         verified=verified,
     )
     ledger.append(resolution)

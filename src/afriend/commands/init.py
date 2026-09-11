@@ -34,11 +34,40 @@ from ..rosterfile import default_roster_path, render
 _GUIDED_SETUP_SCHEMA_VERSION = 1
 
 
+# Flags only the guided flow reads. Without --guided each of these was
+# accepted, never validated and silently dropped, while the command still
+# printed "wrote N friend(s)" -- so an operator who asked to enable a
+# provider, pin an Ollama model or set a default profile was told the write
+# succeeded and got none of it. --apply was already guarded this way; the
+# other eight were not.
+_GUIDED_ONLY_FLAGS = (
+    ("apply", "--apply"),
+    ("json", "--json"),
+    ("enable_provider", "--enable-provider"),
+    ("disable_provider", "--disable-provider"),
+    ("default_profile", "--default-profile"),
+    ("ollama_model", "--ollama-model"),
+    ("review_context_enabled", "--enable-review-context/--disable-review-context"),
+    ("review_context_sources", "--review-context-sources"),
+    ("review_context_automatic_combine", "--review-context-automatic-combine"),
+    ("review_context_ambiguity", "--review-context-ambiguity"),
+)
+
+
 def cmd_init(args: argparse.Namespace) -> int:
-    if getattr(args, "apply", False) and not getattr(args, "guided", False):
-        raise UsageError("--apply requires --guided")
     if getattr(args, "guided", False):
         return _cmd_guided_init(args)
+    supplied = [
+        flag
+        for attribute, flag in _GUIDED_ONLY_FLAGS
+        if getattr(args, attribute, None) not in (None, False, (), [])
+    ]
+    if supplied:
+        raise UsageError(
+            f"{', '.join(supplied)} {'requires' if len(supplied) == 1 else 'require'} "
+            "--guided; without it these are not read and the roster is written "
+            "from what is installed."
+        )
 
     target, count = _write_roster(args)
     print(target)

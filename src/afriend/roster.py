@@ -116,6 +116,7 @@ def resolve(
     host_provider: str | None = None,
     enforce: Callable[[Adapter], object] | None = None,
     authority_policy: AuthorityPolicy | None = None,
+    notes: list[str] | None = None,
 ) -> list[FriendSpec]:
     if not isinstance(min_workers, int) or isinstance(min_workers, bool) or min_workers < 1:
         raise UsageError("min_workers must be a positive integer")
@@ -221,6 +222,14 @@ def resolve(
             raise NoFriendsError(
                 "no usable friends from roster after readiness filtering: " + "; ".join(rejected)
             )
+        if rejected and notes is not None:
+            # A PARTIAL rejection used to be discarded: `rejected` was read
+            # only when every entry failed, so a roster that named two friends
+            # and produced one silently shrank, with nothing in the run's
+            # downgrades to say which name went or why. A friend the operator
+            # wrote down by hand and did not get is exactly the thing that
+            # must be said out loud.
+            notes.append("roster entries dropped by readiness filtering: " + "; ".join(rejected))
         selected, _dropped = apply_capacity(specs, max_friends)
         return mark_host_role(selected, host)
 

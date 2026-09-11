@@ -55,11 +55,20 @@ def _resolve_repo_root(artifact: Path) -> Path | None:
     # and a link to a file outside any repository silently downgraded the
     # whole run to doc scope. The invocation path picks the context; the
     # link's target supplies only the bytes.
-    result = subprocess.run(
-        ["git", "-C", str(artifact.parent.resolve()), "rev-parse", "--show-toplevel"],
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(artifact.parent.resolve()), "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, ValueError):
+        # git is not installed, or not executable. "Not in a repository" is
+        # the honest answer, and it is the same doc-scope downgrade this
+        # function already returns for a path outside any worktree. The
+        # --repo branch below has always guarded this call; this one did not,
+        # so a minimal container with Python and no git got a bare
+        # FileNotFoundError traceback out of cli.main instead.
+        return None
     if result.returncode != 0:
         return None
     return Path(result.stdout.strip()).resolve()

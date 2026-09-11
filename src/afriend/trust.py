@@ -25,6 +25,39 @@ VALID_SCOPES = frozenset({"repo", "doc"})
 # The pattern admits all of those and nothing that begins with a dash, so a
 # roster-supplied model string can never be mistaken for a flag.
 MODEL_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,63}")
+# A lens name becomes a path component (`lenses/<lens>.md`) and part of the
+# ledger identity (`adapters.friend_key`). The `--friend cli:lens` path is
+# already held to this character set incidentally, because the friend name it
+# builds from the lens runs through FRIEND_NAME_RE -- so a roster file that
+# skipped the check accepted `../../..` where the flag could not, and the
+# named file's body was spliced into the prompt sent to the provider. Same
+# charset, so the two paths accept exactly the same lenses.
+LENS_RE = re.compile(r"[a-z0-9][a-z0-9_-]{0,31}")
+# `lens="extracted"` is how the ledger marks a §14.2 extraction record, and
+# resume._resumed_progress identifies already-applied extractions by exactly
+# that string. A friend whose lens was literally `extracted` therefore had its
+# ordinary critique claims counted as extraction progress, and the extraction
+# halt became permanently unresumable -- every retry read the same ledger and
+# refused. The sentinel has to be unavailable as an operator-chosen lens.
+RESERVED_LENSES = frozenset({"extracted"})
+
+
+def validate_lens(lens: str) -> str:
+    """Validate one operator-supplied lens name, on any path it arrives by."""
+    if not isinstance(lens, str):
+        raise UsageError(f"invalid lens {lens!r}: expected a string, got {type(lens).__name__}")
+    if lens in RESERVED_LENSES:
+        raise UsageError(
+            f"lens {lens!r} is reserved: the ledger uses it to mark extraction "
+            "records, and a friend using it would make the run unresumable."
+        )
+    if LENS_RE.fullmatch(lens) is None:
+        raise UsageError(
+            f"invalid lens {lens!r}: must match {LENS_RE.pattern!r}. "
+            "A lens names a file in the lens directory, not a path."
+        )
+    return lens
+
 
 DENIED_FLAGS = frozenset(
     {
@@ -58,10 +91,28 @@ def validate_roster_entry(entry: dict[str, Any]) -> dict[str, Any]:
     for required in ("name", "cli", "lens"):
         if not entry.get(required):
             raise UsageError(f"roster entry missing required key: {required}")
+    # Types before patterns: `re.fullmatch` raises a bare TypeError on a
+    # non-string, and cli.main catches only AfError -- so a one-character
+    # typo in the operator's own roster file surfaced as a traceback instead
+    # of the exit-2 usage error every other malformed value here gets.
+    for keyed in ("name", "cli", "lens"):
+        if not isinstance(entry[keyed], str):
+            raise UsageError(
+                f"invalid {keyed} {entry[keyed]!r}: expected a string, "
+                f"got {type(entry[keyed]).__name__}"
+            )
     validate_friend_name(entry["name"])
+    validate_lens(entry["lens"])
     model = entry.get("model")
+    if model is not None and not isinstance(model, str):
+        raise UsageError(f"invalid model {model!r}: expected a string, got {type(model).__name__}")
     if model is not None and MODEL_RE.fullmatch(model) is None:
         raise UsageError(f"invalid model {model!r}: must match {MODEL_RE.pattern!r}")
+    effort = entry.get("effort")
+    if effort is not None and not isinstance(effort, str):
+        raise UsageError(
+            f"invalid effort {effort!r}: expected a string, got {type(effort).__name__}"
+        )
     scope = entry.get("scope", "repo")
     if scope not in VALID_SCOPES:
         raise UsageError(f"invalid scope {scope!r}: expected one of {sorted(VALID_SCOPES)}")
