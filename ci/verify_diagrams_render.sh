@@ -42,8 +42,14 @@ fi
 # Key the failure off PlantUML's own markers, not the substring "error": the
 # JVM writes unrelated `Fontconfig error:` lines to stderr on a box with no
 # writable font cache while rendering every diagram correctly.
-if [ "$status" -ne 0 ] || echo "$output" | grep -qE \
-    "Some diagram description contains errors|Error line |Cannot find group|Warning: no image"; then
+# A here-string, not `echo | grep -q`. Under `set -o pipefail` a `grep -q`
+# that matches exits immediately, the writer upstream takes SIGPIPE, and the
+# pipeline reports 141 -- which reads as "no match" and passes the gate. It
+# only bites once the writer exceeds the 64KiB pipe buffer, so it fails by
+# size and would have arrived silently as these diagrams grew.
+if [ "$status" -ne 0 ] || grep -qE \
+    "Some diagram description contains errors|Error line |Cannot find group|Warning: no image" \
+    <<<"$output"; then
   echo "ERROR: at least one diagram source failed to render (see above)." >&2
   echo "Run 'make diagrams' locally to reproduce." >&2
   exit 1
@@ -67,9 +73,15 @@ fi
 # PlantUML emits every space inside <text> as `&#160;`, so a phrase typed with
 # ordinary spaces cannot match the raw markup. Normalize before grepping.
 for svg in "$out"/*.svg; do
-  if sed 's/&#160;/ /g' "$svg" | grep -qiE "Syntax Error|Cannot find group|syntax is deprecated"; then
+  # Process substitution, not a pipe: see the here-string note above. The
+  # largest SVG here is already ~64KiB against a 64KiB pipe buffer, so
+  # `sed | grep -q` was one detailed diagram away from silently passing
+  # every broken render.
+  if grep -qiE "Syntax Error|Cannot find group|syntax is deprecated" \
+      < <(sed 's/&#160;/ /g' "$svg"); then
     echo "ERROR: $(basename "$svg" .svg) renders as a PlantUML error image, not a diagram." >&2
-    sed 's/&#160;/ /g' "$svg" | grep -oiE "Syntax Error|Cannot find group|syntax is deprecated" | head -3 >&2
+    grep -oiE "Syntax Error|Cannot find group|syntax is deprecated" \
+        < <(sed 's/&#160;/ /g' "$svg") | head -3 >&2
     exit 1
   fi
 done
