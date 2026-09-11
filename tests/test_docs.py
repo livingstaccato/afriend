@@ -336,7 +336,7 @@ def test_evals_cover_narrow_positive_and_negative_activation_boundaries():
     positive_prompts = " ".join(case["prompt"].lower() for case in positives)
     negative_prompts = " ".join(case["prompt"].lower() for case in negatives)
 
-    assert "/afriend" in positive_prompts
+    assert "afriend readme.md" in positive_prompts
     assert "afriend to" in positive_prompts
     assert "ask a friend to" in positive_prompts
     assert "use afriend" in positive_prompts
@@ -412,7 +412,8 @@ def test_current_docs_describe_only_the_four_skill_surface_and_stable_cli():
         path.read_text()
         for path in (REPO / "README.md", REPO / "AGENTS.md", REPO / "docs" / "README.md")
     ).lower()
-    assert "/afriend" in current
+    # No `/afriend` selector: it was the router's, and the router is gone.
+    assert "/afriend:" not in current
     assert "$afriend:review" in current
     assert "$afriend:afriend" not in current
     assert "$adversarial-friends:" not in current

@@ -1,0 +1,44 @@
+# Activation evals
+
+Executable checks for the one thing `make quality` cannot verify: **which
+prompts select an afriend skill, and which must select nothing.**
+
+```bash
+claude plugin eval plugins/afriend --tag no-activation --runs 1   # must not fire
+claude plugin eval plugins/afriend --tag selector --ablation none --runs 1
+claude plugin eval plugins/afriend --tag narrow   --ablation none --runs 1
+```
+
+Each run is a real `claude` child on your own credential and rate limit, so
+the whole suite at the default 3 runs per case is ~54 agent runs. Use
+`--runs 1` while iterating.
+
+## Tags
+
+- `no-activation` — generic requests ("review this", "poke holes", "second
+  opinion", "challenge this plan", "a friend sent me this"). A passing case
+  invokes **no** skill. Run these under the default ablation: the `with` and
+  `without` arms should both score 1.00 with Δ 0.00, which is what shows the
+  plugin did not widen activation.
+- `selector` — the four direct selectors, `$afriend:review|status|configure|resolve`.
+- `narrow` — command-like forms: `afriend README.md`, `afriend to <path> with
+  crossexam`, `Use afriend on ...`, `Ask a friend to review ...`, and
+  `afriend resume <run-id>`.
+
+Positive cases are graded on `tool_used: Skill` alone and run with
+`--ablation none`, because that grader is a `withOnly` indicator that ablation
+excludes from the score. `Bash` is deliberately not granted, so a run cannot
+complete the work; firing the skill is the whole contract under test.
+
+## What this does NOT verify
+
+`tool_used` accepts only a tool name -- `input`, `input_contains`, `args` and
+`skill` are all rejected by its schema -- so these cases prove that *an*
+afriend skill fired, not *which* one. A narrow prompt that wrongly selected
+`status` instead of `review` would still pass. Correct routing was confirmed
+once by reading a trace directly (`afriend README.md` produced
+`Skill(skill: "afriend:review", args: "README.md")`); it is not asserted here.
+
+`evals/evals.json` at the repository root is a different thing: a fixture the
+pytest suite checks for internal consistency. It never runs a model. These
+cases were derived from its activation-boundary prompts.

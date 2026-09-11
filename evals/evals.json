@@ -3,7 +3,7 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "/afriend README.md",
+      "prompt": "afriend README.md",
       "should_trigger": true,
       "skill": "review",
       "requires_artifact": true,
@@ -129,7 +129,7 @@
     },
     {
       "id": 16,
-      "prompt": "/afriend README.md",
+      "prompt": "afriend README.md",
       "should_trigger": true,
       "skill": "review",
       "requires_artifact": true,

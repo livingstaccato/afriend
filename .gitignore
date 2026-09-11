@@ -19,3 +19,6 @@ __pycache__/
 scratchpad/
 .claude/settings.local.json
 .claude/worktrees/
+
+# Eval run artifacts: timestamped scores, HTML reports and traces.
+plugins/afriend/evals/results/

@@ -117,7 +117,7 @@ it is not a claim resolution and needs no disposition or evidence.
 afriend run docs/my-design.md
 ```
 
-On the first review request in a host task, `/afriend` presents one compact
+On the first review request in a host task, `review` presents one compact
 preflight before dispatch. It names the applicable standalone-artifact or
 composed-context form:
 
@@ -604,12 +604,11 @@ A ceiling outranks everything below it, so a CI wrapper can read `11` as
 | Where | What |
 |---|---|
 | [docs/](docs/README.md) | Documentation index |
-| [/afriend router](src/afriend/assets/entrypoints/afriend/SKILL.md) | Explicit product router and review workflow |
-| [review](src/afriend/assets/entrypoints/review/SKILL.md) | Start and interpret a review run |
+| [review](src/afriend/assets/entrypoints/review/SKILL.md) | The primary entry: start, scope, resume and interpret a review run |
 | [status](src/afriend/assets/entrypoints/status/SKILL.md) | Read-only provider and named-run status |
 | [configure](src/afriend/assets/entrypoints/configure/SKILL.md) | Explicit provider-default changes |
 | [resolve](src/afriend/assets/entrypoints/resolve/SKILL.md) | Named-run claim resolutions |
-| [modes](src/afriend/assets/entrypoints/afriend/references/modes.md) | `report`, `crossexam`, `gate`, and `loop` |
+| [modes](src/afriend/assets/entrypoints/review/references/modes.md) | `report`, `crossexam`, `gate`, and `loop` |
 | [architecture/](docs/architecture/README.md) | Diagrams and their sources |
 | [design spec](docs/superpowers/specs/2026-08-22-adversarial-friends-design.md) | The full design, including the adversarial review that produced it |
 
