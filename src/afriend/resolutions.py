@@ -113,19 +113,35 @@ def _slice_lines(text: str, location: Location) -> str:
     return "\n".join(lines[start:end])
 
 
-def _git_tracks(repo: Path, relpath: str) -> bool:
-    """Whether git would have captured `relpath` into the snapshot commit.
+class _GitUnavailable(Exception):
+    """git could not be run at all -- absent, not executable, or refused by
+    the OS. Distinct from git running and answering "no": an answer we can
+    reason about, versus no answer at all."""
+
+
+def _git_ignores(repo: Path, relpath: str) -> bool:
+    """Whether git would have EXCLUDED `relpath` from the snapshot commit.
+
+    Named for what it returns. The predecessor was called `_git_tracks` and
+    returned `check-ignore`'s "is ignored" answer unchanged, so its name and
+    docstring asserted the inverse of its result. The single call site read
+    it correctly as "git never tracks it", which left the behaviour right and
+    the contract backwards -- a second caller written from the name would
+    have inverted the one check that makes a `fixed` disposition mean
+    anything.
 
     `isolation.snapshot_commit` builds the snapshot with `git add -A`, which
     honours .gitignore -- so an ignored path is absent from the snapshot tree
     whether or not it existed at the time. Without this distinction,
     "not in the snapshot" was read as "created since the snapshot", and every
-    generated, vendored or ignored path passed the one check that makes a
-    `fixed` disposition mean anything.
+    generated, vendored or ignored path passed that check.
 
-    Anything other than a clean "not ignored" answer is treated as ignored,
-    i.e. as unverifiable: for a disposition that asserts a fix landed, the
-    conservative direction is to refuse.
+    Anything other than a clean "not ignored" answer counts as ignored, i.e.
+    as unverifiable: for a disposition that asserts a fix landed, the
+    conservative direction is to refuse. The old `except OSError: return
+    False` did the opposite -- it reported "not ignored", which falls through
+    to LOCATION_CHANGED and rubber-stamps `fixed`, the exact outcome this
+    docstring says to avoid.
     """
     try:
         result = subprocess.run(
@@ -134,21 +150,56 @@ def _git_tracks(repo: Path, relpath: str) -> bool:
             capture_output=True,
             text=True,
         )
-    except OSError:
-        return False
-    # 1 is git's "not ignored"; 0 is "ignored"; anything else is an error.
+    except OSError as exc:
+        raise _GitUnavailable(str(exc)) from exc
+    # 1 is git's "not ignored"; 0 is "ignored"; anything else is an error,
+    # and an error is not a clean "not ignored".
     return result.returncode != 1
+
+
+def _git_has_commit(repo: Path, sha: str) -> bool:
+    """Whether the snapshot commit itself is present in this repository.
+
+    `_git_show` returns None for every nonzero git exit, which collapses two
+    different facts into one: "that path is not in that tree" and "that tree
+    is not here". Only the first supports reading absence as "created since
+    the snapshot". Without this check, a snapshot object that had been
+    garbage-collected, or a run directory carried to a different clone, made
+    every existing tracked file report LOCATION_CHANGED -- which
+    `rejection_reason` accepts as support for `fixed`, approving a fix
+    against no baseline whatsoever.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "cat-file", "-e", f"{sha}^{{commit}}"],
+            cwd=str(repo),
+            capture_output=True,
+            text=True,
+        )
+    except OSError as exc:
+        raise _GitUnavailable(str(exc)) from exc
+    return result.returncode == 0
 
 
 def _git_show(repo: Path, sha: str, relpath: str) -> str | None:
     """The file's content at the snapshot commit, or None if it was not
-    tracked there (a newly created file, or a path outside the repo)."""
-    result = subprocess.run(
-        ["git", "show", f"{sha}:{relpath}"],
-        cwd=str(repo),
-        capture_output=True,
-        text=True,
-    )
+    tracked there (a newly created file, or a path outside the repo).
+
+    A nonzero exit means git answered "not in that tree". Git failing to run
+    at all is not that answer, and must not be flattened into it: this call
+    was the one `subprocess.run` on this path with no OSError guard, while
+    the identical call in `commands/environment.py` has one, so a host
+    without git got a bare traceback out of `cli.main` instead of a refusal.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "show", f"{sha}:{relpath}"],
+            cwd=str(repo),
+            capture_output=True,
+            text=True,
+        )
+    except OSError as exc:
+        raise _GitUnavailable(str(exc)) from exc
     if result.returncode != 0:
         return None
     return result.stdout
@@ -206,15 +257,25 @@ def verify_location(
         # Outside the repository: nothing to reconstruct it from.
         return UNVERIFIABLE
 
-    before_text = _git_show(resolved_root, snapshot_sha, relpath)
-    exists_now = current_path.is_file()
-    if before_text is None and not exists_now:
-        return UNVERIFIABLE
-    if before_text is None and _git_tracks(resolved_root, relpath):
-        # Absent from the snapshot because git never tracks it, not because
-        # it appeared since. Nothing can be reconstructed to compare against,
-        # so this is unverifiable -- which refuses `fixed` instead of
-        # rubber-stamping it.
+    try:
+        before_text = _git_show(resolved_root, snapshot_sha, relpath)
+        exists_now = current_path.is_file()
+        if before_text is None and not _git_has_commit(resolved_root, snapshot_sha):
+            # The snapshot is gone, so "absent from it" carries no
+            # information about whether anything moved.
+            return UNVERIFIABLE
+        if before_text is None and not exists_now:
+            return UNVERIFIABLE
+        if before_text is None and _git_ignores(resolved_root, relpath):
+            # Absent from the snapshot because git would never have captured
+            # it, not because it appeared since. Nothing can be reconstructed
+            # to compare against, so this is unverifiable -- which refuses
+            # `fixed` instead of rubber-stamping it.
+            return UNVERIFIABLE
+    except _GitUnavailable:
+        # No baseline can be reconstructed without git, and a verifier that
+        # cannot check must refuse rather than report a change it did not
+        # observe.
         return UNVERIFIABLE
     if before_text is None or not exists_now:
         # Created since the snapshot, or deleted since it. Either way the

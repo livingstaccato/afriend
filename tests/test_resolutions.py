@@ -323,3 +323,77 @@ def test_a_deadlocked_claim_blocks():
         [claim()], {"c-0001@1": verdicts.DEADLOCKED}, resolutions=[]
     )
     assert [c.id for c in blocking] == ["c-0001@1"]
+
+
+def test_an_unavailable_snapshot_is_unverifiable_not_a_change(repo, monkeypatch):
+    """git answering "I cannot reconstruct that" is not evidence of a change.
+
+    `_git_show` returns None for every nonzero git exit, so an unavailable
+    snapshot object looked identical to "this path did not exist at the
+    snapshot". An existing, unmodified, tracked file then fell through to
+    LOCATION_CHANGED, which `rejection_reason` accepts as support for a
+    `fixed` disposition -- a fix rubber-stamped against no baseline at all.
+    """
+    root, _sha = repo
+    monkeypatch.chdir(root)
+    absent_but_well_formed = "0" * 40
+
+    verified = resolutions.verify_location(
+        resolutions.Location("auth.py"), root, absent_but_well_formed
+    )
+
+    assert verified == resolutions.UNVERIFIABLE
+
+
+def test_git_that_cannot_run_refuses_rather_than_reporting_a_change(repo, monkeypatch):
+    """`_git_show` was the one subprocess.run on this path with no OSError
+    guard, while the identical call in commands/environment.py has one. A
+    host without git got a bare traceback out of cli.main; and if execution
+    got as far as the ignore check, its `except OSError: return False` said
+    "not ignored", which falls through to LOCATION_CHANGED and approves the
+    fix -- the opposite of the refusal its own docstring promises."""
+    root, sha = repo
+    monkeypatch.chdir(root)
+
+    def no_git(*args, **kwargs):
+        raise FileNotFoundError("git: command not found")
+
+    monkeypatch.setattr(resolutions.subprocess, "run", no_git)
+
+    verified = resolutions.verify_location(resolutions.Location("auth.py"), root, sha)
+
+    assert verified == resolutions.UNVERIFIABLE
+
+
+def test_the_ignore_helper_is_named_for_the_answer_it_returns(repo):
+    """`check-ignore` exits 0 for "ignored" and 1 for "not ignored", so
+    returning `returncode != 1` is the "is ignored" answer. The predecessor
+    was called `_git_tracks` and documented as "whether git would have
+    captured this path", i.e. the exact inverse of its return value. The one
+    call site read it as "git never tracks it", so behaviour was right and
+    the contract was backwards -- the next caller would have inverted the
+    only check that makes a `fixed` disposition mean anything.
+    """
+    root, _sha = repo
+    (root / ".gitignore").write_text("build/\n")
+    (root / "build").mkdir()
+    (root / "build" / "out.js").write_text("generated\n")
+
+    assert resolutions._git_ignores(root, "build/out.js") is True
+    assert resolutions._git_ignores(root, "auth.py") is False
+    assert not hasattr(resolutions, "_git_tracks")
+
+
+def test_an_ignored_path_is_unverifiable_rather_than_newly_created(repo, monkeypatch):
+    """The behaviour the rename protects: a generated path absent from the
+    snapshot tree because git would never have captured it must refuse a
+    `fixed` claim, not read as "appeared since the snapshot"."""
+    root, sha = repo
+    monkeypatch.chdir(root)
+    (root / ".gitignore").write_text("build/\n")
+    (root / "build").mkdir()
+    (root / "build" / "out.js").write_text("generated\n")
+
+    verified = resolutions.verify_location(resolutions.Location("build/out.js"), root, sha)
+
+    assert verified == resolutions.UNVERIFIABLE
