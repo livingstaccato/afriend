@@ -84,15 +84,15 @@ def test_a_sync_copy_replaces_skills_and_leaves_a_sibling_manifest_alone(tmp_pat
     manifest = plugin / ".claude-plugin" / "plugin.json"
     manifest.parent.mkdir(parents=True)
     manifest.write_text('{"name": "afriend"}')
-    stale = plugin / "skills" / "afriend" / "gone.md"
+    stale = plugin / "skills" / "review" / "gone.md"
     stale.parent.mkdir(parents=True)
     stale.write_text("stale")
     monkeypatch.setattr(module, "PLUGIN_ROOT", plugin)
     monkeypatch.setattr(module, "SKILLS", plugin / "skills")
 
-    assert module.copy_expected({Path("afriend/SKILL.md"): b"new"}) == 0
+    assert module.copy_expected({Path("review/SKILL.md"): b"new"}) == 0
 
-    assert (plugin / "skills" / "afriend" / "SKILL.md").read_bytes() == b"new"
+    assert (plugin / "skills" / "review" / "SKILL.md").read_bytes() == b"new"
     assert not stale.exists(), "a copy replaces the tree wholesale"
     assert manifest.read_text() == '{"name": "afriend"}'
 

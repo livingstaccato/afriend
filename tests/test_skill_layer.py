@@ -5,7 +5,9 @@ import sys
 REPO = Path(__file__).resolve().parents[1]
 ASSETS = REPO / "src" / "afriend" / "assets"
 ENTRYPOINTS = ASSETS / "entrypoints"
-SKILL_NAMES = {"afriend", "review", "status", "configure", "resolve"}
+# Four, not five: a router skill named `afriend` inside the `afriend`
+# plugin produced the doubled selector `/afriend:afriend`.
+SKILL_NAMES = {"review", "status", "configure", "resolve"}
 PLUGIN_SKILLS = REPO / "plugins" / "afriend" / "skills"
 
 
@@ -37,7 +39,6 @@ def test_all_entrypoints_have_distinct_portable_metadata():
 
 def test_selectable_skills_present_the_afriend_family_in_codex_ui():
     expected_labels = {
-        "afriend": "afriend",
         "review": "afriend review",
         "status": "afriend status",
         "configure": "afriend configure",
@@ -49,8 +50,8 @@ def test_selectable_skills_present_the_afriend_family_in_codex_ui():
         assert f'default_prompt: "Use {label}' in ui
 
 
-def test_afriend_is_the_only_router_and_short_slash_selector():
-    text = (ENTRYPOINTS / "afriend" / "SKILL.md").read_text()
+def test_review_is_the_primary_entry_with_the_narrow_afriend_triggers():
+    text = (ENTRYPOINTS / "review" / "SKILL.md").read_text()
     description = " ".join(frontmatter(text)["description"].lower().split())
     body = " ".join(text.lower().replace("`", "").split())
 
@@ -73,8 +74,8 @@ def test_afriend_is_the_only_router_and_short_slash_selector():
     assert "friend sent me this" in body
 
 
-def test_router_sets_session_expectations_before_dispatch_and_after_completion():
-    text = (ENTRYPOINTS / "afriend" / "SKILL.md").read_text()
+def test_review_sets_session_expectations_before_dispatch_and_after_completion():
+    text = (ENTRYPOINTS / "review" / "SKILL.md").read_text()
     lowered = " ".join(text.lower().split())
     assert "about to start afriend" in lowered
     assert "first review request in a host task" in lowered
@@ -84,8 +85,8 @@ def test_router_sets_session_expectations_before_dispatch_and_after_completion()
 
 
 def test_review_context_skills_keep_host_resolution_bounded_and_explicit():
-    router = " ".join((ENTRYPOINTS / "afriend" / "SKILL.md").read_text().lower().split())
     review = " ".join((ENTRYPOINTS / "review" / "SKILL.md").read_text().lower().split())
+    router = review  # the router's guidance now lives in review
     configure = " ".join((ENTRYPOINTS / "configure" / "SKILL.md").read_text().lower().split())
 
     for phrase in (
@@ -182,19 +183,19 @@ def test_status_and_resolve_explain_how_to_inspect_a_named_run():
 
 
 def test_afriend_references_are_colocated_and_old_source_paths_are_absent():
-    router = ENTRYPOINTS / "afriend"
+    router = ENTRYPOINTS / "review"
     for name in ("references/modes.md", "references/ledger.md", "references/troubleshooting.md"):
         assert (router / name).is_file()
     assert not (ASSETS / "SKILL.md").exists()
     assert not (ASSETS / "references").exists()
 
 
-def test_runtime_assets_project_byte_for_byte_below_router_skill():
+def test_runtime_assets_project_byte_for_byte_below_the_review_skill():
     for dirname in ("adapters", "harnesses", "lenses"):
         source = ASSETS / dirname
         for path in source.rglob("*"):
             if path.is_file() and path.name != "__init__.py":
-                projected = PLUGIN_SKILLS / "afriend" / dirname / path.relative_to(source)
+                projected = PLUGIN_SKILLS / "review" / dirname / path.relative_to(source)
                 assert projected.read_bytes() == path.read_bytes(), projected
 
 

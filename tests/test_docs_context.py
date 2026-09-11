@@ -65,7 +65,6 @@ def test_live_docs_describe_composer_output_as_content_bound_until_run_freezes_i
         "README.md": REPO / "README.md",
         "docs/README.md": REPO / "docs" / "README.md",
         "architecture README": REPO / "docs" / "architecture" / "README.md",
-        "router skill": ENTRYPOINTS / "afriend" / "SKILL.md",
         "review skill": ENTRYPOINTS / "review" / "SKILL.md",
     }
     text = {name: " ".join(path.read_text().lower().split()) for name, path in current.items()}

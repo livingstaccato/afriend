@@ -3,7 +3,7 @@
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-AFRIEND = REPO / "src" / "afriend" / "assets" / "entrypoints" / "afriend"
+AFRIEND = REPO / "src" / "afriend" / "assets" / "entrypoints" / "review"
 OPERATOR_DOCS = [AFRIEND / "SKILL.md", *(AFRIEND / "references").glob("*.md")]
 
 

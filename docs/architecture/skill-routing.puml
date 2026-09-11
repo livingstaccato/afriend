@@ -7,14 +7,13 @@ skinparam rectangle {
   BorderColor #1565C0
   BackgroundColor #E3F2FD
 }
-title afriend skill routing
+title afriend skill selection
 
-rectangle "/afriend\nsole router" as router
 rectangle "host-session resolver\nexplicit evidence / session window" as resolver #FFF8E1
 rectangle "CLI composer\nafriend context compose" as composer #E8F5E9
 rectangle "deterministic, content-bound composite + manifest" as composite #F3E5F5
 rectangle "session preflight\ntarget, scope, judgment goal,\nand qualifying roster" as preflight #FFF8E1
-rectangle "review" as review
+rectangle "review\nprimary entry" as review
 rectangle "status" as status
 rectangle "configure" as configure
 rectangle "resolve" as resolve
@@ -29,16 +28,13 @@ rectangle "afriend init / profiles" as setup #E8F5E9
 rectangle "afriend resolve" as resolution #E8F5E9
 rectangle "afriend run --resume" as resume #E8F5E9
 
-router --> resolver : first review
+review --> resolver : first review
 resolver --> composer : approved unambiguous chain
 composer --> composite
 composite --> preflight
-router --> preflight : standalone artifact
-preflight --> review : confirm or change target, scope,\nmode, or qualification policy
-router --> status : explicit status
-router --> configure : explicit configuration
-router --> resolve : explicit resolution
-router --> resume : resume existing run
+review --> preflight : standalone artifact
+preflight --> run : confirm or change target, scope,\nmode, or qualification policy
+review --> resume : resume existing run
 resume --> snapshot : validate frozen evidence
 review --> run
 run --> snapshot : freeze evidence
@@ -49,8 +45,9 @@ status --> runstatus : named run, read-only
 configure --> providers
 configure --> setup
 resolve --> resolution
-note bottom of router
-  Conversational operation words route skills.
+note bottom of review
+  Each skill is selected on its own; there is no router.
+  Conversational operation words name skills.
   They are not executable CLI aliases.
   Preflight is descriptive, not an authority grant.
   Default judging evidence is cross-provider; explicit alternatives

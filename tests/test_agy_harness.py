@@ -15,14 +15,7 @@ REPO = Path(__file__).resolve().parents[1]
 ASSETS = REPO / "src" / "afriend" / "assets"
 AGENT = ASSETS / "harnesses" / "agy" / "afriend-reviewer.md"
 MIRROR_AGENT = (
-    REPO
-    / "plugins"
-    / "afriend"
-    / "skills"
-    / "afriend"
-    / "harnesses"
-    / "agy"
-    / "afriend-reviewer.md"
+    REPO / "plugins" / "afriend" / "skills" / "review" / "harnesses" / "agy" / "afriend-reviewer.md"
 )
 TARGET = ".agents/agents/afriend-reviewer/agent.md"
 

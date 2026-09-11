@@ -7,7 +7,7 @@ reviewers.
 
 ## Using the tool
 
-Use `/afriend` or `$afriend:afriend` for explicit product routing;
+Use `$afriend:review` for an explicit product review;
 the five selectable skills are `afriend`, `review`, `status`, `configure`,
 and `resolve`. Conversational `afriend review` and `afriend status` route to
 focused skills and are not executable aliases: use `afriend run <artifact>`
@@ -15,7 +15,7 @@ for a review, `afriend status <run-id-or-path>` for a run, and `afriend doctor`
 for readiness. Use `afriend init --guided` for a no-write setup preview and
 `afriend profiles` for safe named profiles. All four modes -- `report`,
 `crossexam`, `gate`, `loop` -- ship; see
-`src/afriend/assets/entrypoints/afriend/references/modes.md`.
+`src/afriend/assets/entrypoints/review/references/modes.md`.
 `afriend resume <run-id>` routes to `afriend run --resume <run-id>`, not to
 claim resolution; it requires neither disposition nor evidence.
 
@@ -28,7 +28,7 @@ claim resolution; it requires neither disposition nor evidence.
   `adapters/`, `harnesses/`, `lenses/`, plus five `entrypoints/` skills.
 - `plugins/afriend/skills/` — the composite projection: focused
   skills map directly; router references and runtime data live below
-  `skills/afriend/`. Never edit it directly; edit `assets/` and re-sync.
+  `skills/review/`. Never edit it directly; edit `assets/` and re-sync.
 - `docs/` — prose docs and architecture diagrams. Excluded from `ruff format`
   so embedded code fences in historical specs/plans are left alone.
 

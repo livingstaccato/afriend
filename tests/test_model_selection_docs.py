@@ -6,7 +6,7 @@ import re
 REPO = Path(__file__).resolve().parents[1]
 ASSETS = REPO / "src" / "afriend" / "assets"
 ENTRYPOINTS = ASSETS / "entrypoints"
-AFRIEND = ENTRYPOINTS / "afriend"
+AFRIEND = ENTRYPOINTS / "review"
 OPERATOR_DOCS = [AFRIEND / "SKILL.md", *(AFRIEND / "references").glob("*.md")]
 
 
@@ -54,7 +54,6 @@ def test_contract_first_provider_and_authority_guidance_is_shipped():
 def test_live_markdown_preserves_model_selection_provenance_contract():
     readme = REPO.joinpath("README.md").read_text()
     index = REPO.joinpath("docs", "README.md").read_text()
-    router = (AFRIEND / "SKILL.md").read_text()
     configure = (ENTRYPOINTS / "configure" / "SKILL.md").read_text()
     modes = (AFRIEND / "references" / "modes.md").read_text()
     component_source = REPO.joinpath("docs", "architecture", "components.puml").read_text()
@@ -64,7 +63,7 @@ def test_live_markdown_preserves_model_selection_provenance_contract():
         "invocation `--model` > explicit `--friend`/roster > provider "
         "`set-model` > adapter default > CLI default"
     )
-    for markdown in (readme, router, modes):
+    for markdown in (readme, configure, modes):
         normalized = " ".join(markdown.split())
         assert expected_order in normalized
         assert (
@@ -74,7 +73,7 @@ def test_live_markdown_preserves_model_selection_provenance_contract():
         assert "no `--model` is passed; the exact model is not verified" in normalized
 
     assert "afriend run spec.md --friend opencode:security:openai/gpt-5.6-sol" in readme
-    assert "`--ignore-user-config`" in router
+    assert "`--ignore-user-config`" in configure
     assert "model selection provenance" in index.lower()
     assert "Provider `set-model`" in configure
     assert "CLI --> RUN" in component_source
@@ -87,15 +86,15 @@ def test_live_markdown_preserves_model_selection_provenance_contract():
 
 def test_live_model_provenance_docs_cover_unset_opencode_and_the_startup_flow():
     readme = REPO.joinpath("README.md").read_text()
-    router = (AFRIEND / "SKILL.md").read_text()
+    configure = (ENTRYPOINTS / "configure" / "SKILL.md").read_text()
     modes = (AFRIEND / "references" / "modes.md").read_text()
     component_source = REPO.joinpath("docs", "architecture", "components.puml").read_text()
 
     unset_opencode = "OpenCode CLI default (no --model passed; exact model not verified)"
-    for markdown in (readme, router, modes):
+    for markdown in (readme, configure, modes):
         assert unset_opencode in markdown
 
-    for markdown in (readme, router, modes):
+    for markdown in (readme, configure, modes):
         normalized = " ".join(markdown.split())
         assert "default external-tools-denied policy" in normalized
         assert "`--ignore-user-config`" in normalized

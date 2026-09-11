@@ -33,9 +33,13 @@ def project_tree(source: Path, destination: Path) -> dict[Path, bytes]:
 
 def expected_plugin_files() -> dict[Path, bytes]:
     expected = project_tree(ASSETS / "entrypoints", Path())
-    expected |= project_tree(ASSETS / "adapters", Path("afriend/adapters"))
-    expected |= project_tree(ASSETS / "harnesses", Path("afriend/harnesses"))
-    expected |= project_tree(ASSETS / "lenses", Path("afriend/lenses"))
+    # Shared review material lands under the skill that dispatches reviews.
+    # It used to land under an `afriend` skill whose name doubled the plugin's,
+    # producing `/afriend:afriend`; that skill is gone and `review` is the
+    # primary entry, so the lenses, adapters and harness prompts live with it.
+    expected |= project_tree(ASSETS / "adapters", Path("review/adapters"))
+    expected |= project_tree(ASSETS / "harnesses", Path("review/harnesses"))
+    expected |= project_tree(ASSETS / "lenses", Path("review/lenses"))
     return expected
 
 

@@ -101,10 +101,11 @@ reachability alone is insufficient because dispatch also requires a model.
 
 ## 🚀 Quickstart
 
-In an agent host, select `/afriend` to route an explicit afriend
-request, or select `$afriend:afriend` directly. It hands review,
-status, setup/configuration, and resolution requests to focused skills:
-`review`, `status`, `configure`, and `resolve`.
+In an agent host, select `$afriend:review` for an explicit afriend review of
+an artifact. Four focused skills split the surface and each is selected on its
+own: `review` (artifact reviews, run scope, resume), `status` (provider
+readiness and named-run inspection), `configure` (setup, defaults, profiles,
+review-context policy), and `resolve` (claim discovery and resolutions).
 
 Conversational phrases such as `afriend review` and `afriend status` are
 routing language, not executable aliases: the stable CLI commands remain
@@ -626,9 +627,10 @@ For setup checks and recovery from a missing marketplace file, see
 [installation and plugin troubleshooting](docs/installation-troubleshooting.md).
 
 Plugins package capabilities; the afriend plugin provides exactly
-five skills: `/afriend`, `review`, `status`, `configure`, and `resolve`.
-`/afriend` is the only router and short slash selector; direct qualified
-selection is `$afriend:afriend`. The CLI never runs automatically
+four skills: `review`, `status`, `configure`, and `resolve`. Each is selected
+on its own -- direct qualified selection is `$afriend:review`,
+`$afriend:status`, `$afriend:configure`, or `$afriend:resolve`. `review` is
+the primary entry and owns resuming a run. The CLI never runs automatically
 by itself. Generic “review this,” “poke holes,” “second opinion,” and
 architectural decision requests stay ordinary Codex work.
 

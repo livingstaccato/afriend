@@ -1,6 +1,6 @@
 ---
 name: configure
-description: Use only through direct qualified selection ($afriend:configure) or explicit /afriend routing to inspect or explicitly change guided setup, review profiles, or provider defaults. Do not change settings without an exact requested change.
+description: Use for an explicit afriend setup or configuration request - direct selection ($afriend:configure), or a request naming afriend that asks to inspect or change guided setup, review profiles, provider defaults, model selection, or review-context policy. Do not change settings without an exact requested change, and do not use for generic configuration questions unrelated to afriend.
 ---
 
 # afriend configure
@@ -63,6 +63,12 @@ credential, environment forwarding, external-tool authority, unsafe arguments,
 or sandbox exception. Make a persistent change only for the exact
 user-requested selection; use `--profile NAME` for a per-run choice.
 
+Built-in profiles map to modes: `quick` keeps one report fan-out, `balanced`
+selects `crossexam`, and `thorough` selects `loop`. A persistent default lives
+in `~/.config/afriend/session.json`; `afriend run <artifact> --profile NAME`
+selects one for a single run. An explicit `--mode` wins over the profile's
+mode, as do explicit safe run settings.
+
 Qualification policy is review evidence, not provider authority: the default
 `cross-provider` needs two provider families; `distinct-sessions` accepts two
 fresh workers; `distinct-models` accepts two fresh workers with different
@@ -90,3 +96,50 @@ Make a persistent change only for an exact requested setting, for example
 The policy does not grant repository, provider, external-tool, write,
 sandbox, or CLI-session-history authority. It does not cause the CLI composer
 to discover paths or dispatch a review.
+
+## Model selection provenance
+
+Model selection is resolved in this exact order: invocation `--model` > explicit
+`--friend`/roster > provider `set-model` > adapter default > CLI default. A
+named model is requested and passed to the provider; it is not verified as the
+backend model that answered. When no model is selected, no `--model` is
+passed; the exact model is not verified and the record says that provider's
+CLI default. Under the default external-tools-denied policy, Codex receives
+`--ignore-user-config`, so an unset model selects its built-in default rather
+than user configuration. An explicit `--allow-external-tools=codex` does not
+supply `--ignore-user-config`, so afriend makes no built-in-default claim for
+that invocation.
+
+For example, an explicit OpenCode model is a provider-specific request, not a
+verified backend identity:
+
+```bash
+afriend run spec.md --friend opencode:security:openai/gpt-5.6-sol \
+  --allow-external-tools=opencode
+```
+
+Without an explicit model, OpenCode is recorded as `OpenCode CLI default (no --model passed; exact model not verified)`: that is a provider CLI default, not a verified backend identity.
+
+For one run, `--enable-provider NAME` and `--disable-provider NAME` override
+those defaults during automatic discovery. Disabled providers are not
+probed. A friend must be `ready` before it consumes `--max-friends` capacity:
+other states include `reachable-unconfigured` (for example, Ollama without a
+model), `unavailable`, `disabled`, `host-excluded`, and `policy-blocked`.
+`afriend doctor` reports the effective state, policy layer, and remediation.
+
+External tools are denied by default, separately from filesystem/process
+confinement. Adapters must neutralize provider-managed tools, plugins, apps,
+MCP servers, and built-in browser, computer, and web-search tools or become
+`policy-blocked`. The required-value flag is
+repeatable: use `--allow-external-tools=PROVIDER` for a provider or the
+explicit global grant `--allow-external-tools=*`. Unknown, duplicate, or
+mixed `*` plus provider grants are invalid, as is the old valueless form.
+`--unsafe-extra-args` additionally requires the global `*` grant and its own
+acknowledgement.
+
+External-tool authority is independent of persistent and per-run provider
+enable/disable selection. Grants do not change provider defaults. Security
+grants are never restored by `--resume`: repeat the same normalized set
+exactly on the current command line. Resume uses the saved repository scope
+and rejects `--repo`; it cannot replace the original automatic or explicit
+repository selection.

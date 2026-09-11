@@ -12,7 +12,9 @@ import re
 REPO = Path(__file__).resolve().parents[1]
 ASSETS = REPO / "src" / "afriend" / "assets"
 ENTRYPOINTS = ASSETS / "entrypoints"
-AFRIEND = ENTRYPOINTS / "afriend"
+# `review` is the primary entry: it absorbed the guidance and shared
+# references from the removed router skill, whose name doubled the plugin's.
+AFRIEND = ENTRYPOINTS / "review"
 OPERATOR_DOCS = [AFRIEND / "SKILL.md", *(AFRIEND / "references").glob("*.md")]
 
 
@@ -119,7 +121,7 @@ def test_current_first_party_metadata_uses_the_canonical_repository() -> None:
         REPO / "plugins/.claude-plugin/marketplace.json",
         REPO / "plugins/afriend/.claude-plugin/plugin.json",
         REPO / "plugins/afriend/.codex-plugin/plugin.json",
-        REPO / "src/afriend/assets/entrypoints/afriend/SKILL.md",
+        REPO / "src/afriend/assets/entrypoints/review/SKILL.md",
     ]
     for path in current_files:
         text = path.read_text(encoding="utf-8")
@@ -338,7 +340,7 @@ def test_evals_cover_narrow_positive_and_negative_activation_boundaries():
     assert "afriend to" in positive_prompts
     assert "ask a friend to" in positive_prompts
     assert "use afriend" in positive_prompts
-    assert "$afriend:afriend" in positive_prompts
+    assert "$afriend:review" in positive_prompts
     for phrase in (
         "review this",
         "challenge this",
@@ -378,7 +380,8 @@ def test_positive_eval_inputs_resolve_and_direct_selector_matches_plugin_namespa
         (REPO / "plugins" / "afriend" / ".codex-plugin" / "plugin.json").read_text()
     )
     skill_names = {path.parent.name for path in ENTRYPOINTS.glob("*/SKILL.md")}
-    assert skill_names == {"afriend", "review", "status", "configure", "resolve"}
+    # Four, not five: the router skill that doubled the plugin's name is gone.
+    assert skill_names == {"review", "status", "configure", "resolve"}
     expected_selectors = {(manifest["name"], name) for name in skill_names}
     selectors = []
 
@@ -404,13 +407,14 @@ def test_positive_eval_inputs_resolve_and_direct_selector_matches_plugin_namespa
     assert set(selectors) == expected_selectors
 
 
-def test_current_docs_describe_only_the_five_skill_surface_and_stable_cli():
+def test_current_docs_describe_only_the_four_skill_surface_and_stable_cli():
     current = "\n".join(
         path.read_text()
         for path in (REPO / "README.md", REPO / "AGENTS.md", REPO / "docs" / "README.md")
     ).lower()
     assert "/afriend" in current
-    assert "$afriend:afriend" in current
+    assert "$afriend:review" in current
+    assert "$afriend:afriend" not in current
     assert "$adversarial-friends:" not in current
     assert "afriend status" in current and "afriend review" in current
     assert "afriend doctor" in current and "afriend run" in current
@@ -438,7 +442,7 @@ def test_current_docs_explain_profiles_guided_setup_events_and_run_status():
 def test_skill_routing_diagram_labels_all_skills_and_commands():
     source = (REPO / "docs" / "architecture" / "skill-routing.puml").read_text()
     visible = _svg_visible_text(REPO / "docs" / "architecture" / "skill-routing.svg")
-    for label in ("/afriend", "review", "status", "configure", "resolve"):
+    for label in ("review", "status", "configure", "resolve"):
         assert label in source
         assert label in visible
     for label in ("afriend run", "afriend doctor", "afriend providers", "afriend resolve"):
@@ -449,10 +453,10 @@ def test_skill_routing_diagram_labels_all_skills_and_commands():
 
 
 def test_resume_routes_to_run_without_claim_resolution_inputs():
-    router = (AFRIEND / "SKILL.md").read_text().lower()
+    review_skill = (AFRIEND / "SKILL.md").read_text().lower()
     resolve = " ".join((ENTRYPOINTS / "resolve" / "SKILL.md").read_text().lower().split())
-    assert "afriend resume" in router
-    assert "afriend run --resume" in router
+    assert "afriend resume" in review_skill
+    assert "afriend run --resume" in review_skill
     assert "afriend run --resume" in resolve
     assert "does not require a disposition or evidence" in resolve
     resume_eval = next(
@@ -460,7 +464,7 @@ def test_resume_routes_to_run_without_claim_resolution_inputs():
         for case in json.loads((REPO / "evals" / "evals.json").read_text())["evals"]
         if case["prompt"].startswith("afriend resume")
     )
-    assert resume_eval["skill"] == "afriend"
+    assert resume_eval["skill"] == "review"
     assert resume_eval["requires_artifact"] is False
     assert "afriend run --resume" in resume_eval["expected_output"]
 

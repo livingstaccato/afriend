@@ -9,12 +9,11 @@ quickstart, see the [top-level README](../README.md); come here for detail.
 
 | Document | What it covers |
 |---|---|
-| [/afriend](../src/afriend/assets/entrypoints/afriend/SKILL.md) | The sole router, host-session resolver, context preflight, lifecycle completion feedback, and stable CLI routing |
-| [review](../src/afriend/assets/entrypoints/review/SKILL.md) | Authoritative artifact reviews and bounded context composition with `afriend run` |
+| [review](../src/afriend/assets/entrypoints/review/SKILL.md) | The primary entry: artifact reviews, host-session resolution, context preflight, run scope, lifecycle completion feedback, and bounded context composition with `afriend run` |
 | [status](../src/afriend/assets/entrypoints/status/SKILL.md) | Read-only readiness with `doctor` and named-run inspection with `status` |
 | [configure](../src/afriend/assets/entrypoints/configure/SKILL.md) | Guided setup, explicit provider defaults, model selection provenance, safe named profiles, and review-context policy |
 | [resolve](../src/afriend/assets/entrypoints/resolve/SKILL.md) | Read-only claim discovery and named-run resolutions with supplied evidence |
-| [modes](../src/afriend/assets/entrypoints/afriend/references/modes.md) | All four modes — `report`, `crossexam`, `gate`, `loop` — plus claim states, ceilings, and exit codes |
+| [modes](../src/afriend/assets/entrypoints/review/references/modes.md) | All four modes — `report`, `crossexam`, `gate`, `loop` — plus claim states, ceilings, and exit codes |
 | [installation and plugin troubleshooting](installation-troubleshooting.md) | Separate CLI and Claude plugin setup, plus recovery from a missing marketplace file |
 
 `afriend resume <run-id>` routes through `/afriend` to `afriend run --resume
@@ -31,7 +30,7 @@ quickstart, see the [top-level README](../README.md); come here for detail.
 
 | Document | What it covers |
 |---|---|
-| [ledger](../src/afriend/assets/entrypoints/afriend/references/ledger.md) | Claim, verdict, alias, and resolution records — and how to read `claims.jsonl` directly |
+| [ledger](../src/afriend/assets/entrypoints/review/references/ledger.md) | Claim, verdict, alias, and resolution records — and how to read `claims.jsonl` directly |
 | [architecture/](architecture/README.md) | Diagrams: module architecture, run flow, claim lifecycle |
 
 ### The diagrams
