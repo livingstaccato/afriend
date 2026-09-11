@@ -223,6 +223,14 @@ def assess_all(
 ) -> dict[str, FriendReadiness]:
     """Assess providers once, optionally ignoring automatic-selection policy.
 
+    Only ``--friend`` sets ``selection_policy=False``, not a roster file --
+    not even one named with ``--roster``. A flag is an instruction from this
+    invocation; a file is configuration, and configuration must not be able to
+    re-enable a provider the operator disabled on the command line or pull in
+    a host they excluded. See
+    test_run_end_to_end_roster.test_roster_files_filter_disabled_providers_before_dispatch,
+    which pins both halves.
+
     Explicitly named friends set ``selection_policy=False``: naming a friend
     overrides enabled/host/discovery selection, but never availability,
     configuration, adapter validation, or authority.
