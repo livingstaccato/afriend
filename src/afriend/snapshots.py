@@ -245,6 +245,16 @@ class SnapshotIdentity:
     @classmethod
     def _from_dict(cls, raw: object) -> SnapshotIdentity:
         raw = _string_mapping(raw, "snapshot")
+        # The allowlist below was defined and then never referenced, so an
+        # unknown key was accepted here and silently destroyed by the next
+        # `record_snapshot` rewrite. Every sibling reader in this codebase
+        # rejects instead (ContextManifest.from_dict, ledger.record_from_dict),
+        # and accepting-then-erasing is the worst of the three options.
+        unexpected = set(raw) - _SNAPSHOT_FIELDS
+        if unexpected:
+            raise UsageError(
+                f"cannot resume: saved snapshot has unexpected fields: {sorted(unexpected)}"
+            )
         repo_text = _optional_string(raw, "repo_root")
         commit = _optional_string(raw, "commit")
         tree = _optional_string(raw, "tree")

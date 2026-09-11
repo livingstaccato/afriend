@@ -746,10 +746,21 @@ def cmd_run(args: argparse.Namespace) -> int:
         # Initialization failures before a durable run.json exists must not
         # leave a fresh directory that looks resumable but explains nothing.
         # A resumed directory predates this process and is never removed.
+        #
+        # "Before run.json exists" is NOT the same as "run.json is absent": a
+        # fresh run writes run.json only in finish_run, so the absence test
+        # alone is true for the entire run. Deleting on it discarded every
+        # already-persisted round -- friend output, prompts, stderr captures,
+        # the event stream and the append-only ledger -- for any mid-run
+        # AfError, and also undid the staged rollback that
+        # write_terminal_artifacts performs precisely so a failed terminal
+        # write leaves the run intact. So the directory is removed only while
+        # nothing durable has been written into it yet.
         if (
             store is not None
             and resume_dir is None
             and not store.owned_regular_exists(store.run_dir / "run.json")
+            and not store.holds_durable_work()
         ):
             shutil.rmtree(store.run_dir, ignore_errors=True)
         raise

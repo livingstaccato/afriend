@@ -18,7 +18,7 @@ from ..adapters import MODEL_SOURCES, FriendSpec
 from ..authority import AuthorityPolicy
 from ..ceilings import Budget
 from ..cliargs import MERGE_CHOICES, RUN_MODES
-from ..errors import UsageError
+from ..errors import AfError, UsageError
 from ..failures import RepeatTracker
 from ..ledger import Claim
 from ..presets import PRESETS
@@ -637,8 +637,21 @@ def finish_run(
     )
     # Finalization adds fields after the fresh base was bounded. Refit both
     # before RunOutcome validates its input and after it adds terminal fields.
-    meta = bounded_theme_metadata(meta)
-    meta = bounded_theme_metadata(outcome.apply(meta))
+    # The metadata node bound is deliberate and symmetric with the reader
+    # (runstore's writers and resumevalidation both enforce it), so a run wide
+    # enough to exceed it must fail -- but it must fail as a diagnosable error,
+    # not as a bare ValueError traceback out of cli.main, which is what
+    # discarded the terminal run.json AND report.md after the entire review had
+    # already been paid for.
+    try:
+        meta = bounded_theme_metadata(meta)
+        meta = bounded_theme_metadata(outcome.apply(meta))
+    except (RecursionError, TypeError, ValueError) as exc:
+        raise AfError(
+            f"this run's metadata exceeds the bound run.json is written under: {exc}. "
+            "The friend output and ledger on disk are intact; narrow the roster or "
+            "lower --max-loop-iterations to write a terminal report for it."
+        ) from exc
     report = render(
         review,
         meta,

@@ -46,7 +46,13 @@ def capture_review_context(
     manifest = ContextManifest.from_dict(
         decode_json_object(payload, path=sidecar, label="review context manifest")
     )
-    if manifest.output_sha256 != _sha256(artifact_text.encode("utf-8")):
+    # The artifact's bytes, not its newline-translated text: compose()
+    # digests exactly what it wrote, while read_artifact_text() goes through
+    # universal-newline mode and rewrites CRLF to LF. A CRLF-authored plan --
+    # or any CRLF file caught in the captured diff -- therefore produced an
+    # artifact that `afriend context` published and `afriend run` immediately
+    # refused. resume_review_context (below) already compares read_bytes().
+    if manifest.output_sha256 != _sha256(artifact.read_bytes()):
         raise UsageError(
             "review context manifest output_sha256 does not match the artifact it accompanies"
         )

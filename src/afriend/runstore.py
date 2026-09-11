@@ -171,6 +171,25 @@ class RunStore:
         base = self.round_dir(round_no)
         return contain_path(self.run_dir, base / f"{friend_name}.audit.json")
 
+    def holds_durable_work(self) -> bool:
+        """Whether anything worth keeping has already been written here.
+
+        A round directory or a non-empty ledger means friends were dispatched
+        and their answers paid for. The initialization failures that justify
+        discarding a fresh run directory -- an unreadable artifact, an
+        unusable roster, a worktree that would not create -- all happen
+        before either exists.
+        """
+        try:
+            if any(self.run_dir.glob("round-*")):
+                return True
+            ledger = self.run_dir / "claims.jsonl"
+            return ledger.is_file() and ledger.stat().st_size > 0
+        except OSError:
+            # Cannot tell, so keep it: an unexplained directory is a smaller
+            # problem than a deleted review.
+            return True
+
     def events_path(self) -> Path:
         """The run-owned, private lifecycle event stream."""
         return contain_path(self.run_dir, self.run_dir / "events.jsonl")

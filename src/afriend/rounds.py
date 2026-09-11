@@ -148,7 +148,7 @@ def _outcome_word(outcome: SpawnResult, contract: PayloadContract) -> str:
     """
     if outcome.timed_out:
         return "timed out"
-    if not outcome.result.succeeded or outcome.result.payload is None:
+    if not outcome.result.succeeded or outcome.result.payload is None or outcome.failure_reason:
         return f"failed: {outcome.failure_reason or 'no usable answer'}"
     items = outcome.result.payload.get(contract.container_key)
     count = len(items) if isinstance(items, list) else 0
@@ -169,7 +169,18 @@ def _round_summary(results: list[RoundResult], contract: PayloadContract) -> str
     """
     if not results:
         return "no friends dispatched"
-    answered = [r for r in results if r[2].result.succeeded and r[2].result.payload is not None]
+    # `failure_reason` is the same test persist_result and run_critique use to
+    # decide whether a friend answered. Deciding it from succeeded/payload
+    # instead let a friend that printed well-formed findings and THEN exited
+    # nonzero be announced as having answered -- with its claims counted in
+    # the round total -- while the durable record said succeeded_friends: 0
+    # and the run exited 1. spawn sets failure_reason independently of
+    # `succeeded`, so the two are not the same question.
+    answered = [
+        r
+        for r in results
+        if r[2].result.succeeded and r[2].result.payload is not None and not r[2].failure_reason
+    ]
     total = 0
     for _spec, _capability, outcome, _policy in answered:
         assert outcome.result.payload is not None
@@ -661,7 +672,14 @@ def recover_result_audit(store: RunStore, round_no: int, spec: FriendSpec) -> di
             "readonly": False,
             "scope": spec.scope,
             "round": round_no,
-            "status": "ok",
+            # Every other field of this fallback row honestly says
+            # "unrecorded"; status must not be the one that claims success.
+            # `ok` is what checkpoint._success_status, any_friend_succeeded
+            # and reviewcompleteness._terminal_status all read as "supplied an
+            # answer", and the row round-trips a later --resume cleanly -- so
+            # the absence of any record that this friend ran became a durable
+            # claim that it passed.
+            "status": "failed: no persisted audit for this friend",
             "diagnostics": "",
             "diagnostics_path": f"round-{round_no}/{spec.name}.err",
         }

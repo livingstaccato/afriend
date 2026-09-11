@@ -179,6 +179,28 @@ class Ledger:
 
     def append(self, record: Record) -> None:
         encoded = (json.dumps(record_to_dict(record), sort_keys=True) + "\n").encode("utf-8")
+        # The writer enforces exactly the bounds the reader enforces, by
+        # running the reader's own check -- not a restatement of its
+        # thresholds, which would drift. `records()` is a single pass that
+        # raises on the offending line, so accepting one oversized record
+        # here makes every *earlier* record unreachable too, permanently,
+        # for replay, `status`, `resolve` and the report alike. Claim text
+        # arrives from friend JSON with no length cap of its own (a friend
+        # may print up to MAX_OUTPUT_BYTES), so this is reachable from one
+        # verbose friend, not only from tampering.
+        if len(encoded) > MAX_LEDGER_LINE_BYTES:
+            raise UsageError(
+                f"refusing to append a {len(encoded)}-byte ledger record: the line limit is "
+                f"{MAX_LEDGER_LINE_BYTES} bytes, and a longer line would make the whole "
+                "ledger unreadable rather than just this record"
+            )
+        try:
+            json_node_count(record_to_dict(record), "ledger record")
+        except (RecursionError, TypeError, ValueError) as exc:
+            raise UsageError(
+                f"refusing to append a ledger record the reader would reject: {exc}. "
+                "Appending it would make the whole ledger unreadable, not just this record."
+            ) from exc
         fd = secure_open_append(self.path, root=self.root)
         try:
             os.fchmod(fd, 0o600)

@@ -109,7 +109,12 @@ def _validate_payload(event_type: str, payload: Mapping[str, object]) -> dict[st
             raise _invalid(f"{name} must be a bounded identifier")
     if "mode" in data and (not isinstance(data["mode"], str) or data["mode"] not in _MODE_VALUES):
         raise _invalid(f"mode must be one of {sorted(_MODE_VALUES)!r}")
-    if "scope" in data and data["scope"] not in {"doc", "repo"}:
+    # isinstance first: `in` against a set raises TypeError on an unhashable
+    # value, and an unhashable payload value must be refused, not crash. Every
+    # sibling check here already does this; scope was the one that did not.
+    if "scope" in data and (
+        not isinstance(data["scope"], str) or data["scope"] not in {"doc", "repo"}
+    ):
         raise _invalid("scope must be 'doc' or 'repo'")
     if "repository_scope_mode" in data:
         scope_mode = data["repository_scope_mode"]
@@ -190,12 +195,16 @@ class EventRecord:
         event_type = value["type"]
         if not isinstance(event_type, str):
             raise _invalid("type must be a string")
-        return cls.create(
-            event_type,
-            value["payload"],
-            run_id=value["run_id"],
-            timestamp=value["timestamp"],
-        )
+        # Constructed directly, not through create(): create()'s
+        # `timestamp or now()` default meant any falsy stored timestamp
+        # ('', None, 0, False) skipped the RFC3339 validator entirely and was
+        # silently restamped with the READER's wall clock -- so a truncated
+        # or hand-edited log read back as valid with fabricated times, which
+        # is the one thing that validator exists to prevent.
+        stored_timestamp = value["timestamp"]
+        if not isinstance(stored_timestamp, str):
+            raise _invalid("timestamp must be RFC3339 UTC")
+        return cls(value["run_id"], event_type, value["payload"], stored_timestamp)
 
     def to_dict(self) -> dict[str, object]:
         return {
