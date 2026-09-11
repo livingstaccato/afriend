@@ -161,8 +161,8 @@ def test_config_path_honors_absolute_xdg_home_and_rejects_relative(tmp_path, mon
 @pytest.mark.parametrize(
     ("contents", "field"),
     [
-        ("not json", "malformed JSON"),
-        ("[]", "top-level"),
+        ("not json", "is not valid JSON within bounds"),
+        ("[]", "must contain a JSON object"),
         ('{"version": 3}', "top-level keys"),
         (
             '{"version": 3, "default_profile": "quick", "profiles": {}, '

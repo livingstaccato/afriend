@@ -11,8 +11,7 @@ import tempfile
 from types import MappingProxyType
 
 from .errors import UsageError
-from .jsonio import read_bounded_bytes
-from .outcomes import json_node_count
+from .jsonio import load_json_object
 from .reviewprofiles import (
     SAFE_FIELDS,
     get as builtin_profile,
@@ -191,8 +190,9 @@ def load(
     """Load a strict, versioned preference document; absent means ``quick``."""
     known_names = _known_names(known)
     path = config_path(env)
+    # Shares jsonio's pipeline with providerconfig -- see the comment there.
     try:
-        payload = read_bounded_bytes(
+        data = load_json_object(
             path,
             label="session configuration",
             max_bytes=MAX_SESSION_CONFIG_BYTES,
@@ -203,22 +203,6 @@ def load(
         raise
     except OSError as exc:
         raise UsageError(f"{path}: cannot read session configuration: {exc}") from exc
-    try:
-        contents = payload.decode("utf-8")
-    except UnicodeDecodeError as exc:
-        raise UsageError(f"{path}: invalid session configuration: {exc}") from exc
-    try:
-        data = json.loads(contents)
-    except (json.JSONDecodeError, RecursionError, ValueError) as exc:
-        if not isinstance(exc, json.JSONDecodeError):
-            raise UsageError(f"{path}: malformed JSON within bounds: {exc}") from exc
-        raise UsageError(f"{path}: malformed JSON: {exc.msg}") from exc
-    try:
-        json_node_count(data, "session configuration")
-    except (RecursionError, TypeError, ValueError) as exc:
-        raise UsageError(f"{path}: session configuration exceeds JSON bounds: {exc}") from exc
-    if not isinstance(data, dict):
-        raise _invalid(path, "top-level", "must be an object", got=data)
     version = data.get("version")
     if isinstance(version, bool) or not isinstance(version, int):
         raise _invalid(path, "version", "must be an integer", got=version)

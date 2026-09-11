@@ -90,8 +90,8 @@ def test_invalid_config_names_the_file_and_field(tmp_path, monkeypatch):
 @pytest.mark.parametrize(
     ("contents", "field", "invalid_value"),
     [
-        ("not json", "malformed JSON", None),
-        ("[]", "top-level", "got []"),
+        ("not json", "is not valid JSON within bounds", None),
+        ("[]", "must contain a JSON object", None),
         ('{"version": 1}', "top-level keys", "got ['version']"),
         (
             '{"version": 1, "providers": {}, "extra": true}',
@@ -221,7 +221,7 @@ def test_read_os_error_names_config_file(tmp_path, monkeypatch):
     def fail_read(*_args, **_kwargs):
         raise PermissionError("mock permission failure")
 
-    monkeypatch.setattr(providerconfig, "read_bounded_bytes", fail_read)
+    monkeypatch.setattr(providerconfig, "load_json_object", fail_read)
     with pytest.raises(UsageError, match=r"config.json.*mock permission failure"):
         providerconfig.load(["ollama"])
 
@@ -231,7 +231,7 @@ def test_invalid_utf8_is_reported_as_invalid_provider_configuration(tmp_path, mo
     path = providerconfig.config_path()
     path.parent.mkdir(parents=True)
     path.write_bytes(b"\xff\xfe")
-    with pytest.raises(UsageError, match=r"config.json.*invalid provider configuration"):
+    with pytest.raises(UsageError, match=r"provider configuration.*config.json.*valid UTF-8"):
         providerconfig.load(["ollama"])
 
 

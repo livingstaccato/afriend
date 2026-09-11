@@ -10,8 +10,7 @@ from pathlib import Path
 import tempfile
 
 from .errors import UsageError
-from .jsonio import read_bounded_bytes
-from .outcomes import json_node_count
+from .jsonio import load_json_object
 from .trust import MODEL_RE
 
 CONFIG_VERSION = 1
@@ -66,8 +65,14 @@ def load(known: Iterable[str], env: Mapping[str, str] | None = None) -> Provider
     known_names = set(known)
     path = config_path(env)
     defaults = {name: ProviderSetting() for name in sorted(known_names)}
+    # One bounded-read / decode / parse / node-count / is-a-dict pipeline,
+    # in jsonio, rather than a hand-rolled copy here and a second one in
+    # sessionconfig. Two copies of a security-relevant read path meant a
+    # future hardening of jsonio -- a new symlink check, a tighter node
+    # bound -- would silently miss both config loaders. The messages jsonio
+    # raises differ in wording from the ones this block used to build.
     try:
-        payload = read_bounded_bytes(
+        data = load_json_object(
             path,
             label="provider configuration",
             max_bytes=MAX_PROVIDER_CONFIG_BYTES,
@@ -78,23 +83,6 @@ def load(known: Iterable[str], env: Mapping[str, str] | None = None) -> Provider
         raise
     except OSError as exc:
         raise UsageError(f"{path}: cannot read configuration: {exc}") from exc
-    try:
-        contents = payload.decode("utf-8")
-    except UnicodeDecodeError as exc:
-        raise UsageError(f"{path}: invalid provider configuration: {exc}") from exc
-
-    try:
-        data = json.loads(contents)
-    except (json.JSONDecodeError, RecursionError, ValueError) as exc:
-        if not isinstance(exc, json.JSONDecodeError):
-            raise UsageError(f"{path}: malformed JSON within bounds: {exc}") from exc
-        raise UsageError(f"{path}: malformed JSON: {exc.msg}") from exc
-    try:
-        json_node_count(data, "provider configuration")
-    except (RecursionError, TypeError, ValueError) as exc:
-        raise UsageError(f"{path}: provider configuration exceeds JSON bounds: {exc}") from exc
-    if not isinstance(data, dict):
-        raise _invalid(path, "top-level", "must be an object", got=data)
     if set(data) != _TOP_LEVEL_KEYS:
         raise _invalid(
             path,
