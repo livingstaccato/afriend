@@ -49,19 +49,38 @@ _GUIDED_ONLY_FLAGS = (
     ("ollama_model", "--ollama-model"),
     ("review_context_enabled", "--enable-review-context/--disable-review-context"),
     ("review_context_sources", "--review-context-sources"),
-    ("review_context_automatic_combine", "--review-context-automatic-combine"),
+    (
+        "review_context_automatic_combine",
+        "--review-context-automatic-combine/--no-review-context-automatic-combine",
+    ),
     ("review_context_ambiguity", "--review-context-ambiguity"),
 )
+
+
+# `store_const` pairs whose off-switch carries `const=False` over a `None`
+# default. For these, `False` means "the user explicitly asked for off" --
+# the one thing a presence check must not read as absence. Every other
+# guided-only dest is a `store_true` (default `False`) or a collection
+# (default `[]`), where a falsy value really does mean "not supplied".
+_TRI_STATE_GUIDED_ONLY = frozenset(
+    {
+        "review_context_enabled",
+        "review_context_automatic_combine",
+    }
+)
+
+
+def _was_supplied(args: argparse.Namespace, attribute: str) -> bool:
+    value = getattr(args, attribute, None)
+    if attribute in _TRI_STATE_GUIDED_ONLY:
+        return value is not None
+    return value not in (None, False, (), [])
 
 
 def cmd_init(args: argparse.Namespace) -> int:
     if getattr(args, "guided", False):
         return _cmd_guided_init(args)
-    supplied = [
-        flag
-        for attribute, flag in _GUIDED_ONLY_FLAGS
-        if getattr(args, attribute, None) not in (None, False, (), [])
-    ]
+    supplied = [flag for attribute, flag in _GUIDED_ONLY_FLAGS if _was_supplied(args, attribute)]
     if supplied:
         raise UsageError(
             f"{', '.join(supplied)} {'requires' if len(supplied) == 1 else 'require'} "

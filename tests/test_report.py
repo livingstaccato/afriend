@@ -581,8 +581,8 @@ def _two_line_evidence_claim(cid, second_line):
 
 
 def test_escape_block_escapes_html_block_start():
-    assert _escape_block("<div>never closes") == "\\<div>never closes"
-    assert _escape_block("<!-- never closes") == "\\<!-- never closes"
+    assert _escape_block("<div>never closes") == "&lt;div>never closes"
+    assert _escape_block("<!-- never closes") == "&lt;!-- never closes"
 
 
 def test_escape_block_escapes_every_angle_bracket_on_a_line():
@@ -598,12 +598,19 @@ def test_escape_block_escapes_every_angle_bracket_on_a_line():
     that needed it most. Markdown only needs the leading marker escaped to
     stop a BLOCK construct, but a raw `<tag>` mid-line is still inline
     HTML, and friend prose is untrusted."""
-    assert _escape_block("<script>alert(1)</script>") == "\\<script>alert(1)\\</script>"
+    assert _escape_block("<script>alert(1)</script>") == "&lt;script>alert(1)&lt;/script>"
     # The shape report.py's module docstring records as having swallowed
     # 3 of 3 findings: an unclosed hidden div eats every later claim.
-    assert _escape_block("<!-- hide --><div style='x'>") == ("\\<!-- hide -->\\<div style='x'>")
-    # An already-escaped leading `<` is still not doubled.
-    assert _escape_block("\\<b>") == "\\<b>"
+    assert _escape_block("<!-- hide --><div style='x'>") == "&lt;!-- hide -->&lt;div style='x'>"
+    # A literal backslash in the prose is preserved and does not suppress
+    # the escape. The predecessor used `(?<!\\)<`, which skipped any `<`
+    # preceded by a backslash; a lookbehind cannot count, so an even-length
+    # run reopened the hole -- CommonMark renders `\\\\` as one literal
+    # backslash and then reads the tag as live HTML.
+    assert _escape_block("\\<b>") == "\\&lt;b>"
+    for count in range(6):
+        rendered = _escape_block("evidence " + "\\" * count + "<div hidden>")
+        assert "<" not in rendered, (count, rendered)
 
 
 def test_escape_block_escapes_setext_underline():
@@ -626,7 +633,7 @@ def test_hostile_html_comment_evidence_does_not_swallow_the_next_claim():
     hostile = _two_line_evidence_claim("c-0001@1", "<!-- never closes")
     victim = claim("c-0002@1")
     out = render([hostile, victim], [], meta())
-    assert "\\<!-- never closes" in out
+    assert "&lt;!-- never closes" in out
     assert "### c-0002@1" in out
     victim_block = out[out.index("### c-0002@1") :]
     assert "**Claim:**" in victim_block and "**Evidence:**" in victim_block

@@ -426,3 +426,62 @@ def test_the_roster_note_states_the_scope_without_calling_it_a_limit(tmp_path, m
     assert note is not None
     assert "limited to repo scope" not in note
     assert "runs at repo scope" in note
+
+
+def test_every_guided_only_flag_is_refused_without_guided_including_off_switches():
+    """The off-switches are the whole point.
+
+    The guard read `getattr(args, dest) not in (None, False, (), [])`, which
+    is right for a `store_true` (default `False`) and for a collection
+    (default `[]`), but wrong for the two `store_const` pairs whose
+    off-switch carries `const=False` over a `None` default. For those,
+    `False` is "the user explicitly asked for off" -- so
+    `afriend init --disable-review-context` wrote a roster, printed success
+    and exited 0 with the request discarded, while its sibling
+    `--enable-review-context` was correctly refused. A guard that accepts
+    exactly the half of each pair that turns something off is the defect
+    this test exists to keep closed.
+    """
+    parser = build_parser()
+    for flag in (
+        "--enable-review-context",
+        "--disable-review-context",
+        "--review-context-automatic-combine",
+        "--no-review-context-automatic-combine",
+        "--review-context-sources=current-task",
+        "--review-context-ambiguity=refuse",
+        "--apply",
+        "--json",
+        "--default-profile=balanced",
+        "--enable-provider=codex",
+        "--disable-provider=codex",
+        "--ollama-model=qwen3:8b",
+    ):
+        args = parser.parse_args(["init", flag])
+        with pytest.raises(UsageError, match="--guided"):
+            init_module.cmd_init(args)
+
+
+def test_the_tri_state_set_is_exactly_what_the_parser_declares_as_tri_state():
+    """Keep the hand-written set from drifting behind the parser.
+
+    `_TRI_STATE_GUIDED_ONLY` names the dests where `False` means supplied.
+    A new `store_const` off-switch added to `init` without being listed here
+    would silently reintroduce the dropped-flag bug, and no other test would
+    notice, so derive the truth from the parser's own actions instead of
+    trusting the literal.
+    """
+    parser = build_parser()
+    init_parser = parser._subparsers._group_actions[0].choices["init"]  # type: ignore[union-attr]
+
+    guided_only_dests = {dest for dest, _flag in init_module._GUIDED_ONLY_FLAGS}
+    tri_state = {
+        action.dest
+        for action in init_parser._actions
+        if action.dest in guided_only_dests and action.const is False and action.default is None
+    }
+
+    assert tri_state == set(init_module._TRI_STATE_GUIDED_ONLY), (
+        "a guided-only store_const off-switch is not listed as tri-state; "
+        "its False would be read as 'not supplied' and the flag dropped"
+    )

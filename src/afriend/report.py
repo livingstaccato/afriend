@@ -241,20 +241,27 @@ def _escape_block(text: str) -> str:
     text = _sanitize_display(text)
     escaped_lines = []
     for line in text.split("\n"):
+        # First, before the marker match: an entity, not a backslash escape.
+        # The previous `(?<!\\)<` skipped any `<` preceded by a backslash so
+        # as not to double-escape `\<`, but a lookbehind cannot count -- two
+        # backslashes before a tag suppressed it too, and CommonMark renders
+        # `\\` as one literal backslash and then reads `<div hidden>` as live
+        # HTML. That is the unclosed hidden `<div>` this module's docstring
+        # records as having swallowed 3 of 3 findings, reachable again through
+        # any even-length backslash run in friend prose. `&lt;` contains no
+        # backslash, so no run of them can defeat it -- the same reason
+        # `_escape_cell` uses entities. Doing it here rather than after the
+        # marker match also means `<` never matches _BLOCK_LEADER_RE's `<`
+        # alternative, so the line does not collect a stray `\` before the
+        # entity. `>` is deliberately left alone: no tag can form without a
+        # `<`, and escaping it would fight the blockquote marker.
+        line = line.replace("<", "&lt;")
         match = _BLOCK_LEADER_RE.match(line)
         if match:
             marker = match.group("marker")
             start, end = match.span("marker")
             line = line[:start] + "\\" + marker[0] + marker[1:] + line[end:]
         line = _defang_links(line)
-        # Unconditional: the negative lookbehind already leaves an escaped
-        # `\<` alone, so the "is this line already escaped?" guard that used
-        # to wrap this call was not preventing double-escaping -- it was
-        # switching the escaping off for the whole remainder of any line
-        # whose first non-space character was `<`. That let raw HTML from
-        # friend prose through, including the unclosed hidden `<div>` this
-        # module's docstring records as having swallowed 3 of 3 findings.
-        line = re.sub(r"(?<!\\)<", r"\\<", line)
         line = line.replace("[", "\\[").replace("]", "\\]")
         escaped_lines.append(line)
     return "\n".join(escaped_lines)
