@@ -410,7 +410,10 @@ not filesystem reads, and does not replace OS read confinement. A provider
 with a verified read-only/write-protection mode does not need
 `--allow-unsandboxed-friend`. That flag is explicit risk acceptance, not a
 normal fix: the affected provider runs without OS confinement and retains
-same-user filesystem read access.
+same-user filesystem read access. It never weakens that provider further to
+run it — a flag whose only justification was the outer OS policy is dropped
+rather than passed — and where the sandbox was itself the write protection,
+the run records it as withdrawn instead of asserting it held.
 
 <details>
 <summary>Full run flow, step by step</summary>

@@ -215,7 +215,11 @@ Three ways out, best first:
    normal fix. It stamps every affected provider in the report; that provider
    runs without OS confinement and retains same-user filesystem read access.
    It is reasonable only for an artifact you wrote yourself, not one you were
-   sent.
+   sent. It never weakens a provider further to run it: a flag whose only
+   justification was the outer policy — Codex's `--sandbox
+   danger-full-access` — is dropped rather than passed, and where an
+   adapter's write protection *was* the sandbox the run records
+   `write_protected: false` and names the friend in a downgrade.
 
 ## The sandbox breaks a friend that used to work
 
@@ -235,9 +239,13 @@ plugins, and Codex's built-in browser, computer, and web-search features
 remain disabled, and the rest of `~/.agents` remains unavailable.
 Codex's macOS command sandbox cannot nest inside afriend's outer Seatbelt
 profile, so the adapter uses that outer profile to make the isolated review
-directory read-only. It is refused if that OS profile is unavailable; its
-`danger-full-access` command mode never grants write access outside the
-outer policy.
+directory read-only. Its `danger-full-access` command mode is emitted only
+while that outer policy binds the workdir. Where no OS mechanism exists the
+flag is dropped rather than passed: emitting it would switch off the CLI's
+own inner sandbox with nothing outside it, which is worse than passing no
+flag at all. Nothing is then assumed about the CLI's own default — the run
+records `write_protected: false` for that friend, and without
+`--allow-unsandboxed-friend` it is refused outright.
 If that startup access still fails, afriend records the affected claims as
 **not assessed — judge access failure** and leaves the review incomplete; it
 never treats that failure as evidence against the claims.

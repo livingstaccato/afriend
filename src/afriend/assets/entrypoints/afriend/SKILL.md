@@ -465,7 +465,10 @@ read confinement. An adapter may declare one and still require OS confinement
 -- agy declares `readonly = true` and is refused by this path, because the
 sandbox is what provides its write protection. `--allow-unsandboxed-friend` is explicit risk acceptance, not a
 normal fix, and lets the affected provider run without OS confinement with
-same-user filesystem read access.
+same-user filesystem read access. It never weakens the provider to do so: a
+flag justified only by the outer policy is dropped rather than passed, and
+where the sandbox WAS the write protection the run records
+`write_protected: false` and names the friend in a downgrade.
 
 **Duplicates are under-merged on purpose.** The default merge only combines
 claims with identical text and location, so two friends describing one defect
