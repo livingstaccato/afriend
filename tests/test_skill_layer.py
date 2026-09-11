@@ -74,6 +74,59 @@ def test_review_is_the_primary_entry_with_the_narrow_afriend_triggers():
     assert "friend sent me this" in body
 
 
+def test_review_names_the_flag_for_every_roster_widening_it_offers():
+    """A thin roster must not read as a settled fact.
+
+    The skill already told the host to "offer only feasible choices" when a
+    judging roster has one qualifying worker, but named none of the flags that
+    perform them -- `--fresh-host-worker` appeared only in references/modes.md,
+    and `--enable-provider` nowhere. A reader who obeyed the instruction still
+    could not execute the option it told them to offer, so the cheapest
+    compliant path was to accept whatever `doctor` happened to report ready.
+    An option offered without its flag is not an offer.
+    """
+    text = (ENTRYPOINTS / "review" / "SKILL.md").read_text()
+    body = " ".join(text.lower().split())
+
+    for flag in (
+        "--fresh-host-worker",
+        "--include-self",
+        "--enable-provider",
+        "--qualification-policy distinct-sessions",
+    ):
+        assert flag in body, flag
+
+    # doctor's readiness must be stated as non-authoritative over the roster.
+    for phrase in (
+        "reports effective readiness, not the roster you are allowed to build",
+        "excluded **by default**, not by policy",
+        "these flags live on `afriend run`, not",
+        "do not conclude a roster is thin from `doctor` alone",
+    ):
+        assert phrase.lower() in body, phrase
+
+    # The harness must be told it is never the independent reviewer.
+    for phrase in (
+        "the current harness -- you -- never qualifies",
+        "must be reported as self-review",
+    ):
+        assert phrase in body, phrase
+
+
+def test_the_thin_roster_gate_precedes_the_dispatch_preflight():
+    """Placement is the whole fix.
+
+    The one-qualifying-worker rule lived ~100 lines below the sections that
+    tell you how to run, so a top-down reader dispatched before reaching it.
+    The gate has to come before the "About to start afriend" block.
+    """
+    text = (ENTRYPOINTS / "review" / "SKILL.md").read_text()
+    gate = text.index("A thin roster is a question for the user")
+    dispatch = text.index("About to start afriend")
+    running = text.index("## Running it")
+    assert gate < dispatch < running, (gate, dispatch, running)
+
+
 def test_review_sets_session_expectations_before_dispatch_and_after_completion():
     text = (ENTRYPOINTS / "review" / "SKILL.md").read_text()
     lowered = " ".join(text.lower().split())

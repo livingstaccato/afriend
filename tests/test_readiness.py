@@ -195,7 +195,10 @@ def test_detected_host_is_classified_separately(registry):
     assert rows["codex"] == FriendReadiness(
         provider="codex",
         state=ReadinessState.HOST_EXCLUDED,
-        reason="excluded because it is the detected host provider",
+        reason="excluded because it is the detected host provider; reversible per"
+        " run: --include-self adds it as advisory host review, and an explicit"
+        " --friend NAME:LENS with --fresh-host-worker makes it an independent"
+        " fresh worker",
         where="/bin/codex",
         model=None,
     )

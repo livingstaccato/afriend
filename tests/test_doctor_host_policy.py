@@ -83,7 +83,10 @@ def test_doctor_projects_excluded_uncontrolled_host_without_enforcement(monkeypa
             "model": None,
             "name": provider,
             "readonly": False,
-            "reason": "excluded because it is the detected host provider",
+            "reason": "excluded because it is the detected host provider; reversible per"
+            " run: --include-self adds it as advisory host review, and an explicit"
+            " --friend NAME:LENS with --fresh-host-worker makes it an independent"
+            " fresh worker",
             "schema": False,
             "state": "host-excluded",
             "status": "host-excluded",

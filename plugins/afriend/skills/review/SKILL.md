@@ -122,6 +122,42 @@ repository plus selected changes, or named paths), and **Judgment goal**
 Before every requested new loop iteration, restate the short preflight,
 because the target, scope, or policy may have changed.
 
+### A thin roster is a question for the user, never a silent narrowing
+
+`afriend doctor` reports effective readiness, not the roster you are allowed
+to build. Before dispatch, count the qualifying workers the resolved mode
+needs. If there are fewer, you must present the widening options and let the
+user choose. Never quietly proceed with what happens to be ready, never
+downgrade the mode on your own, and never report a readiness state as though
+it settled the matter.
+
+Each state has a documented way out, and you must name the flag, not just the
+possibility:
+
+| Reported state | What it actually means | How to widen |
+| --- | --- | --- |
+| `host-excluded` | the host provider is excluded **by default**, not by policy | `--friend NAME:LENS --fresh-host-worker` for an independent fresh worker, or `--include-self` for an advisory one |
+| `disabled` | a user-owned persistent default, not unavailability | `--enable-provider NAME` for this run only |
+| `reachable-unconfigured` | reached, but missing a required model | `afriend providers models NAME`, then `set-model`, or pass `--model` |
+| `unavailable` | the executable or endpoint was genuinely absent | nothing to widen; say so plainly |
+| one family ready | `cross-provider` cannot be met | several fresh same-provider workers under a task-only `--qualification-policy distinct-sessions` |
+
+`--fresh-host-worker` is the flag that implements "a fresh Claude worker
+beside Codex". It applies to explicitly named `--friend` entries from the
+host's provider and makes them independent rather than advisory; they must
+still disclose host-family correlation. These flags live on `afriend run`, not
+on `afriend doctor`, so a `doctor` row saying `host-excluded` says nothing
+about whether the run may include that provider. Do not conclude a roster is
+thin from `doctor` alone.
+
+The current harness -- you -- never qualifies as an independent friend, in any
+mode, under any flag. You wrote or are about to act on the work under review
+and you hold its rationale in context, which is the correlation the tool
+exists to break. Offer your own read only as an explicitly advisory addition,
+and only after the independent options above have been offered and declined.
+A review that ends with the harness as its only substantive reviewer is
+self-review, and must be reported as self-review.
+
 Pause before dispatch and state the resolved run:
 
 > About to start afriend to `<intent>` with plan `<plan|none>`, review
@@ -224,13 +260,17 @@ workers with different exact requested models). Neither alternative proves a
 provider's backend model identity.
 
 When a judging roster has only one qualifying worker, say so before dispatch
-and offer only feasible choices: start another same-provider worker under a
-task-only `distinct-sessions` or `distinct-models` policy; start a fresh
-worker from a different provider (including a fresh Claude worker beside
-Codex); include the current Claude harness as an advisory reviewer; configure
-another provider; or continue with a one-friend report. The current harness
-never qualifies. A fresh worker from the host's provider is separate execution
-but must disclose host-family correlation. A distinct-models policy accepts
+and offer only feasible choices, each with the flag that performs it: start
+another same-provider worker (`--friend NAME:LENS` repeated, with a task-only
+`--qualification-policy distinct-sessions` or `distinct-models`); start a
+fresh worker from a different provider, including a fresh Claude worker beside
+Codex (`--friend claude:LENS --fresh-host-worker`); enable a provider whose
+persistent default is off (`--enable-provider NAME`); include the current
+Claude harness as an advisory reviewer; or continue with a one-friend report
+as a recorded downgrade. An option offered without its flag is not an offer
+the user can act on. The current harness never qualifies. A fresh worker from
+the host's provider is separate execution but must disclose host-family
+correlation. A distinct-models policy accepts
 only different exact requested model identifiers; a selection label such as
 `fast`, `default`, or `unknown` is refused because it is not an identity, and
 an accepted identifier is still not proof of the backend model that answered.

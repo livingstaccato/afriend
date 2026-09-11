@@ -295,7 +295,10 @@ def assess_all(
             rows[name] = _row(
                 name,
                 ReadinessState.HOST_EXCLUDED,
-                "excluded because it is the detected host provider",
+                "excluded because it is the detected host provider; reversible per"
+                " run: --include-self adds it as advisory host review, and an explicit"
+                " --friend NAME:LENS with --fresh-host-worker makes it an independent"
+                " fresh worker",
                 where,
                 setting.model,
             )
