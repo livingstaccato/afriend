@@ -63,7 +63,7 @@ MUTATIONS = [
     (
         "terminal event: the whole buffer is rescanned every poll",
         "src/afriend/envelopes.py",
-        "    window = strip_ansi(text[-TERMINAL_SCAN_BYTES:])",
+        "    window = strip_ansi(text[_terminal_window_start(text) :])",
         "    window = strip_ansi(text)",
         ["tests/test_early_answer_stop.py"],
     ),

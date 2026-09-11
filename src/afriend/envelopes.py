@@ -13,11 +13,13 @@ structurally unreachable by a plain brace-scan unless it is unwrapped first.
 normalize.py, which had grown past the then-current line cap.
 """
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 import json
 import re
 from typing import Any
+
+from .errors import UsageError
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[a-zA-Z]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
 
@@ -26,6 +28,31 @@ _JSON_ERRORS = (json.JSONDecodeError, ValueError, RecursionError)
 
 def strip_ansi(text: str) -> str:
     return ANSI_RE.sub("", text)
+
+
+def _rule_where(rule: Mapping[str, object]) -> str:
+    """The rule's `where` path, refusing a declaration that cannot be honoured.
+
+    Coercing a missing or non-string `where` to "" silently DROPPED the
+    second condition -- `_scan_ndjson` guards it with `if rule.where`, so
+    `equals` was kept and never enforced, and the rule matched on the event
+    type alone. That is exactly the over-matching `where`/`equals` was added
+    to close: codex's answer rule then also caught reasoning,
+    command-execution and file-change items, splicing them into the answer.
+    A rule that declares neither key is still fine; one that declares
+    `equals` without a usable `where` is a mis-declaration, and must say so
+    rather than run as something else.
+    """
+    where = rule.get("where", "")
+    if not isinstance(where, str):
+        raise UsageError(f"envelope rule `where` must be a string, got {type(where).__name__}")
+    if "equals" in rule and not where:
+        raise UsageError(
+            "envelope rule sets `equals` without `where`: the second condition "
+            "would be silently ignored and the rule would match on the event "
+            "type alone. Give it a `where` path, or drop `equals`."
+        )
+    return where
 
 
 @dataclass(frozen=True)
@@ -129,7 +156,7 @@ def parse_envelope(data: dict[str, Any] | None) -> "Envelope | None":
             EnvelopeRule(
                 match_value=rule["type"],
                 field=rule["field"],
-                where=rule.get("where", "") if isinstance(rule.get("where"), str) else "",
+                where=_rule_where(rule),
                 equals=rule.get("equals", "") if isinstance(rule.get("equals"), str) else "",
             )
             for rule in data.get("rules", [])
@@ -139,7 +166,7 @@ def parse_envelope(data: dict[str, Any] | None) -> "Envelope | None":
             EnvelopeRule(
                 match_value=rule["type"],
                 field=rule["field"],
-                where=rule.get("where", "") if isinstance(rule.get("where"), str) else "",
+                where=_rule_where(rule),
                 equals=rule.get("equals", "") if isinstance(rule.get("equals"), str) else "",
             )
             for rule in data.get("error_rules", [])
@@ -344,7 +371,34 @@ def answer_is_complete(text: str, envelope: Envelope) -> bool:
 # `answer_is_complete` runs on nearly every poll for an NDJSON friend, so the
 # work it does must not grow with the stream it is watching.
 TERMINAL_SCAN_LINES = 16
-TERMINAL_SCAN_BYTES = 65_536
+# A ceiling, not the window. The window is the last TERMINAL_SCAN_LINES lines,
+# located by scanning back from the end -- so the work still does not grow
+# with the stream, but a terminal event LONGER than a fixed byte count is no
+# longer cut in half. At a flat 64 KiB it was: agy's `result` line carries the
+# whole JSON-escaped findings payload, so a big answer (hence a long,
+# expensive run) never matched, and the run paid the full --print-timeout this
+# check exists to avoid. This bound now only caps the pathological case of a
+# single enormous line.
+TERMINAL_SCAN_BYTES = 8 * 1024 * 1024
+
+
+def _terminal_window_start(text: str) -> int:
+    """Index of the start of the last TERMINAL_SCAN_LINES lines of `text`.
+
+    Found by walking newlines backwards, so the cost is the length of those
+    few lines rather than of the whole buffer -- the flat-cost property this
+    check needs, without a fixed byte window that truncates a long terminal
+    event mid-line.
+    """
+    floor = max(0, len(text) - TERMINAL_SCAN_BYTES)
+    cut = len(text)
+    for _ in range(TERMINAL_SCAN_LINES):
+        # Skip the trailing newline of the line we just consumed.
+        nl = text.rfind("\n", floor, cut - 1 if cut > floor else floor)
+        if nl == -1:
+            return floor
+        cut = nl + 1
+    return cut
 
 
 def _ndjson_stream_finished(text: str, envelope: Envelope) -> bool:
@@ -370,7 +424,7 @@ def _ndjson_stream_finished(text: str, envelope: Envelope) -> bool:
     """
     if not envelope.terminal_event:
         return False
-    window = strip_ansi(text[-TERMINAL_SCAN_BYTES:])
+    window = strip_ansi(text[_terminal_window_start(text) :])
     for line in reversed(window.splitlines()[-TERMINAL_SCAN_LINES:]):
         line = line.strip()
         if not line:

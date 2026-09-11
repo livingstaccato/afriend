@@ -325,11 +325,21 @@ def run_process(
     # group by definition, so pgid membership can never observe it -- the
     # pipe it forgot to close is the only externally visible trace of it
     # this process has.
-    if stdout_thread.is_alive() or stderr_thread.is_alive():
+    # stdin counts too. It was excluded, so a descendant holding fd 0 open
+    # without reading it -- while stdout and stderr reached EOF, the shape of
+    # a daemon started with its output redirected -- produced a stdin pump
+    # that was detected (it warns, below) and then never asked to stop. Its
+    # non-blocking write loop polls a stop_event nobody set, so the thread and
+    # the artifact-sized prompt it pins leaked for the life of the process.
+    # It is the same evidence of a surviving descendant as the other two: a
+    # setsid() escapee cannot be seen by the pgid check, and the pipe it
+    # forgot to close is the only trace left.
+    if stdout_thread.is_alive() or stderr_thread.is_alive() or stdin_thread.is_alive():
         orphans_suspected = True
         stop_event.set()
         stdout_thread.join(timeout=_DRAIN_JOIN_S)
         stderr_thread.join(timeout=_DRAIN_JOIN_S)
+        stdin_thread.join(timeout=_DRAIN_JOIN_S)
     for name, thread in (
         ("stdin", stdin_thread),
         ("stdout", stdout_thread),
