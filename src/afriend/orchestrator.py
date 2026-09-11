@@ -29,9 +29,8 @@ from typing import TYPE_CHECKING, Any
 
 from .claimschema import validate_payload
 from .errors import AfError, UsageError
-from .jsonio import MAX_JSON_FILE_BYTES, decode_json_object
 from .ledger import Alias, Claim
-from .secureio import secure_read_bytes, secure_regular_exists, secure_write_text
+from .secureio import secure_write_text
 from .themes import ThemeProposal
 
 if TYPE_CHECKING:
@@ -81,6 +80,7 @@ class NeedsOrchestrator(AfError):
         friends_meta: list[dict[str, Any]] | None = None,
         downgrades: list[str] | None = None,
         successful_friend_ids: list[str] | None = None,
+        succeeded_friends: int = 0,
         theme_proposals: list[ThemeProposal] | None = None,
         produced_new_themes: bool = False,
     ) -> None:
@@ -92,6 +92,7 @@ class NeedsOrchestrator(AfError):
         self.friends_meta = list(friends_meta or [])
         self.downgrades = list(downgrades or [])
         self.successful_friend_ids = list(successful_friend_ids or [])
+        self.succeeded_friends = succeeded_friends
         self.theme_proposals = list(theme_proposals or [])
         self.produced_new_themes = produced_new_themes
 
@@ -153,67 +154,22 @@ def write_request(
     return path
 
 
-def _load(path: Path) -> dict[str, Any]:
-    payload = secure_read_bytes(path, root=path.parent, max_bytes=MAX_JSON_FILE_BYTES)
-    return decode_json_object(payload, path=path, label="orchestrator response")
-
-
-def read_response(
-    round_dir: Path,
-    known_ids: set[str],
-    tolerate_duplicates: frozenset[str] = frozenset(),
-    *,
-    response_file: Path | None = None,
-) -> list[MergeDecision]:
-    """Parse and validate RESPONSE.json against the claims that exist.
-
-    Every rule here exists because breaking it corrupts the alias graph in a
-    way that only surfaces later, while someone is reading a report and
-    wondering where a finding went:
-
-    * An unknown id would produce an Alias pointing at nothing.
-    * Merging a claim into itself would make it its own canonical.
-    * A chain (A->B, B->C) leaves A pointing at a claim that is itself gone.
-      Rejected rather than resolved, because resolving it silently would
-      pick a canonical the orchestrator never actually chose.
-    * The same duplicate twice would record two different fates for one claim.
-
-    **`tolerate_duplicates` exists for exactly one caller and one moment: a
-    `--resume` retrying a round whose RESPONSE.json was already partly
-    applied before the process crashed.** `known_ids` is built from
-    `canonical_claims`, which has already folded away every id a completed
-    merge named as `duplicate` -- so re-validating the SAME response against
-    the SAME file, unaware anything already happened, refused with "not a
-    claim in this run" on precisely the merges the crashed attempt had
-    already finished. That turned a transient crash into a run permanently
-    unable to resume: every retry re-read the identical file and hit the
-    identical refusal. A duplicate named here is skipped rather than
-    validated -- the caller populates this from the ledger's own Alias
-    records for the round being resumed, so a tolerated id is one this
-    exact response is already known to have applied, not a guess.
-    """
-    path = response_path(round_dir) if response_file is None else Path(response_file)
-    try:
-        exists = secure_regular_exists(path, root=Path(round_dir))
-    except OSError as exc:
-        raise UsageError(f"orchestrator response is not a safe regular file: {exc}") from exc
-    if not exists:
-        raise UsageError(
-            f"no {RESPONSE_NAME} in {round_dir}. This run halted for merge "
-            f"adjudication; write the file described in {REQUEST_NAME} and "
-            "re-run with --resume."
-        )
-    data = _load(path)
-    return validate_merge_response(data, path, known_ids, tolerate_duplicates)
-
-
 def validate_merge_response(
     data: dict[str, Any],
     path: Path,
     known_ids: set[str],
-    tolerate_duplicates: frozenset[str] = frozenset(),
 ) -> list[MergeDecision]:
-    """Validate merge data already decoded from one immutable snapshot."""
+    """Validate merge data already decoded from one immutable snapshot.
+
+    A `--resume` retrying a partly-applied response solves that problem in
+    `resume.py`, by unioning the already-consumed duplicate ids into
+    `known_ids` before calling this. There used to be a `tolerate_duplicates`
+    parameter here that took the other approach -- skipping such an entry
+    instead of validating it -- with no production caller. It was not merely
+    dead: skipping `continue`d without appending to `decisions`, which would
+    have misaligned `resume._validate_partial_merges`' prefix comparison and
+    its `decisions[len(previous_merges):]` slice had anyone wired it up.
+    """
 
     version = data.get("version")
     if version != SCHEMA_VERSION:
@@ -237,11 +193,6 @@ def validate_merge_response(
             if not isinstance(value, str) or not value.strip():
                 raise UsageError(f"{path}: merges[{index}].{field} missing or empty")
         assert isinstance(canonical, str) and isinstance(duplicate, str)
-        if duplicate not in known_ids and duplicate in tolerate_duplicates:
-            # Already applied by an earlier attempt at this exact round,
-            # before it crashed. Not re-validated against `known_ids`
-            # because it is, correctly, no longer there.
-            continue
         for field, value in (("canonical", canonical), ("duplicate", duplicate)):
             if value not in known_ids:
                 raise UsageError(
@@ -361,31 +312,6 @@ def write_extract_request(
     else:
         store.write_sensitive(path, text)
     return path
-
-
-def read_extract_response(
-    round_dir: Path, *, response_file: Path | None = None
-) -> list[dict[str, Any]]:
-    """Parse RESPONSE.json's `findings` and validate them as claims.
-
-    Validated with the SAME contract a friend's own output goes through, not
-    a looser one. An orchestrator is trusted to read, not to bypass the
-    schema -- a hand-extracted claim missing `failure_scenario` is
-    unsubstantiated for exactly the reasons §6.1 gives, whoever wrote it.
-    """
-    path = response_path(round_dir) if response_file is None else Path(response_file)
-    try:
-        exists = secure_regular_exists(path, root=Path(round_dir))
-    except OSError as exc:
-        raise UsageError(f"orchestrator response is not a safe regular file: {exc}") from exc
-    if not exists:
-        raise UsageError(
-            f"no {RESPONSE_NAME} in {round_dir}. This run halted for claim "
-            f"extraction; fill in `findings` in {REQUEST_NAME}, save it as "
-            f"{RESPONSE_NAME}, and re-run with --resume."
-        )
-    data = _load(path)
-    return validate_extract_response(data, path)
 
 
 def validate_extract_response(data: dict[str, Any], path: Path) -> list[dict[str, Any]]:

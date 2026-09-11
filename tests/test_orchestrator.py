@@ -38,6 +38,20 @@ def write_response(tmp_path, merges, version=orchestrator.SCHEMA_VERSION):
     return tmp_path
 
 
+def read_response(round_dir, known_ids):
+    """Read a written RESPONSE.json and validate it, as resume.py does.
+
+    orchestrator used to export this as `read_response`, but nothing in
+    production called it -- resume.py reads and authenticates the response
+    bytes itself and calls validate_merge_response directly. Keeping a second
+    reading implementation in the module meant the tests exercised a path the
+    product does not use, and one that could drift from it. The two lines it
+    amounted to live here instead.
+    """
+    path = orchestrator.response_path(round_dir)
+    return orchestrator.validate_merge_response(json.loads(path.read_text()), path, known_ids)
+
+
 # --- The request -----------------------------------------------------------
 
 
@@ -69,28 +83,17 @@ def test_the_request_is_a_fillable_template(tmp_path):
 # --- Reading the response --------------------------------------------------
 
 
-def test_a_missing_response_says_what_to_do(tmp_path):
-    with pytest.raises(UsageError, match="--resume"):
-        orchestrator.read_response(tmp_path, {"c-0001@1"})
-
-
-def test_malformed_json_is_a_usage_error(tmp_path):
-    orchestrator.response_path(tmp_path).write_text("{not json")
-    with pytest.raises(UsageError, match="not valid JSON"):
-        orchestrator.read_response(tmp_path, {"c-0001@1"})
-
-
 def test_an_empty_merge_list_is_valid(tmp_path):
     """ "I looked and none of these are duplicates" is a real answer."""
     write_response(tmp_path, [])
-    assert orchestrator.read_response(tmp_path, {"c-0001@1"}) == []
+    assert read_response(tmp_path, {"c-0001@1"}) == []
 
 
 def test_a_well_formed_merge_is_accepted(tmp_path):
     write_response(
         tmp_path, [{"canonical": "c-0001@1", "duplicate": "c-0002@1", "rationale": "same defect"}]
     )
-    decisions = orchestrator.read_response(tmp_path, {"c-0001@1", "c-0002@1"})
+    decisions = read_response(tmp_path, {"c-0001@1", "c-0002@1"})
     assert decisions == [orchestrator.MergeDecision("c-0001@1", "c-0002@1", "same defect")]
 
 
@@ -98,63 +101,13 @@ def test_an_unknown_id_is_rejected(tmp_path):
     """It would produce an Alias pointing at nothing."""
     write_response(tmp_path, [{"canonical": "c-0001@1", "duplicate": "c-9999@1"}])
     with pytest.raises(UsageError, match="not a claim in this run"):
-        orchestrator.read_response(tmp_path, {"c-0001@1"})
-
-
-# --- tolerate_duplicates: a resume retrying a partly-applied response ------
-
-
-def test_a_duplicate_already_gone_is_skipped_when_tolerated(tmp_path):
-    """The exact crash this exists for: a prior, interrupted attempt at this
-    round already merged c-0002@1 into c-0001@1 and appended the Alias, so
-    `known_ids` (built from canonical_claims) no longer contains c-0002@1.
-    Re-validating the identical response against that fact used to refuse
-    the whole file with 'not a claim in this run' -- on an id it is
-    CORRECTLY missing, because it was already merged."""
-    write_response(
-        tmp_path, [{"canonical": "c-0001@1", "duplicate": "c-0002@1", "rationale": "same"}]
-    )
-    decisions = orchestrator.read_response(
-        tmp_path, {"c-0001@1"}, tolerate_duplicates=frozenset({"c-0002@1"})
-    )
-    assert decisions == []
-
-
-def test_a_tolerated_duplicate_does_not_mask_a_genuinely_unknown_one(tmp_path):
-    """Tolerance is scoped to the exact ids the caller names, not a general
-    'ignore missing ids' switch -- a response naming a claim that never
-    existed at all must still be refused."""
-    write_response(
-        tmp_path,
-        [
-            {"canonical": "c-0001@1", "duplicate": "c-0002@1"},
-            {"canonical": "c-0001@1", "duplicate": "c-9999@1"},
-        ],
-    )
-    with pytest.raises(UsageError, match="not a claim in this run"):
-        orchestrator.read_response(
-            tmp_path, {"c-0001@1"}, tolerate_duplicates=frozenset({"c-0002@1"})
-        )
-
-
-def test_a_mix_of_fresh_and_already_applied_merges_applies_only_the_fresh_ones(tmp_path):
-    write_response(
-        tmp_path,
-        [
-            {"canonical": "c-0001@1", "duplicate": "c-0002@1"},
-            {"canonical": "c-0001@1", "duplicate": "c-0003@1"},
-        ],
-    )
-    decisions = orchestrator.read_response(
-        tmp_path, {"c-0001@1", "c-0003@1"}, tolerate_duplicates=frozenset({"c-0002@1"})
-    )
-    assert decisions == [orchestrator.MergeDecision("c-0001@1", "c-0003@1", "")]
+        read_response(tmp_path, {"c-0001@1"})
 
 
 def test_merging_a_claim_into_itself_is_rejected(tmp_path):
     write_response(tmp_path, [{"canonical": "c-0001@1", "duplicate": "c-0001@1"}])
     with pytest.raises(UsageError, match="into itself"):
-        orchestrator.read_response(tmp_path, {"c-0001@1"})
+        read_response(tmp_path, {"c-0001@1"})
 
 
 def test_a_chain_is_rejected_rather_than_resolved(tmp_path):
@@ -169,7 +122,7 @@ def test_a_chain_is_rejected_rather_than_resolved(tmp_path):
         ],
     )
     with pytest.raises(UsageError, match="chain"):
-        orchestrator.read_response(tmp_path, {"c-0001@1", "c-0002@1", "c-0003@1"})
+        read_response(tmp_path, {"c-0001@1", "c-0002@1", "c-0003@1"})
 
 
 def test_the_same_duplicate_twice_is_rejected(tmp_path):
@@ -182,7 +135,7 @@ def test_the_same_duplicate_twice_is_rejected(tmp_path):
         ],
     )
     with pytest.raises(UsageError, match="twice"):
-        orchestrator.read_response(tmp_path, {"c-0001@1", "c-0002@1", "c-0003@1"})
+        read_response(tmp_path, {"c-0001@1", "c-0002@1", "c-0003@1"})
 
 
 def test_two_claims_merging_into_one_canonical_is_fine(tmp_path):
@@ -194,14 +147,14 @@ def test_two_claims_merging_into_one_canonical_is_fine(tmp_path):
             {"canonical": "c-0001@1", "duplicate": "c-0003@1"},
         ],
     )
-    decisions = orchestrator.read_response(tmp_path, {"c-0001@1", "c-0002@1", "c-0003@1"})
+    decisions = read_response(tmp_path, {"c-0001@1", "c-0002@1", "c-0003@1"})
     assert len(decisions) == 2
 
 
 def test_a_future_schema_version_is_refused(tmp_path):
     write_response(tmp_path, [], version=99)
     with pytest.raises(UsageError, match="unsupported version"):
-        orchestrator.read_response(tmp_path, {"c-0001@1"})
+        read_response(tmp_path, {"c-0001@1"})
 
 
 def test_a_non_array_merges_field_is_refused(tmp_path):
@@ -209,7 +162,7 @@ def test_a_non_array_merges_field_is_refused(tmp_path):
         json.dumps({"version": orchestrator.SCHEMA_VERSION, "merges": "none"})
     )
     with pytest.raises(UsageError, match="must be an array"):
-        orchestrator.read_response(tmp_path, {"c-0001@1"})
+        read_response(tmp_path, {"c-0001@1"})
 
 
 # --- Applying the decisions ------------------------------------------------

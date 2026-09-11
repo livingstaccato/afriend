@@ -176,6 +176,7 @@ def restore_args(args: argparse.Namespace) -> argparse.Namespace:
     restored._resume_rounds_run = meta["rounds_run"]
     restored._resume_active_elapsed_s = meta["active_elapsed_s"]
     restored._resume_successful_friend_ids = meta["successful_friend_ids"]
+    restored._resume_succeeded_friends = meta["succeeded_friends"]
     restored._resume_any_success = any_friend_succeeded(meta["friends"])
     restored._resume_theme_proposals = [
         ThemeProposal.from_dict(value) for value in meta["theme_proposals"]

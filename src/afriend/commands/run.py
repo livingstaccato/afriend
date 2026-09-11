@@ -317,7 +317,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         # None: no fresh critique round yet -- decide_exit's
         # --require-friends check fails open on None rather than guess.
         succeeded_friends: int | None = (
-            len(successful_friend_ids) if resume_dir is not None else None
+            int(getattr(args, "_resume_succeeded_friends", 0)) if resume_dir is not None else None
         )
         # Set once any round hits a deterministic auth failure; only stops
         # further scheduling -- the round that found it is already persisted.
@@ -484,7 +484,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                     # counting the live set re-issues ids already spent.
                     counter = resumed.counter
                     any_success = any_success or bool(successful_friend_ids)
-                    succeeded_friends = len(successful_friend_ids)
+                    succeeded_friends = int(getattr(args, "_resume_succeeded_friends", 0))
                     iterations_run = iteration
                     rounds_reached = max(rounds_reached, base_round)
                     streak = step.streak
@@ -670,7 +670,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 theme_proposals.extend(halt.theme_proposals)
                 produced_new_themes = halt.produced_new_themes
                 any_success = any_success or any_friend_succeeded(halt.friends_meta)
-                succeeded_friends = len(successful_friend_ids)
+                succeeded_friends = halt.succeeded_friends
             write_halt(
                 args,
                 store,
@@ -686,6 +686,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 rounds_run=rounds_reached,
                 active_elapsed_s=budget.elapsed(now()),
                 successful_friend_ids=successful_friend_ids,
+                succeeded_friends=succeeded_friends or 0,
                 iteration_completed=not extraction_halt,
             )
             reporter.run_finished("halted", "resume", duration_s=budget.elapsed(now()))

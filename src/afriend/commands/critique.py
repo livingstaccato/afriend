@@ -272,9 +272,16 @@ def run_critique(
             continue
         outcome.any_success = True
         outcome.independent_any_success = outcome.independent_any_success or spec.independent
+        # Two different questions, so two fields. `successful_friend_ids` is
+        # the durable record of WHICH friends answered, advisory host
+        # included -- run.json could not previously answer "did the host
+        # friend succeed?", which the report's own advisory/independent
+        # distinction needs. `succeeded_friends` is the count quorum and
+        # --require-friends consume, and an advisory host self-review is
+        # excluded from those by design.
+        outcome.successful_friend_ids.append(spec.name)
         if spec.independent:
             outcome.succeeded_friends += 1
-            outcome.successful_friend_ids.append(spec.name)
         incoming = []
         # `or []`, not a .get default: `findings` is nullable in the schema
         # (strict mode requires every property in `required`, so a friend
@@ -346,6 +353,7 @@ def run_critique(
             friends_meta=outcome.friends_meta,
             downgrades=outcome.downgrades,
             successful_friend_ids=outcome.successful_friend_ids,
+            succeeded_friends=outcome.succeeded_friends,
             theme_proposals=outcome.theme_proposals,
             produced_new_themes=outcome.produced_new_themes,
         )

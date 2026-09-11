@@ -107,6 +107,7 @@ def write_halt(
     rounds_run: int = 0,
     active_elapsed_s: float = 0.0,
     successful_friend_ids: list[str] | None = None,
+    succeeded_friends: int = 0,
     iteration_completed: bool = True,
 ) -> None:
     """Leave behind a run directory a resume can actually continue from.
@@ -152,9 +153,10 @@ def write_halt(
     meta["rounds_run"] = rounds_run
     meta["resume_iteration"] = iteration
     meta["active_elapsed_s"] = active_elapsed_s
-    successes = list(successful_friend_ids or [])
-    meta["successful_friend_ids"] = successes
-    meta["succeeded_friends"] = len(successes)
+    meta["successful_friend_ids"] = list(successful_friend_ids or [])
+    # Not len() of the list above: the list holds every success, this counts
+    # only the independent ones.
+    meta["succeeded_friends"] = succeeded_friends
     meta["required_friends"] = getattr(args, "require_friends", None)
     if tracker is not None:
         # Same failure as Budget.calls, same fix: a RepeatTracker also

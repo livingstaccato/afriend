@@ -155,9 +155,14 @@ def _host_resume_meta(mode: str, *, frozen_host: bool, roles: bool = False) -> d
             "status": "ok",
         },
     ]
-    # Quorum is cross-checked against these audit rows, so it moves with them.
+    # successful_friend_ids records every success and is cross-checked against
+    # these audit rows, so it moves with them. succeeded_friends counts only
+    # the independent ones, so with a frozen host it is one lower.
     meta["successful_friend_ids"] = ["codex-ops", "fake-security"]
-    meta["succeeded_friends"] = 2
+    # One, not two: codex-ops is the orchestrating provider in this fixture, so
+    # it is non-independent whether the host was frozen, declared through the
+    # role fields, or merely inferred as the possible host.
+    meta["succeeded_friends"] = 1
     if frozen_host:
         meta["detected_host"] = "codex"
         meta["effective_include_self"] = True
@@ -277,13 +282,17 @@ def test_resumed_participation_floor_excludes_successful_host(tmp_path):
     meta["invocation"]["require_friends"] = 1
     meta["friends"][1]["status"] = "failed: exit 1"
     meta["successful_friend_ids"] = ["codex-ops"]
-    meta["succeeded_friends"] = 1
+    # The host succeeded, so it IS recorded; it just does not count.
+    meta["succeeded_friends"] = 0
     meta["required_friends"] = 1
     run_dir = _run_dir(tmp_path, meta)
 
     restored = _restore_args(_resume_args(run_dir))
 
-    assert restored._resume_successful_friend_ids == []
+    # The record of what ran keeps the host -- narrowing it here would make
+    # the next halt write a list its own audit rows disagree with. The
+    # participation floor is excluded by the COUNT, which is zero.
+    assert restored._resume_successful_friend_ids == ["codex-ops"]
     assert restored._resume_meta["succeeded_friends"] == 0
 
 

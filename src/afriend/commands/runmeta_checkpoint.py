@@ -46,7 +46,7 @@ def _checkpoint_successes(
     friends: list[dict[str, Any]],
     critique_round: int,
     roster_roles: dict[str, tuple[bool, bool]],
-) -> list[str]:
+) -> tuple[list[str], int]:
     if "successful_friend_ids" not in meta:
         raise UsageError("cannot resume: saved successful_friend_ids is required")
     value = meta["successful_friend_ids"]
@@ -57,23 +57,35 @@ def _checkpoint_successes(
     successes = list(value)
     if len(successes) != len(set(successes)):
         raise UsageError("cannot resume: saved successful_friend_ids must be unique")
-    recorded_count = meta.get("succeeded_friends", len(successes))
-    if type(recorded_count) is not int or recorded_count != len(successes):
-        raise UsageError("cannot resume: saved succeeded_friends must match successful_friend_ids")
     if any(friend not in roster_roles for friend in successes):
         raise UsageError(
             "cannot resume: saved successful_friend_ids contains a friend outside the roster"
         )
-    # The audit rows are the durable record of what actually ran, and this
-    # list decides quorum. It used to be derived from those rows only when it
-    # was absent, so a run.json that carried the field was believed about
-    # which friends succeeded -- including about a friend its own audit row
-    # records as failed.
+    # The audit rows are the durable record of what actually ran, and
+    # successful_friend_ids records every success -- advisory host included --
+    # so the two sets are directly comparable. They were not while the writer
+    # recorded independent friends only: any halted run in which a successful
+    # advisory host participated could then never be resumed, and its
+    # orchestrator adjudication was lost with no recovery but hand-editing
+    # run.json.
     if set(successes) != set(successful_friend_ids_from_audit(friends, critique_round)):
         raise UsageError(
             "cannot resume: saved successful_friend_ids disagrees with the friend audit rows"
         )
-    return [friend for friend in successes if roster_roles[friend][0]]
+    independent = [friend for friend in successes if roster_roles[friend][0]]
+    # succeeded_friends counts only what quorum counts, so it is checked
+    # against the independent subset rather than the whole list.
+    recorded_count = meta.get("succeeded_friends", len(independent))
+    if type(recorded_count) is not int or recorded_count != len(independent):
+        raise UsageError(
+            "cannot resume: saved succeeded_friends must equal the number of "
+            "independent friends in successful_friend_ids"
+        )
+    # Both halves, unnarrowed. Returning only the independent subset -- and
+    # writing it back as successful_friend_ids -- would drop the advisory
+    # host from the resumed run's own record, so the next halt would write a
+    # list the audit rows disagree with all over again.
+    return successes, len(independent)
 
 
 def _checkpoint_themes(meta: dict[str, Any]) -> tuple[list[ThemeProposal], bool]:
@@ -134,7 +146,9 @@ def _normalized_checkpoint(
     critique_round = (resume_iteration - 1) * max_rounds + 1
     if any(row["round"] > critique_round for row in friends):
         raise UsageError("cannot resume: saved friends contain a row after the pending round")
-    successes = _checkpoint_successes(meta, friends, critique_round, roster_roles)
+    successes, independent_successes = _checkpoint_successes(
+        meta, friends, critique_round, roster_roles
+    )
     theme_proposals, produced_new_themes = _checkpoint_themes(meta)
     required = meta.get("required_friends", require_friends)
     if required is not None and (
@@ -155,7 +169,7 @@ def _normalized_checkpoint(
             "resume_iteration": resume_iteration,
             "active_elapsed_s": _checkpoint_elapsed(meta),
             "successful_friend_ids": successes,
-            "succeeded_friends": len(successes),
+            "succeeded_friends": independent_successes,
             "required_friends": required,
             "repeat_tracker": normalize_repeat_tracker(meta.get("repeat_tracker", {})),
             "friends": friends,

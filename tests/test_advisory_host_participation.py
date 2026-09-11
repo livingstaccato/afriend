@@ -139,8 +139,11 @@ def test_advisory_host_success_does_not_satisfy_participation_floor(monkeypatch,
     )
 
     assert outcome.any_success is True
+    # The advisory host answered, so it is recorded -- run.json has to be able
+    # to say whether the host friend succeeded. It just does not COUNT: the
+    # participation floor reads succeeded_friends, which stays zero.
     assert outcome.succeeded_friends == 0
-    assert outcome.successful_friend_ids == []
+    assert outcome.successful_friend_ids == ["host-ops-0"]
     assert [row["status"].split(":", 1)[0] for row in outcome.friends_meta] == ["ok", "failed"]
 
 
@@ -176,7 +179,7 @@ def test_require_friends_does_not_count_a_successful_advisory_host(monkeypatch, 
 
     assert cli.cmd_run(parsed) == 12
     meta = _run_json(tmp_path)
-    assert meta["successful_friend_ids"] == []
+    assert meta["successful_friend_ids"] == ["fake-good-0"]
     assert meta["succeeded_friends"] == 0
     assert meta["stop_reason"] == "incomplete"
 
@@ -199,6 +202,10 @@ def test_advisory_host_success_cannot_satisfy_resumed_participation_floor(
     checkpoint.pop("effective_include_self", None)
     checkpoint["roster"][0].update({"independent": False, "host_self_review": True})
     checkpoint["friends"][0].update({"independent": False, "host_self_review": True})
+    # Demoting the only success to advisory also drops the independent count a
+    # real run would have written. Leaving it at 1 would model a checkpoint no
+    # writer produces, and the resume validator refuses that shape on its own.
+    checkpoint["succeeded_friends"] = 0
     _write_run_json(tmp_path, checkpoint)
     _respond(tmp_path, [])
 
@@ -206,5 +213,8 @@ def test_advisory_host_success_cannot_satisfy_resumed_participation_floor(
 
     assert resumed.returncode == 12, resumed.stderr
     terminal = _run_json(tmp_path)
-    assert terminal["successful_friend_ids"] == []
+    # Preserved across the resume, and still without authority: the count is
+    # what --require-friends reads, and it is zero.
+    assert terminal["successful_friend_ids"] == ["fake-good-0"]
+    assert terminal["succeeded_friends"] == 0
     assert terminal["stop_reason"] == "incomplete"

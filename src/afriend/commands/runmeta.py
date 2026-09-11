@@ -606,7 +606,9 @@ def finish_run(
         cross=cross,
     )
     meta["successful_friend_ids"] = list(successful_friend_ids)
-    meta["succeeded_friends"] = len(successful_friend_ids)
+    # The independent count, not len() of the list above -- the list includes
+    # an advisory host, quorum does not.
+    meta["succeeded_friends"] = succeeded_friends if succeeded_friends is not None else 0
     meta["required_friends"] = args.require_friends
     meta["active_elapsed_s"] = active_elapsed_s
     review_completeness = from_friends(meta.get("friends", []))
