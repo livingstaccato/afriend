@@ -49,7 +49,7 @@ partition "Resolve the roster" {
   endif
   if (""report"" mode?) then (yes)
     if (exactly one resolved friend?) then (yes)
-      :report: record one-friend downgrade;<<#FFE0B2>>
+      #FFE0B2:report: record one-friend downgrade;
     endif
   else (judging)
     :project selected qualification policy\n(default: two provider families);
@@ -70,10 +70,10 @@ partition "Prepare" {
     if (resolved final target is inside invocation repository?) then (yes)
       :snapshot artifact-derived repository;\nartifact is Git-blob-bound;
     else (no)
-      :force all friends to doc scope\n(no repository snapshot minted)\nand warn on stderr before dispatch;<<#FFE0B2>>
+      #FFE0B2:force all friends to doc scope\n(no repository snapshot minted)\nand warn on stderr before dispatch;
     endif
   endif
-  :per friend: build its OWN prompt from\nits OWN lens, write round-1/<friend>.prompt\n(missing lens → generic prompt, downgrade);<<#FFE0B2>>
+  #FFE0B2:per friend: build its OWN prompt from\nits OWN lens, write round-1/<friend>.prompt\n(missing lens → generic prompt, downgrade);
 }
 
 partition "Dispatch — parallel, one thread per friend" {
@@ -91,17 +91,23 @@ partition "Dispatch — parallel, one thread per friend" {
   end note
   :re-enforce this provider's authority at dispatch;
   :build argv and filtered child environment;
-  :apply adapter read-only controls and,\nwhere declared, an outer read-only OS\npolicy; Codex uses the outer policy because\nmacOS command sandboxes cannot nest; Linux\nbwrap exposes a safe resolver target\nread-only when /etc/resolv.conf resolves outside /etc;
+  :probe the OS confinement mechanism\nBEFORE screening the argv;
+  if (mechanism available?) then (yes)
+    :apply adapter read-only controls and,\nwhere declared, an outer read-only OS\npolicy; Codex uses the outer policy because\nmacOS command sandboxes cannot nest; Linux\nbwrap exposes a safe resolver target\nread-only when /etc/resolv.conf resolves outside /etc;
+  else (no)
+    #FFE0B2:drop any flag justified only by that policy\n(Codex ""--sandbox danger-full-access""),\nkeeping the rest of readonly_argv;
+    #FFE0B2:withdraw readonly where the sandbox WAS\nthe write protection; record the downgrade;
+  endif
   :capability = the declared, enforced\ncontrols — never re-derived from scope;
   :spawn in its own process group\ndeadline = ""--timeout"" + 60s grace;
   if (timed out / aborted?) then (yes)
-    :SIGTERM the group, then SIGKILL;<<#FFCDD2>>
+    #FFCDD2:SIGTERM the group, then SIGKILL;
   else (no)
     :unwrap the CLI's JSON envelope,\nstrip ANSI, extract JSON, validate;
     if (usable payload?) then (yes)
       :emit claims;
     else (no)
-      :mark failed, keep stderr tail;<<#FFCDD2>>
+      #FFCDD2:mark failed, keep stderr tail;
     endif
   endif
 }
@@ -115,9 +121,9 @@ partition "Merge & report" {
 }
 
 if (any friend usable?) then (yes)
-  :exit 0;<<#C8E6C9>>
+  #C8E6C9:exit 0;
 else (no)
-  :exit 1 — run incomplete;<<#FFCDD2>>
+  #FFCDD2:exit 1 — run incomplete;
 endif
 
 stop

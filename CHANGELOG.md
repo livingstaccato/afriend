@@ -115,6 +115,19 @@ environment dict and forwards only HOME, so roughly forty end-to-end git
 invocations would have kept reading `~/.gitconfig` while the conftest
 variable never reached them. Both are set, and the per-fixture lines stay.
 
+**Two architecture diagrams could not be rendered at all.** `make diagrams`
+failed on `run-flow.puml` and `gate-workflow.puml` with `Cannot find group`,
+against every PlantUML from 1.2020.02 to 1.2026.0, with graphviz and UTF-8
+both verified fine -- so the committed PNGs could not be reproduced from the
+committed sources, and no CI job runs the target that would have said so. The
+trigger is narrow: an activity carrying a `<<#COLOR>>` stereotype as the only
+statement of a nested `if` that ends a `then` branch before its `else`. The
+same colour written in PlantUML's canonical `#COLOR:label;` form parses
+everywhere, so the fourteen coloured activities in those two files now use
+it, and all six diagrams render. `run-flow` gained the branch this release
+created: the mechanism is probed before the argv is screened, and where none
+exists the weakening flag is dropped and the withdrawal recorded.
+
 **Also.** The withdrawal added in 0.10.2 re-looked-up an adapter already
 bound on every path reaching it and re-tested `spec.cli != "fake"`, which
 the branch immediately after tested again and whose body performed the

@@ -29,16 +29,16 @@ title The gate loop
 
 start
 
-:afriend run spec.md "--mode gate";<<#E3F2FD>>
+#E3F2FD:afriend run spec.md "--mode gate";
 :critique, then cross-examine;
 
 if (any non-advisory claim\nnot cleared by its state?) then (no)
-  :exit 0 — gate clear;<<#C8E6C9>>
+  #C8E6C9:exit 0 — gate clear;
   stop
 else (yes)
 endif
 
-:exit 1 — names each blocking claim;<<#FFCDD2>>
+#FFCDD2:exit 1 — names each blocking claim;
 
 note right
   Only settled-refuted clears on its
@@ -51,10 +51,10 @@ end note
 
 repeat
   :a human changes something;
-  :afriend resolve RUN_ID\nclaim = c-0001@1\ndisposition = fixed\nevidence = src/auth.py:38;<<#E3F2FD>>
+  #E3F2FD:afriend resolve RUN_ID\nclaim = c-0001@1\ndisposition = fixed\nevidence = src/auth.py:38;
 
   if (evidence names a location?) then (no)
-    :exit 2 — refused;<<#FFCDD2>>
+    #FFCDD2:exit 2 — refused;
     stop
   else (yes)
   endif
@@ -62,7 +62,7 @@ repeat
   :compare that location against\nthe run's frozen copy or snapshot;
 
   if (fixed, but nothing changed there?) then (yes)
-    :exit 2 — refused;<<#FFCDD2>>
+    #FFCDD2:exit 2 — refused;
     stop
   else (no)
   endif
@@ -70,7 +70,7 @@ repeat
   :append resolution\nverified = changed | unchanged | unverifiable;
 repeat while (claims still blocking?) is (yes) not (no)
 
-:exit 0 — gate clear;<<#C8E6C9>>
+#C8E6C9:exit 0 — gate clear;
 stop
 
 @enduml
