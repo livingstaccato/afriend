@@ -305,6 +305,26 @@ def run_critique(
                     suggested_fix=finding["suggested_fix"],
                 )
             )
+        # Drop a record the ledger would refuse HERE, before the merge --
+        # not at the append below. `append` raises, and this loop has no
+        # handler, so one verbose friend's oversized claim aborted the round:
+        # UsageError -> AfError past `finish_run`, leaving no run.json and no
+        # report.md, every other friend's answers for the round unreported,
+        # and the directory unable to `--resume` because restore needs
+        # run.json. Filtering before `exact_merge` also keeps an Alias from
+        # pointing at a claim that was never written.
+        admissible: list[Claim] = []
+        for candidate in incoming:
+            refusal = store.ledger.rejection_reason(candidate)
+            if refusal is None:
+                admissible.append(candidate)
+                continue
+            outcome.downgrades.append(
+                f"{friend_key(spec)}: claim {candidate.id} was dropped and is not in "
+                f"the ledger or the report -- {refusal}"
+            )
+        incoming = admissible
+
         novel_theme_ids, proposals = classify_novel(all_claims, incoming)
         if novel_theme_ids:
             outcome.produced_new_themes = True

@@ -50,6 +50,34 @@ MODES = {
             }
         )
     ),
+    # One finding the ledger's line bound must refuse, and one it must keep.
+    # A friend may print up to MAX_OUTPUT_BYTES (32 MiB) against an 8 MiB
+    # ledger line cap, so this is reachable from verbosity alone -- and it
+    # used to abort the whole round rather than drop the one claim.
+    "oversized_claim": lambda: print(
+        json.dumps(
+            {
+                "findings": [
+                    {
+                        "severity": "high",
+                        "claim": "x" * (9 * 1024 * 1024),
+                        "location": "src/auth.py:1",
+                        "evidence": "src/auth.py:1",
+                        "failure_scenario": "too long for one ledger line",
+                        "suggested_fix": "shorten it",
+                    },
+                    {
+                        "severity": "low",
+                        "claim": "the second finding must survive the first",
+                        "location": "src/auth.py:99",
+                        "evidence": "src/auth.py:99",
+                        "failure_scenario": "dropped alongside the oversized one",
+                        "suggested_fix": "keep it",
+                    },
+                ]
+            }
+        )
+    ),
     "empty": lambda: print(json.dumps({"findings": []})),
     "no_findings": lambda: print(json.dumps({"no_findings": True})),
     "offtopic": lambda: print("It looks like you just typed `--mode`."),

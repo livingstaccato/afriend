@@ -240,3 +240,36 @@ def test_ledger_applies_shared_string_and_depth_bounds(tmp_path):
     path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
     with pytest.raises(UsageError, match="JSON bounds"):
         list(Ledger(path).records())
+
+
+def test_rejection_reason_answers_without_raising_and_agrees_with_append(tmp_path):
+    """A caller holding a batch must be able to ask before it writes.
+
+    `append` raising is right for a single write and wrong inside a
+    per-claim loop: `commands/critique.py` appends every incoming claim in a
+    bare `for` with no handler, so one oversized claim aborted the round.
+    The UsageError became an AfError and escaped past `finish_run`, so the
+    directory kept no run.json and no report.md, every other friend's
+    answers for that round went unreported, and `--resume` could not restore
+    it because restore needs run.json. The old behaviour corrupted the
+    ledger; the new one discarded a whole paid-for round. Both are avoidable
+    by asking first, and the two answers must not drift apart.
+    """
+    ledger = Ledger(tmp_path / "claims.jsonl")
+
+    fine = make_claim()
+    assert ledger.rejection_reason(fine) is None
+    ledger.append(fine)
+
+    oversized = make_claim(claim="x" * (9 * 1024 * 1024))
+    reason = ledger.rejection_reason(oversized)
+    assert reason is not None
+    assert "line limit" in reason
+    with pytest.raises(UsageError, match="refusing to append"):
+        ledger.append(oversized)
+
+    deep = make_claim(claim="x" * (4 * 1024 * 1024 + 1))
+    assert ledger.rejection_reason(deep) is not None
+
+    # The accepted record is still readable: the refusal never touched it.
+    assert [record.id for record in ledger.records()] == [fine.id]

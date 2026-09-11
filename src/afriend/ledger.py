@@ -177,30 +177,47 @@ class Ledger:
             self.root = Path(root)
             secure_mkdir(self.path.parent, parents=True, exist_ok=True, root=self.root)
 
-    def append(self, record: Record) -> None:
+    def rejection_reason(self, record: Record) -> str | None:
+        """Why `append` would refuse `record`, or None if it would accept it.
+
+        The writer enforces exactly the bounds the reader enforces, by
+        running the reader's own check -- not a restatement of its
+        thresholds, which would drift. `records()` is a single pass that
+        raises on the offending line, so accepting one oversized record
+        makes every *earlier* record unreachable too, permanently, for
+        replay, `status`, `resolve` and the report alike. Claim text arrives
+        from friend JSON with no length cap of its own (a friend may print
+        up to MAX_OUTPUT_BYTES), so this is reachable from one verbose
+        friend, not only from tampering.
+
+        Exposed separately from `append` because a caller holding a batch
+        needs to drop the one bad record and keep the rest. `append` raises,
+        and raising inside a per-claim loop strands every record after it --
+        losing the whole round's answers from every other friend along with
+        run.json and report.md, which is a worse outcome than the corrupt
+        ledger the check was added to prevent.
+        """
         encoded = (json.dumps(record_to_dict(record), sort_keys=True) + "\n").encode("utf-8")
-        # The writer enforces exactly the bounds the reader enforces, by
-        # running the reader's own check -- not a restatement of its
-        # thresholds, which would drift. `records()` is a single pass that
-        # raises on the offending line, so accepting one oversized record
-        # here makes every *earlier* record unreachable too, permanently,
-        # for replay, `status`, `resolve` and the report alike. Claim text
-        # arrives from friend JSON with no length cap of its own (a friend
-        # may print up to MAX_OUTPUT_BYTES), so this is reachable from one
-        # verbose friend, not only from tampering.
         if len(encoded) > MAX_LEDGER_LINE_BYTES:
-            raise UsageError(
-                f"refusing to append a {len(encoded)}-byte ledger record: the line limit is "
-                f"{MAX_LEDGER_LINE_BYTES} bytes, and a longer line would make the whole "
-                "ledger unreadable rather than just this record"
+            return (
+                f"a {len(encoded)}-byte ledger record exceeds the {MAX_LEDGER_LINE_BYTES}-byte "
+                "line limit, and a longer line would make the whole ledger unreadable "
+                "rather than just this record"
             )
         try:
             json_node_count(record_to_dict(record), "ledger record")
         except (RecursionError, TypeError, ValueError) as exc:
-            raise UsageError(
-                f"refusing to append a ledger record the reader would reject: {exc}. "
-                "Appending it would make the whole ledger unreadable, not just this record."
-            ) from exc
+            return (
+                f"the reader would reject this ledger record: {exc}. Appending it would "
+                "make the whole ledger unreadable, not just this record."
+            )
+        return None
+
+    def append(self, record: Record) -> None:
+        reason = self.rejection_reason(record)
+        if reason is not None:
+            raise UsageError(f"refusing to append a ledger record: {reason}")
+        encoded = (json.dumps(record_to_dict(record), sort_keys=True) + "\n").encode("utf-8")
         fd = secure_open_append(self.path, root=self.root)
         try:
             os.fchmod(fd, 0o600)
