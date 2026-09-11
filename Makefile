@@ -1,4 +1,4 @@
-.PHONY: help install lint type-check test plugin-sync mutation-probe version-sync max-loc wheel-assets wheel-install release-distributions diagrams plugin-sync-copy quality check act-dry act-ci
+.PHONY: help install lint type-check test plugin-sync mutation-probe version-sync max-loc wheel-assets wheel-install release-distributions diagrams plugin-sync-copy diagrams-check quality check act-dry act-ci
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \

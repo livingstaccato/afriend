@@ -74,7 +74,13 @@ jobs:
       # digest manifest only proves a PNG matches the .puml it was recorded
       # against, never that the .puml still parses.
       - name: install plantuml
-        run: sudo apt-get install -y --no-install-recommends plantuml graphviz
+        # `apt-get update` first: the runner image's package lists go stale as
+        # the Ubuntu archive rotates, and act's container image ships with them
+        # cleared entirely, so the install is otherwise a coin flip on CI and a
+        # hard "Unable to locate package" under `make act-ci`.
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends plantuml graphviz
 
       - name: diagrams-check
         run: make diagrams-check

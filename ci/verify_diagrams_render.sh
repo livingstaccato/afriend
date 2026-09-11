@@ -39,20 +39,39 @@ output=$(plantuml -tsvg -o "$out" "${sources[@]}" 2>&1) || status=$?
 if [ -n "$output" ]; then
   echo "$output"
 fi
-if [ "$status" -ne 0 ] || echo "$output" | grep -qiE "error|cannot find"; then
+# Key the failure off PlantUML's own markers, not the substring "error": the
+# JVM writes unrelated `Fontconfig error:` lines to stderr on a box with no
+# writable font cache while rendering every diagram correctly.
+if [ "$status" -ne 0 ] || echo "$output" | grep -qE \
+    "Some diagram description contains errors|Error line |Cannot find group|Warning: no image"; then
   echo "ERROR: at least one diagram source failed to render (see above)." >&2
   echo "Run 'make diagrams' locally to reproduce." >&2
   exit 1
 fi
 
-# A render can also FAIL SILENTLY into a committed file: PlantUML writes an
-# error image and still exits, so the repository can hold a green-on-black
-# stack dump that looks like a diagram to every other check.
-for committed in docs/architecture/*.svg; do
-  if grep -qiE "Cannot find group|Syntax Error" "$committed"; then
-    echo "ERROR: $committed is a PlantUML error image, not a diagram." >&2
+# PlantUML exits 0 when a source produces no diagram at all (no @startuml, an
+# empty file), so "it rendered" has to be counted from the output directory --
+# never from the length of the source list, which is known before running.
+rendered=$(find "$out" -name '*.svg' -type f | wc -l)
+if [ "$rendered" -ne "${#sources[@]}" ]; then
+  echo "ERROR: ${#sources[@]} diagram sources produced only $rendered renders." >&2
+  echo "A source that renders nothing is exactly what this gate exists to catch." >&2
+  exit 1
+fi
+
+# A render can also FAIL SILENTLY: PlantUML writes an error image, or a banner
+# across the top of an otherwise fine diagram, and still exits 0. Check the
+# FRESH renders -- the committed pair is checked by pytest, and is clean by
+# construction here because `make diagrams` is what last wrote it.
+#
+# PlantUML emits every space inside <text> as `&#160;`, so a phrase typed with
+# ordinary spaces cannot match the raw markup. Normalize before grepping.
+for svg in "$out"/*.svg; do
+  if sed 's/&#160;/ /g' "$svg" | grep -qiE "Syntax Error|Cannot find group|syntax is deprecated"; then
+    echo "ERROR: $(basename "$svg" .svg) renders as a PlantUML error image, not a diagram." >&2
+    sed 's/&#160;/ /g' "$svg" | grep -oiE "Syntax Error|Cannot find group|syntax is deprecated" | head -3 >&2
     exit 1
   fi
 done
 
-echo "all ${#sources[@]} diagram sources render, and no committed render is an error image."
+echo "all ${#sources[@]} diagram sources render cleanly."
