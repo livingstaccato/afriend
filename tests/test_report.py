@@ -583,7 +583,27 @@ def _two_line_evidence_claim(cid, second_line):
 def test_escape_block_escapes_html_block_start():
     assert _escape_block("<div>never closes") == "\\<div>never closes"
     assert _escape_block("<!-- never closes") == "\\<!-- never closes"
-    assert _escape_block("<script>alert(1)</script>") == "\\<script>alert(1)</script>"
+
+
+def test_escape_block_escapes_every_angle_bracket_on_a_line():
+    """EVERY `<` on the line, not just the leading one.
+
+    An earlier version of this test pinned
+    `_escape_block("<script>alert(1)</script>")` as leaving `</script>`
+    raw, because `_escape_block` skipped its `<`-substitution entirely for
+    any line whose first non-space character was `<`. That guard read as
+    "do not double-escape an already-escaped line", but the substitution's
+    own negative lookbehind already handles that -- so all the guard did
+    was switch escaping off for the whole remainder of exactly the lines
+    that needed it most. Markdown only needs the leading marker escaped to
+    stop a BLOCK construct, but a raw `<tag>` mid-line is still inline
+    HTML, and friend prose is untrusted."""
+    assert _escape_block("<script>alert(1)</script>") == "\\<script>alert(1)\\</script>"
+    # The shape report.py's module docstring records as having swallowed
+    # 3 of 3 findings: an unclosed hidden div eats every later claim.
+    assert _escape_block("<!-- hide --><div style='x'>") == ("\\<!-- hide -->\\<div style='x'>")
+    # An already-escaped leading `<` is still not doubled.
+    assert _escape_block("\\<b>") == "\\<b>"
 
 
 def test_escape_block_escapes_setext_underline():

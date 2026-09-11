@@ -35,28 +35,15 @@ import unicodedata
 from .dispatch import sanitize_display
 from .errors import UsageError
 from .ledger import Claim, Verdict
+from .modeldisplay import MODEL_SOURCE_LABELS, PROVIDER_DISPLAY_NAMES
 from .reviewcompleteness import from_friends
 from .reviewstate import ReviewState
 from .snapshots import SnapshotIdentity
 from .verdicts import CONTESTED, DEADLOCKED, INCOMPLETE, UNPROVEN
 
 SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
-_MODEL_SOURCE_LABELS = {
-    "invocation": "invocation",
-    "explicit-friend": "explicit friend",
-    "roster": "roster",
-    "provider-setting": "provider setting",
-    "adapter-default": "adapter default",
-    "cli-default": "CLI default",
-    "recorded-unknown": "recorded model; selection source unavailable",
-}
-_PROVIDER_DISPLAY_NAMES = {
-    "codex": "Codex",
-    "opencode": "OpenCode",
-    "agy": "Antigravity",
-    "claude": "Claude",
-    "ollama": "Ollama",
-}
+_MODEL_SOURCE_LABELS = MODEL_SOURCE_LABELS
+_PROVIDER_DISPLAY_NAMES = PROVIDER_DISPLAY_NAMES
 
 # The states where a reader has to see the argument rather than a label.
 # `deadlocked` is the one §7.2 names explicitly ("both sides quoted
@@ -260,8 +247,14 @@ def _escape_block(text: str) -> str:
             start, end = match.span("marker")
             line = line[:start] + "\\" + marker[0] + marker[1:] + line[end:]
         line = _defang_links(line)
-        if not line.lstrip(" \t").startswith("\\<"):
-            line = re.sub(r"(?<!\\)<", r"\\<", line)
+        # Unconditional: the negative lookbehind already leaves an escaped
+        # `\<` alone, so the "is this line already escaped?" guard that used
+        # to wrap this call was not preventing double-escaping -- it was
+        # switching the escaping off for the whole remainder of any line
+        # whose first non-space character was `<`. That let raw HTML from
+        # friend prose through, including the unclosed hidden `<div>` this
+        # module's docstring records as having swallowed 3 of 3 findings.
+        line = re.sub(r"(?<!\\)<", r"\\<", line)
         line = line.replace("[", "\\[").replace("]", "\\]")
         escaped_lines.append(line)
     return "\n".join(escaped_lines)
@@ -478,8 +471,15 @@ def _render_verdict_sections(
                 )
                 lines.append("")
             for verdict in cast:
+                # Attributed. This section's own preamble says host
+                # self-review verdicts are advisory and excluded from
+                # settlement -- without the judge's name, a reader deciding a
+                # deadlock cannot tell which of the two quoted sides is the
+                # excluded advisory one, so an advisory verdict read as a
+                # second independent judge.
                 lines.append(
-                    f"- **{_escape_cell(verdict.verdict)}** "
+                    f"- **{_escape_cell(verdict.verdict)}** by "
+                    f"{_code_span(verdict.judge)} "
                     f"(confidence {_escape_cell(verdict.confidence)}, "
                     f"evidence {_escape_cell(verdict.evidence_assessment or 'not stated')}): "
                     f"{_escape_block(verdict.reasoning)}"

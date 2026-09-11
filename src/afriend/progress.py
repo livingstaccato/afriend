@@ -30,6 +30,7 @@ from typing import TextIO
 from .adapters import FriendSpec
 from .errors import UsageError
 from .events import EventRecord, EventWriter
+from .modeldisplay import MODEL_SOURCE_LABELS, PROVIDER_DISPLAY_NAMES
 from .qualification import Qualification
 
 # How often the heartbeat names what is still in flight. Thirty seconds is
@@ -49,22 +50,8 @@ _TICK_S = 0.5
 # or other user content, so every dispatched friend receives this fixed,
 # descriptive label instead.
 _LIFECYCLE_LENS = "configured"
-_MODEL_SOURCE_LABELS = {
-    "invocation": "invocation",
-    "explicit-friend": "explicit friend",
-    "roster": "roster",
-    "provider-setting": "provider setting",
-    "adapter-default": "adapter default",
-    "cli-default": "CLI default",
-    "recorded-unknown": "recorded model; selection source unavailable",
-}
-_PROVIDER_DISPLAY_NAMES = {
-    "codex": "Codex",
-    "opencode": "OpenCode",
-    "agy": "Antigravity",
-    "claude": "Claude",
-    "ollama": "Ollama",
-}
+_MODEL_SOURCE_LABELS = MODEL_SOURCE_LABELS
+_PROVIDER_DISPLAY_NAMES = PROVIDER_DISPLAY_NAMES
 
 
 def format_duration(seconds: float) -> str:
