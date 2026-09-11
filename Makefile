@@ -51,7 +51,13 @@ diagrams: ## Re-render docs/architecture/*.puml to PNG + SVG
 	plantuml -tsvg docs/architecture/*.puml
 	python3 scripts/write_diagram_manifest.py
 
-quality: lint type-check max-loc plugin-sync version-sync wheel-assets wheel-install release-distributions test mutation-probe ## Run all portable quality gates
+# Renderability only, so it survives PlantUML's own layout changes between
+# releases. Nothing ran `diagrams` automatically, and two sources sat
+# unrenderable for days behind PNGs that could not be reproduced from them.
+diagrams-check: ## Verify every .puml renders and no committed render is an error image
+	ci/verify_diagrams_render.sh
+
+quality: lint type-check max-loc plugin-sync version-sync diagrams-check wheel-assets wheel-install release-distributions test mutation-probe ## Run all portable quality gates
 
 check: quality ## Alias for quality
 

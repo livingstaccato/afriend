@@ -68,6 +68,17 @@ jobs:
       - name: version-sync
         run: make version-sync
 
+      # Verify every architecture diagram still renders. Nothing ran the
+      # `diagrams` target automatically, and two sources were unrenderable
+      # for days behind PNGs that could not be reproduced from them -- the
+      # digest manifest only proves a PNG matches the .puml it was recorded
+      # against, never that the .puml still parses.
+      - name: install plantuml
+        run: sudo apt-get install -y --no-install-recommends plantuml graphviz
+
+      - name: diagrams-check
+        run: make diagrams-check
+
       # Build the wheel and confirm every adapter, lens, and reference file
       # actually ships in it -- package-data misconfiguration is otherwise
       # silent until first run.
