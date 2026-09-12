@@ -318,3 +318,48 @@ def test_a_renamed_arms_key_is_a_schema_mismatch_not_unkept_traces(tmp_path, cap
     err = capsys.readouterr().err
     assert "schema" in err
     assert "--keep-temp" not in err
+
+
+REAL = Path(__file__).resolve().parent / "fixtures" / "eval_skill_selection_real"
+
+
+def _real_run(tmp_path: Path) -> tuple[Path, dict]:
+    """The committed real result, with its trace placeholders pointed at the fixture."""
+    payload = json.loads((REAL / "aggregate-result.json").read_text(encoding="utf-8"))
+    for case in payload["cases"]:
+        for run in case["arms"]["with"]:
+            run["tracePath"] = run["tracePath"].replace("<fixtures>", str(REAL))
+    results = tmp_path / "results" / "2026-09-12T20-19-43-000Z"
+    results.mkdir(parents=True)
+    _save(results, payload)
+    return results, payload
+
+
+def test_the_checker_reads_real_claude_plugin_eval_output(tmp_path):
+    """Every other fixture here shares one assumed schema.
+
+    This one is real output from `claude plugin eval plugins/afriend --runs 2
+    --keep-temp`: thirteen expected cases, two runs each, paths redacted and
+    each trace cut to its `Skill` record. If the harness renames `arms`,
+    `tracePath` or `suite.plugins`, this is the test that says so -- before a
+    user is told their correctly-targeted eval was aimed at the wrong place.
+    """
+    results, _ = _real_run(tmp_path)
+    assert _module().check(results) == 0
+
+
+def test_a_real_trace_naming_the_wrong_skill_is_rejected(tmp_path):
+    """Proof the real traces are actually read, not merely present: the same
+    real record with its skill changed must fail the case it belongs to."""
+    results, payload = _real_run(tmp_path)
+    case = next(c for c in payload["cases"] if c["name"] == "pos-afriend-resume-run-123")
+    original = Path(case["arms"]["with"][0]["tracePath"])
+    wrong = tmp_path / "wrong-trace.jsonl"
+    wrong.write_text(
+        original.read_text(encoding="utf-8").replace('"afriend:review"', '"afriend:status"'),
+        encoding="utf-8",
+    )
+    assert wrong.read_text(encoding="utf-8") != original.read_text(encoding="utf-8")
+    case["arms"]["with"][0]["tracePath"] = str(wrong)
+    _save(results, payload)
+    assert _module().check(results) == 1

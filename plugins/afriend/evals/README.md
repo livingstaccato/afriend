@@ -73,12 +73,15 @@ schema mismatch rather than as advice to re-target or rerun, because the
 harness changing its format is not something rerunning the eval would fix.
 
 `tests/test_eval_skill_selection.py` exercises each of those paths against
-synthetic runs, so the check is verified without any paid model call. The
-fixtures all share one assumed schema and no real harness output is committed,
-so they prove the checker's logic, not that the harness still writes that
-schema. A checker that reports success when it found nothing to check is the
-defect it exists to close -- and so is one that reports success having checked
-a fraction of what it was given.
+synthetic runs, so the check is verified without any paid model call. One
+fixture is real harness output: a two-run `claude plugin eval` of this suite
+(Claude Code 2.1.270, result schema 1), with paths redacted and each trace cut
+to its `Skill` record, so a change in the harness's result format fails a test
+instead of a user. A run made without `--keep-temp` still records each
+`tracePath`, pointing at a file that no longer exists -- which is what "traces
+not kept" means. A checker that reports success when it found nothing to check
+is the defect it exists to close -- and so is one that reports success having
+checked a fraction of what it was given.
 
 `evals/evals.json` at the repository root is a different thing: a fixture the
 pytest suite checks for internal consistency. It never runs a model. These

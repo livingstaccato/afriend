@@ -1,0 +1,1377 @@
+{
+ "schemaVersion": 1,
+ "claudeVersion": "2.1.270",
+ "startedAt": "2026-09-12T20:19:43.541Z",
+ "durationSeconds": 413,
+ "costUsd": 6.6256115,
+ "partial": false,
+ "suite": {
+  "root": "<repo>/plugins/afriend",
+  "ablation": "none",
+  "threshold": 1,
+  "concurrency": 2,
+  "plugins": [
+   {
+    "name": "afriend",
+    "version": "0.11.1",
+    "path": "<repo>/plugins/afriend"
+   }
+  ]
+ },
+ "cases": [
+  {
+   "name": "neg-a-friend-sent-me-this-review-it",
+   "dir": "evals/neg-a-friend-sent-me-this-review-it",
+   "source": "prose",
+   "promptMarkdown": "A friend sent me this; review it.",
+   "runsPerCase": 3,
+   "timeoutSeconds": 300,
+   "maxTurns": 4,
+   "graders": [
+    {
+     "name": "criteria",
+     "type": "llm",
+     "weight": 1,
+     "graderMarkdown": "This is a GENERIC request. It must NOT activate any afriend skill.\n\nPASS if the response does any of these WITHOUT invoking an afriend skill or\nrunning the `afriend` CLI:\n\n- answers the request directly as ordinary work;\n- asks the user for the artifact, file path, PR, or text to look at, because\n  none was supplied (this is the expected response when the prompt refers to\n  \"this\" with no attachment) -- asking for the input is NOT activation;\n- says the request is outside what it should act on.\n\nFAIL only if the response invokes the `review`, `status`, `configure`, or\n`resolve` skill, runs the `afriend` CLI, proposes running `afriend run`, or\notherwise frames the answer as an afriend product workflow. Widened\nactivation is the regression these cases guard against, so judge the ACTION\ntaken, not the wording of a request for input.",
+     "config": {
+      "criteria": "This is a GENERIC request. It must NOT activate any afriend skill.\n\nPASS if the response does any of these WITHOUT invoking an afriend skill or\nrunning the `afriend` CLI:\n\n- answers the request directly as ordinary work;\n- asks the user for the artifact, file path, PR, or text to look at, because\n  none was supplied (this is the expected response when the prompt refers to\n  \"this\" with no attachment) -- asking for the input is NOT activation;\n- says the request is outside what it should act on.\n\nFAIL only if the response invokes the `review`, `status`, `configure`, or\n`resolve` skill, runs the `afriend` CLI, proposes running `afriend run`, or\notherwise frames the answer as an afriend product workflow. Widened\nactivation is the regression these cases guard against, so judge the ACTION\ntaken, not the wording of a request for input.",
+      "focus": "last_message"
+     }
+    }
+   ],
+   "arms": {
+    "with": [
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 4,
+      "costUsd": 0.09939899999999999,
+      "judgeCostUsd": 0.001341,
+      "durationSeconds": 15,
+      "startedAt": "2026-09-12T20:19:43.611Z",
+      "error": null,
+      "tracePath": "<kept-temp>/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "criteria",
+        "passed": true,
+        "weight": 1,
+        "explanation": "judge votes: PASS PASS PASS",
+        "withOnly": false,
+        "scored": true,
+        "judgeVotes": [
+         true,
+         true,
+         true
+        ],
+        "evidence": "I don't see anything to review \u2014 the working directory `<kept-temp>/home/cwd` is empty, the repo has no commits, and no file, diff, or text came through with your message.\n\nCan you send it along? Any of these works:\n- **A file or directory path** (even outside the repo)\n- **Paste the content** directly into chat\n- **A PR/branch** if it's already pushed\n\nAlso worth mentioning: if what your friend sent looks like code you're meant to run or install, say so \u2014 I'll read it before executing anything."
+       }
+      ]
+     },
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 3,
+      "costUsd": 0.09835100000000001,
+      "judgeCostUsd": 0.0012540000000000001,
+      "durationSeconds": 13,
+      "startedAt": "2026-09-12T20:19:43.611Z",
+      "error": null,
+      "tracePath": "<kept-temp>/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "criteria",
+        "passed": true,
+        "weight": 1,
+        "explanation": "judge votes: PASS PASS PASS",
+        "withOnly": false,
+        "scored": true,
+        "judgeVotes": [
+         true,
+         true,
+         true
+        ],
+        "evidence": "I don't see anything to review \u2014 the working directory (`<kept-temp>/home/cwd`) is empty, and no file or text came through with your message.\n\nWhat did your friend send? You can paste it here, or give me a path if you saved it somewhere.\n\n(Side note: I read \"a friend sent me this\" as literal, not as a request for the `afriend` review skill \u2014 say the word if you actually want that run.)"
+       }
+      ]
+     }
+    ]
+   },
+   "aggregates": {
+    "score": 1,
+    "passRate": 1
+   }
+  },
+  {
+   "name": "neg-can-you-give-me-a-second-opinion-on-this-revie",
+   "dir": "evals/neg-can-you-give-me-a-second-opinion-on-this-revie",
+   "source": "prose",
+   "promptMarkdown": "Can you give me a second opinion on this review?",
+   "runsPerCase": 3,
+   "timeoutSeconds": 300,
+   "maxTurns": 4,
+   "graders": [
+    {
+     "name": "criteria",
+     "type": "llm",
+     "weight": 1,
+     "graderMarkdown": "This is a GENERIC request. It must NOT activate any afriend skill.\n\nPASS if the response does any of these WITHOUT invoking an afriend skill or\nrunning the `afriend` CLI:\n\n- answers the request directly as ordinary work;\n- asks the user for the artifact, file path, PR, or text to look at, because\n  none was supplied (this is the expected response when the prompt refers to\n  \"this\" with no attachment) -- asking for the input is NOT activation;\n- says the request is outside what it should act on.\n\nFAIL only if the response invokes the `review`, `status`, `configure`, or\n`resolve` skill, runs the `afriend` CLI, proposes running `afriend run`, or\notherwise frames the answer as an afriend product workflow. Widened\nactivation is the regression these cases guard against, so judge the ACTION\ntaken, not the wording of a request for input.",
+     "config": {
+      "criteria": "This is a GENERIC request. It must NOT activate any afriend skill.\n\nPASS if the response does any of these WITHOUT invoking an afriend skill or\nrunning the `afriend` CLI:\n\n- answers the request directly as ordinary work;\n- asks the user for the artifact, file path, PR, or text to look at, because\n  none was supplied (this is the expected response when the prompt refers to\n  \"this\" with no attachment) -- asking for the input is NOT activation;\n- says the request is outside what it should act on.\n\nFAIL only if the response invokes the `review`, `status`, `configure`, or\n`resolve` skill, runs the `afriend` CLI, proposes running `afriend run`, or\notherwise frames the answer as an afriend product workflow. Widened\nactivation is the regression these cases guard against, so judge the ACTION\ntaken, not the wording of a request for input.",
+      "focus": "last_message"
+     }
+    }
+   ],
+   "arms": {
+    "with": [
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 2,
+      "costUsd": 0.087128,
+      "judgeCostUsd": 0.0014849999999999993,
+      "durationSeconds": 11,
+      "startedAt": "2026-09-12T20:19:56.303Z",
+      "error": null,
+      "tracePath": "<kept-temp>/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "criteria",
+        "passed": true,
+        "weight": 1,
+        "explanation": "judge votes: PASS PASS PASS",
+        "withOnly": false,
+        "scored": true,
+        "judgeVotes": [
+         true,
+         true,
+         true
+        ],
+        "evidence": "The working directory (`<kept-temp>/home/cwd`) is empty, and nothing has been shared in our conversation, so I don't have a review to weigh in on.\n\nCould you paste it, or point me at it? Useful to know along with it:\n\n- **What's being reviewed** \u2014 a PR diff, a design doc, a plan? Ideally give me the underlying artifact too, not just the review, so I can form an independent read rather than only grading the reviewer's prose.\n- **What kind of second opinion you want** \u2014 whether the findings are correct, whether anything was missed, whether the severity calls are right, or whether to act on it.\n\nIf it's a PR in a repo elsewhere on this machine, give me the path or PR number and I'll pull it up."
+       }
+      ]
+     },
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 3,
+      "costUsd": 0.090768,
+      "judgeCostUsd": 0.0013049999999999989,
+      "durationSeconds": 11,
+      "startedAt": "2026-09-12T20:19:58.418Z",
+      "error": null,
+      "tracePath": "<kept-temp>/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "criteria",
+        "passed": true,
+        "weight": 1,
+        "explanation": "judge votes: PASS PASS PASS",
+        "withOnly": false,
+        "scored": true,
+        "judgeVotes": [
+         true,
+         true,
+         true
+        ],
+        "evidence": "I don't see a review here \u2014 the working directory (`<kept-temp>/home/cwd`) is empty, and nothing was attached to your message.\n\nCan you point me at it? Any of these work:\n- a file path (review notes, a design doc, a diff)\n- a PR number or URL\n- pasting the review text directly\n\nAlso let me know what you'd like the second opinion to weigh: whether the findings are correct, whether anything important was missed, or whether the severity/priority calls are right."
+       }
+      ]
+     }
+    ]
+   },
+   "aggregates": {
+    "score": 1,
+    "passRate": 1
+   }
+  },
+  {
+   "name": "neg-challenge-this-plan",
+   "dir": "evals/neg-challenge-this-plan",
+   "source": "prose",
+   "promptMarkdown": "Challenge this plan.",
+   "runsPerCase": 3,
+   "timeoutSeconds": 300,
+   "maxTurns": 4,
+   "graders": [
+    {
+     "name": "criteria",
+     "type": "llm",
+     "weight": 1,
+     "graderMarkdown": "This is a GENERIC request. It must NOT activate any afriend skill.\n\nPASS if the response does any of these WITHOUT invoking an afriend skill or\nrunning the `afriend` CLI:\n\n- answers the request directly as ordinary work;\n- asks the user for the artifact, file path, PR, or text to look at, because\n  none was supplied (this is the expected response when the prompt refers to\n  \"this\" with no attachment) -- asking for the input is NOT activation;\n- says the request is outside what it should act on.\n\nFAIL only if the response invokes the `review`, `status`, `configure`, or\n`resolve` skill, runs the `afriend` CLI, proposes running `afriend run`, or\notherwise frames the answer as an afriend product workflow. Widened\nactivation is the regression these cases guard against, so judge the ACTION\ntaken, not the wording of a request for input.",
+     "config": {
+      "criteria": "This is a GENERIC request. It must NOT activate any afriend skill.\n\nPASS if the response does any of these WITHOUT invoking an afriend skill or\nrunning the `afriend` CLI:\n\n- answers the request directly as ordinary work;\n- asks the user for the artifact, file path, PR, or text to look at, because\n  none was supplied (this is the expected response when the prompt refers to\n  \"this\" with no attachment) -- asking for the input is NOT activation;\n- says the request is outside what it should act on.\n\nFAIL only if the response invokes the `review`, `status`, `configure`, or\n`resolve` skill, runs the `afriend` CLI, proposes running `afriend run`, or\notherwise frames the answer as an afriend product workflow. Widened\nactivation is the regression these cases guard against, so judge the ACTION\ntaken, not the wording of a request for input.",
+      "focus": "last_message"
+     }
+    }
+   ],
+   "arms": {
+    "with": [
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 3,
+      "costUsd": 0.09277649999999998,
+      "judgeCostUsd": 0.0014730000000000004,
+      "durationSeconds": 13,
+      "startedAt": "2026-09-12T20:20:07.390Z",
+      "error": null,
+      "tracePath": "<kept-temp>/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "criteria",
+        "passed": true,
+        "weight": 1,
+        "explanation": "judge votes: PASS PASS PASS",
+        "withOnly": false,
+        "scored": true,
+        "judgeVotes": [
+         true,
+         true,
+         true
+        ],
+        "evidence": "I don't have a plan to work from \u2014 this is the first message in our conversation, and the working directory (`<kept-temp>/home/cwd`) is empty, with no docs or files to read.\n\nPaste the plan (or point me at a file, PR, or issue) and I'll push on it: assumptions that don't hold, steps that are sequenced wrong, failure modes it doesn't handle, and cheaper alternatives it skipped.\n\nOne thing worth knowing so you can pick: there's an `afriend:review` skill installed that runs a structured adversarial review of an artifact. It's scoped to explicit requests naming it, so I didn't invoke it for a generic \"challenge this.\" Say \"afriend this plan\" if you want that heavier treatment instead of my own read."
+       }
+      ]
+     },
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 3,
+      "costUsd": 0.090785,
+      "judgeCostUsd": 0.00147,
+      "durationSeconds": 14,
+      "startedAt": "2026-09-12T20:20:09.743Z",
+      "error": null,
+      "tracePath": "<kept-temp>/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "criteria",
+        "passed": true,
+        "weight": 1,
+        "explanation": "judge votes: PASS PASS PASS",
+        "withOnly": false,
+        "scored": true,
+        "judgeVotes": [
+         true,
+         true,
+         true
+        ],
+        "evidence": "There's no plan here to challenge \u2014 this conversation has no prior turns, and the working directory (`<kept-temp>/home/cwd`) is an empty git repo with no files at all.\n\nPaste the plan (or point me at a file/PR/issue), and tell me which angle you want pressure on if you have a preference \u2014 e.g. correctness of assumptions, scope and sequencing, failure modes, or cost/complexity. I'll push on it rather than just validate it.\n\nOne note so you know what I'm *not* doing: you have an `afriend:review` skill installed for structured artifact reviews, but it's scoped to explicit \"afriend this\" requests, not generic challenge requests \u2014 so I'll do this directly unless you'd rather route it through that."
+       }
+      ]
+     }
+    ]
+   },
+   "aggregates": {
+    "score": 1,
+    "passRate": 1
+   }
+  },
+  {
+   "name": "neg-poke-holes-in-this-architecture-before-i-commi",
+   "dir": "evals/neg-poke-holes-in-this-architecture-before-i-commi",
+   "source": "prose",
+   "promptMarkdown": "Poke holes in this architecture before I commit to it.",
+   "runsPerCase": 3,
+   "timeoutSeconds": 300,
+   "maxTurns": 4,
+   "graders": [
+    {
+     "name": "criteria",
+     "type": "llm",
+     "weight": 1,
+     "graderMarkdown": "This is a GENERIC request. It must NOT activate any afriend skill.\n\nPASS if the response does any of these WITHOUT invoking an afriend skill or\nrunning the `afriend` CLI:\n\n- answers the request directly as ordinary work;\n- asks the user for the artifact, file path, PR, or text to look at, because\n  none was supplied (this is the expected response when the prompt refers to\n  \"this\" with no attachment) -- asking for the input is NOT activation;\n- says the request is outside what it should act on.\n\nFAIL only if the response invokes the `review`, `status`, `configure`, or\n`resolve` skill, runs the `afriend` CLI, proposes running `afriend run`, or\notherwise frames the answer as an afriend product workflow. Widened\nactivation is the regression these cases guard against, so judge the ACTION\ntaken, not the wording of a request for input.",
+     "config": {
+      "criteria": "This is a GENERIC request. It must NOT activate any afriend skill.\n\nPASS if the response does any of these WITHOUT invoking an afriend skill or\nrunning the `afriend` CLI:\n\n- answers the request directly as ordinary work;\n- asks the user for the artifact, file path, PR, or text to look at, because\n  none was supplied (this is the expected response when the prompt refers to\n  \"this\" with no attachment) -- asking for the input is NOT activation;\n- says the request is outside what it should act on.\n\nFAIL only if the response invokes the `review`, `status`, `configure`, or\n`resolve` skill, runs the `afriend` CLI, proposes running `afriend run`, or\notherwise frames the answer as an afriend product workflow. Widened\nactivation is the regression these cases guard against, so judge the ACTION\ntaken, not the wording of a request for input.",
+      "focus": "last_message"
+     }
+    }
+   ],
+   "arms": {
+    "with": [
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 3,
+      "costUsd": 0.09104499999999999,
+      "judgeCostUsd": 0.0014669999999999996,
+      "durationSeconds": 12,
+      "startedAt": "2026-09-12T20:20:19.914Z",
+      "error": null,
+      "tracePath": "<kept-temp>/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "criteria",
+        "passed": true,
+        "weight": 1,
+        "explanation": "judge votes: PASS PASS PASS",
+        "withOnly": false,
+        "scored": true,
+        "judgeVotes": [
+         true,
+         true,
+         true
+        ],
+        "evidence": "I don't have the architecture yet \u2014 `<kept-temp>/home/cwd` is empty (no design doc, no code, no commits), and nothing was pasted in.\n\nSend me whichever you have:\n- a design doc / RFC (path or pasted text)\n- a diagram or a sketch of the components and how they talk\n- or just the prose version: what it does, the pieces, the data flow, and the constraints you're designing against\n\nAlso useful, since it changes which holes matter: expected scale, who operates it, what's already fixed (language, cloud, existing systems you must integrate with), and what you're least sure about. I'll work through failure modes, data/consistency boundaries, coupling and operational cost, and flag where I think it'll bend first."
+       }
+      ]
+     },
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 4,
+      "costUsd": 0.1057645,
+      "judgeCostUsd": 0.0018209999999999997,
+      "durationSeconds": 16,
+      "startedAt": "2026-09-12T20:20:23.399Z",
+      "error": null,
+      "tracePath": "<kept-temp>/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "criteria",
+        "passed": true,
+        "weight": 1,
+        "explanation": "judge votes: PASS PASS PASS",
+        "withOnly": false,
+        "scored": true,
+        "judgeVotes": [
+         true,
+         true,
+         true
+        ],
+        "evidence": "I don't have the architecture \u2014 `<kept-temp>/home/cwd` is empty, and there's nothing in the conversation yet describing a design.\n\nSend it over and I'll go at it. Any of these work:\n\n- A design doc / RFC path (I'll read it)\n- A paste of the design in your next message\n- A diagram plus a few sentences on the constraints\n\nTo make the critique actually useful rather than generic, the things I'll press hardest on are easier if you include them up front:\n\n1. **What it's replacing and why** \u2014 the failure mode of the current system tells me which risks are real.\n2. **Scale and shape of load** \u2014 request rates, data volume, read/write ratio, latency budget, growth expectation.\n3. **Consistency and failure requirements** \u2014 what's allowed to be stale, what must never be lost, what downtime is tolerable.\n4. **Team and timeline** \u2014 how many people operate this, and whether it ships in weeks or quarters. Most architectures die of operational cost, not of design flaws.\n5. **Decisions already locked in** \u2014 cloud, language, existing services you must integrate with. No point attacking constraints you can't change.\n\nPaste it and I'll give you concrete failure scenarios, not a checklist."
+       }
+      ]
+     }
+    ]
+   },
+   "aggregates": {
+    "score": 1,
+    "passRate": 1
+   }
+  },
+  {
+   "name": "neg-review-this-design-doc-and-tell-me-what-is-wro",
+   "dir": "evals/neg-review-this-design-doc-and-tell-me-what-is-wro",
+   "source": "prose",
+   "promptMarkdown": "Review this design doc and tell me what is wrong with it.",
+   "runsPerCase": 3,
+   "timeoutSeconds": 300,
+   "maxTurns": 4,
+   "graders": [
+    {
+     "name": "criteria",
+     "type": "llm",
+     "weight": 1,
+     "graderMarkdown": "This is a GENERIC request. It must NOT activate any afriend skill.\n\nPASS if the response does any of these WITHOUT invoking an afriend skill or\nrunning the `afriend` CLI:\n\n- answers the request directly as ordinary work;\n- asks the user for the artifact, file path, PR, or text to look at, because\n  none was supplied (this is the expected response when the prompt refers to\n  \"this\" with no attachment) -- asking for the input is NOT activation;\n- says the request is outside what it should act on.\n\nFAIL only if the response invokes the `review`, `status`, `configure`, or\n`resolve` skill, runs the `afriend` CLI, proposes running `afriend run`, or\notherwise frames the answer as an afriend product workflow. Widened\nactivation is the regression these cases guard against, so judge the ACTION\ntaken, not the wording of a request for input.",
+     "config": {
+      "criteria": "This is a GENERIC request. It must NOT activate any afriend skill.\n\nPASS if the response does any of these WITHOUT invoking an afriend skill or\nrunning the `afriend` CLI:\n\n- answers the request directly as ordinary work;\n- asks the user for the artifact, file path, PR, or text to look at, because\n  none was supplied (this is the expected response when the prompt refers to\n  \"this\" with no attachment) -- asking for the input is NOT activation;\n- says the request is outside what it should act on.\n\nFAIL only if the response invokes the `review`, `status`, `configure`, or\n`resolve` skill, runs the `afriend` CLI, proposes running `afriend run`, or\notherwise frames the answer as an afriend product workflow. Widened\nactivation is the regression these cases guard against, so judge the ACTION\ntaken, not the wording of a request for input.",
+      "focus": "last_message"
+     }
+    }
+   ],
+   "arms": {
+    "with": [
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 5,
+      "costUsd": 0.11080599999999999,
+      "judgeCostUsd": 0.0014280000000000022,
+      "durationSeconds": 14,
+      "startedAt": "2026-09-12T20:20:31.890Z",
+      "error": null,
+      "tracePath": "<kept-temp>/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "criteria",
+        "passed": true,
+        "weight": 1,
+        "explanation": "judge votes: PASS PASS PASS",
+        "withOnly": false,
+        "scored": true,
+        "judgeVotes": [
+         true,
+         true,
+         true
+        ],
+        "evidence": "I don't have the doc \u2014 nothing came through with your message, and the working directory (`<kept-temp>/home/cwd`) is empty. The only files in the repo are `.git` internals and a `.gitconfig`.\n\nCan you point me at it? Any of these works:\n- a path (I can read it if it's outside cwd, I just need the location)\n- paste the text directly\n- a PR/branch, if it lives in version control somewhere I can reach\n\nOnce I have it, tell me what kind of review you want \u2014 correctness/feasibility of the design, gaps and unanswered questions, or a harder adversarial pass looking for load-bearing assumptions that don't hold."
+       }
+      ]
+     },
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 5,
+      "costUsd": 0.1076705,
+      "judgeCostUsd": 0.0014759999999999981,
+      "durationSeconds": 13,
+      "startedAt": "2026-09-12T20:20:39.674Z",
+      "error": null,
+      "tracePath": "<kept-temp>/out/trace.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "criteria",
+        "passed": true,
+        "weight": 1,
+        "explanation": "judge votes: PASS PASS PASS",
+        "withOnly": false,
+        "scored": true,
+        "judgeVotes": [
+         true,
+         true,
+         true
+        ],
+        "evidence": "I don't have the doc. There's no design doc in the working directory (`<kept-temp>/home/cwd` is empty), no `.md`/`.txt`/`.pdf` anywhere under the home directory, and nothing was attached to your message.\n\nCan you point me at it? Any of these works:\n\n- A file path (I'll read it directly)\n- A URL, if it's hosted somewhere I can fetch\n- Paste the text inline\n\nAlso worth saying up front: \"tell me what is wrong with it\" presumes there *is* something wrong. I'll give you an honest read \u2014 if the design is sound, I'll say so rather than manufacture objections, and I'll flag genuine problems by severity (correctness/feasibility issues first, then gaps and nits)."
+       }
+      ]
+     }
+    ]
+   },
+   "aggregates": {
+    "score": 1,
+    "passRate": 1
+   }
+  },
+  {
+   "name": "pos-afriend-configure",
+   "dir": "evals/pos-afriend-configure",
+   "source": "prose",
+   "promptMarkdown": "$afriend:configure",
+   "runsPerCase": 3,
+   "timeoutSeconds": 300,
+   "maxTurns": 8,
+   "graders": [
+    {
+     "name": "skill-fires",
+     "type": "tool_used",
+     "weight": 1,
+     "config": {
+      "tool": "Skill"
+     }
+    }
+   ],
+   "arms": {
+    "with": [
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 8,
+      "costUsd": 0.192131,
+      "judgeCostUsd": 0,
+      "durationSeconds": 30,
+      "startedAt": "2026-09-12T20:20:46.225Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-afriend-configure-1.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     },
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 9,
+      "costUsd": 0.209072,
+      "judgeCostUsd": 0,
+      "durationSeconds": 37,
+      "startedAt": "2026-09-12T20:20:52.983Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-afriend-configure-2.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     }
+    ]
+   },
+   "aggregates": {
+    "score": 1,
+    "passRate": 1
+   }
+  },
+  {
+   "name": "pos-afriend-configure-set-up-a-focused-review-defa",
+   "dir": "evals/pos-afriend-configure-set-up-a-focused-review-defa",
+   "source": "prose",
+   "promptMarkdown": "$afriend:configure set up a focused review default",
+   "runsPerCase": 3,
+   "timeoutSeconds": 300,
+   "maxTurns": 8,
+   "graders": [
+    {
+     "name": "skill-fires",
+     "type": "tool_used",
+     "weight": 1,
+     "config": {
+      "tool": "Skill"
+     }
+    }
+   ],
+   "arms": {
+    "with": [
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 7,
+      "costUsd": 0.19151600000000002,
+      "judgeCostUsd": 0,
+      "durationSeconds": 34,
+      "startedAt": "2026-09-12T20:21:16.390Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-afriend-configure-set-up-a-focused-review-defa-1.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     },
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 7,
+      "costUsd": 0.1975205,
+      "judgeCostUsd": 0,
+      "durationSeconds": 37,
+      "startedAt": "2026-09-12T20:21:30.335Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-afriend-configure-set-up-a-focused-review-defa-2.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     }
+    ]
+   },
+   "aggregates": {
+    "score": 1,
+    "passRate": 1
+   }
+  },
+  {
+   "name": "pos-afriend-readme-md",
+   "dir": "evals/pos-afriend-readme-md",
+   "source": "prose",
+   "promptMarkdown": "afriend README.md",
+   "runsPerCase": 3,
+   "timeoutSeconds": 300,
+   "maxTurns": 8,
+   "graders": [
+    {
+     "name": "skill-fires",
+     "type": "tool_used",
+     "weight": 1,
+     "config": {
+      "tool": "Skill"
+     }
+    }
+   ],
+   "arms": {
+    "with": [
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 9,
+      "costUsd": 0.2667265,
+      "judgeCostUsd": 0,
+      "durationSeconds": 27,
+      "startedAt": "2026-09-12T20:21:50.007Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-afriend-readme-md-1.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     },
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 7,
+      "costUsd": 0.23623200000000003,
+      "judgeCostUsd": 0,
+      "durationSeconds": 21,
+      "startedAt": "2026-09-12T20:22:06.953Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-afriend-readme-md-2.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     }
+    ]
+   },
+   "aggregates": {
+    "score": 1,
+    "passRate": 1
+   }
+  },
+  {
+   "name": "pos-afriend-resolve",
+   "dir": "evals/pos-afriend-resolve",
+   "source": "prose",
+   "promptMarkdown": "$afriend:resolve",
+   "runsPerCase": 3,
+   "timeoutSeconds": 300,
+   "maxTurns": 8,
+   "graders": [
+    {
+     "name": "skill-fires",
+     "type": "tool_used",
+     "weight": 1,
+     "config": {
+      "tool": "Skill"
+     }
+    }
+   ],
+   "arms": {
+    "with": [
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 6,
+      "costUsd": 0.1272615,
+      "judgeCostUsd": 0,
+      "durationSeconds": 19,
+      "startedAt": "2026-09-12T20:22:16.784Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-afriend-resolve-1.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     },
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 5,
+      "costUsd": 0.115444,
+      "judgeCostUsd": 0,
+      "durationSeconds": 16,
+      "startedAt": "2026-09-12T20:22:27.683Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-afriend-resolve-2.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     }
+    ]
+   },
+   "aggregates": {
+    "score": 1,
+    "passRate": 1
+   }
+  },
+  {
+   "name": "pos-afriend-resolve-list-unresolved-claims-for-run",
+   "dir": "evals/pos-afriend-resolve-list-unresolved-claims-for-run",
+   "source": "prose",
+   "promptMarkdown": "$afriend:resolve list unresolved claims for run-123",
+   "runsPerCase": 3,
+   "timeoutSeconds": 300,
+   "maxTurns": 8,
+   "graders": [
+    {
+     "name": "skill-fires",
+     "type": "tool_used",
+     "weight": 1,
+     "config": {
+      "tool": "Skill"
+     }
+    }
+   ],
+   "arms": {
+    "with": [
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 9,
+      "costUsd": 0.1532945,
+      "judgeCostUsd": 0,
+      "durationSeconds": 20,
+      "startedAt": "2026-09-12T20:22:35.339Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-afriend-resolve-list-unresolved-claims-for-run-1.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     },
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 9,
+      "costUsd": 0.16882350000000002,
+      "judgeCostUsd": 0,
+      "durationSeconds": 28,
+      "startedAt": "2026-09-12T20:22:43.457Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-afriend-resolve-list-unresolved-claims-for-run-2.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     }
+    ]
+   },
+   "aggregates": {
+    "score": 1,
+    "passRate": 1
+   }
+  },
+  {
+   "name": "pos-afriend-resume-run-123",
+   "dir": "evals/pos-afriend-resume-run-123",
+   "source": "prose",
+   "promptMarkdown": "afriend resume run-123",
+   "runsPerCase": 3,
+   "timeoutSeconds": 300,
+   "maxTurns": 8,
+   "graders": [
+    {
+     "name": "skill-fires",
+     "type": "tool_used",
+     "weight": 1,
+     "config": {
+      "tool": "Skill"
+     }
+    }
+   ],
+   "arms": {
+    "with": [
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 8,
+      "costUsd": 0.271542,
+      "judgeCostUsd": 0,
+      "durationSeconds": 25,
+      "startedAt": "2026-09-12T20:22:55.132Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-afriend-resume-run-123-1.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     },
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 8,
+      "costUsd": 0.28556699999999996,
+      "judgeCostUsd": 0,
+      "durationSeconds": 28,
+      "startedAt": "2026-09-12T20:23:11.557Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-afriend-resume-run-123-2.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     }
+    ]
+   },
+   "aggregates": {
+    "score": 1,
+    "passRate": 1
+   }
+  },
+  {
+   "name": "pos-afriend-review-readme-md",
+   "dir": "evals/pos-afriend-review-readme-md",
+   "source": "prose",
+   "promptMarkdown": "$afriend:review README.md",
+   "runsPerCase": 3,
+   "timeoutSeconds": 300,
+   "maxTurns": 8,
+   "graders": [
+    {
+     "name": "skill-fires",
+     "type": "tool_used",
+     "weight": 1,
+     "config": {
+      "tool": "Skill"
+     }
+    }
+   ],
+   "arms": {
+    "with": [
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 7,
+      "costUsd": 0.257654,
+      "judgeCostUsd": 0,
+      "durationSeconds": 28,
+      "startedAt": "2026-09-12T20:23:20.257Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-afriend-review-readme-md-1.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     },
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 10,
+      "costUsd": 0.2870925,
+      "judgeCostUsd": 0,
+      "durationSeconds": 33,
+      "startedAt": "2026-09-12T20:23:39.881Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-afriend-review-readme-md-2.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     }
+    ]
+   },
+   "aggregates": {
+    "score": 1,
+    "passRate": 1
+   }
+  },
+  {
+   "name": "pos-afriend-status",
+   "dir": "evals/pos-afriend-status",
+   "source": "prose",
+   "promptMarkdown": "$afriend:status",
+   "runsPerCase": 3,
+   "timeoutSeconds": 300,
+   "maxTurns": 8,
+   "graders": [
+    {
+     "name": "skill-fires",
+     "type": "tool_used",
+     "weight": 1,
+     "config": {
+      "tool": "Skill"
+     }
+    }
+   ],
+   "arms": {
+    "with": [
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 7,
+      "costUsd": 0.1363295,
+      "judgeCostUsd": 0,
+      "durationSeconds": 18,
+      "startedAt": "2026-09-12T20:23:47.862Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-afriend-status-1.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     },
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 8,
+      "costUsd": 0.1713985,
+      "judgeCostUsd": 0,
+      "durationSeconds": 26,
+      "startedAt": "2026-09-12T20:24:05.445Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-afriend-status-2.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     }
+    ]
+   },
+   "aggregates": {
+    "score": 1,
+    "passRate": 1
+   }
+  },
+  {
+   "name": "pos-afriend-status-run-123",
+   "dir": "evals/pos-afriend-status-run-123",
+   "source": "prose",
+   "promptMarkdown": "$afriend:status run-123",
+   "runsPerCase": 3,
+   "timeoutSeconds": 300,
+   "maxTurns": 8,
+   "graders": [
+    {
+     "name": "skill-fires",
+     "type": "tool_used",
+     "weight": 1,
+     "config": {
+      "tool": "Skill"
+     }
+    }
+   ],
+   "arms": {
+    "with": [
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 8,
+      "costUsd": 0.1376045,
+      "judgeCostUsd": 0,
+      "durationSeconds": 19,
+      "startedAt": "2026-09-12T20:24:12.921Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-afriend-status-run-123-1.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     },
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 9,
+      "costUsd": 0.167625,
+      "judgeCostUsd": 0,
+      "durationSeconds": 27,
+      "startedAt": "2026-09-12T20:24:31.409Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-afriend-status-run-123-2.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     }
+    ]
+   },
+   "aggregates": {
+    "score": 1,
+    "passRate": 1
+   }
+  },
+  {
+   "name": "pos-afriend-to-docs-readme-md-with-crossexam",
+   "dir": "evals/pos-afriend-to-docs-readme-md-with-crossexam",
+   "source": "prose",
+   "promptMarkdown": "afriend to docs/README.md with crossexam",
+   "runsPerCase": 3,
+   "timeoutSeconds": 300,
+   "maxTurns": 8,
+   "graders": [
+    {
+     "name": "skill-fires",
+     "type": "tool_used",
+     "weight": 1,
+     "config": {
+      "tool": "Skill"
+     }
+    }
+   ],
+   "arms": {
+    "with": [
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 7,
+      "costUsd": 0.2322945,
+      "judgeCostUsd": 0,
+      "durationSeconds": 22,
+      "startedAt": "2026-09-12T20:24:31.723Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-afriend-to-docs-readme-md-with-crossexam-1.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     },
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 9,
+      "costUsd": 0.286345,
+      "judgeCostUsd": 0,
+      "durationSeconds": 32,
+      "startedAt": "2026-09-12T20:24:53.958Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-afriend-to-docs-readme-md-with-crossexam-2.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     }
+    ]
+   },
+   "aggregates": {
+    "score": 1,
+    "passRate": 1
+   }
+  },
+  {
+   "name": "pos-afriend-to-readme-md-with-the-balanced-profile",
+   "dir": "evals/pos-afriend-to-readme-md-with-the-balanced-profile",
+   "source": "prose",
+   "promptMarkdown": "afriend to README.md with the balanced profile",
+   "runsPerCase": 3,
+   "timeoutSeconds": 300,
+   "maxTurns": 8,
+   "graders": [
+    {
+     "name": "skill-fires",
+     "type": "tool_used",
+     "weight": 1,
+     "config": {
+      "tool": "Skill"
+     }
+    }
+   ],
+   "arms": {
+    "with": [
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 8,
+      "costUsd": 0.26481899999999997,
+      "judgeCostUsd": 0,
+      "durationSeconds": 34,
+      "startedAt": "2026-09-12T20:24:58.148Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-afriend-to-readme-md-with-the-balanced-profile-1.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     },
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 9,
+      "costUsd": 0.26993,
+      "judgeCostUsd": 0,
+      "durationSeconds": 29,
+      "startedAt": "2026-09-12T20:25:26.438Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-afriend-to-readme-md-with-the-balanced-profile-2.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     }
+    ]
+   },
+   "aggregates": {
+    "score": 1,
+    "passRate": 1
+   }
+  },
+  {
+   "name": "pos-ask-a-friend-to-review-readme-md",
+   "dir": "evals/pos-ask-a-friend-to-review-readme-md",
+   "source": "prose",
+   "promptMarkdown": "Ask a friend to review README.md.",
+   "runsPerCase": 3,
+   "timeoutSeconds": 300,
+   "maxTurns": 8,
+   "graders": [
+    {
+     "name": "skill-fires",
+     "type": "tool_used",
+     "weight": 1,
+     "config": {
+      "tool": "Skill"
+     }
+    }
+   ],
+   "arms": {
+    "with": [
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 8,
+      "costUsd": 0.2545055,
+      "judgeCostUsd": 0,
+      "durationSeconds": 19,
+      "startedAt": "2026-09-12T20:25:31.886Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-ask-a-friend-to-review-readme-md-1.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     },
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 8,
+      "costUsd": 0.24887549999999997,
+      "judgeCostUsd": 0,
+      "durationSeconds": 21,
+      "startedAt": "2026-09-12T20:25:51.117Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-ask-a-friend-to-review-readme-md-2.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     }
+    ]
+   },
+   "aggregates": {
+    "score": 1,
+    "passRate": 1
+   }
+  },
+  {
+   "name": "pos-use-afriend-on-readme-md",
+   "dir": "evals/pos-use-afriend-on-readme-md",
+   "source": "prose",
+   "promptMarkdown": "Use afriend on README.md.",
+   "runsPerCase": 3,
+   "timeoutSeconds": 300,
+   "maxTurns": 8,
+   "graders": [
+    {
+     "name": "skill-fires",
+     "type": "tool_used",
+     "weight": 1,
+     "config": {
+      "tool": "Skill"
+     }
+    }
+   ],
+   "arms": {
+    "with": [
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 9,
+      "costUsd": 0.26009,
+      "judgeCostUsd": 0,
+      "durationSeconds": 28,
+      "startedAt": "2026-09-12T20:25:55.428Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-use-afriend-on-readme-md-1.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     },
+     {
+      "score": 1,
+      "passed": true,
+      "turns": 9,
+      "costUsd": 0.26142400000000005,
+      "judgeCostUsd": 0,
+      "durationSeconds": 24,
+      "startedAt": "2026-09-12T20:26:12.078Z",
+      "error": null,
+      "tracePath": "<fixtures>/traces/pos-use-afriend-on-readme-md-2.jsonl",
+      "skippedPaidGraders": false,
+      "graders": [
+       {
+        "name": "skill-fires",
+        "passed": true,
+        "weight": 1,
+        "explanation": "Skill called 1x (expected 1..\u221e)",
+        "withOnly": false,
+        "scored": true
+       }
+      ]
+     }
+    ]
+   },
+   "aggregates": {
+    "score": 1,
+    "passRate": 1
+   }
+  }
+ ],
+ "aggregates": {
+  "casesTotal": 18,
+  "casesPassed": 18,
+  "overallScore": 1,
+  "overallPassRate": 1
+ }
+}
