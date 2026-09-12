@@ -18,7 +18,13 @@ Every run makes a real model call on your Codex subscription:
     scripts/run_codex_skill_eval.py --runs 2           # the whole suite, twice per case
     scripts/run_codex_skill_eval.py --tag narrow --runs 1
 
-The guard, and why each part exists:
+Do not run this yet. On its first full run a `configure` case found the
+installed `afriend` through CODEX_HOME's path and ran it by absolute path;
+nothing below can stop that. It detects such a run and marks it untrusted,
+which is not containment. Containment needs Codex running where no model CLI
+is installed.
+
+The guard, what each part catches, and why:
 
 - `-s read-only` and `--ephemeral`: the run writes nothing and keeps no session.
 - `HOME` is a fresh empty directory per run. Codex runs every command through

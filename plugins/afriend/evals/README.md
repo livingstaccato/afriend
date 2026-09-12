@@ -104,8 +104,20 @@ from the plugin cache, so the first afriend `skills/<name>/SKILL.md` a run
 reads is its selection, and a `no-activation` case must read none. Positive
 cases use the same `expectations.json`.
 
-The prompts ask for real work -- `afriend resume run-123` -- so the run is
-guarded rather than trusted:
+**Do not run it yet.** On its first full run (2026-09-12), a `configure` case
+read the user's name from `CODEX_HOME`'s path, found the installed `afriend` in
+`~/.local/bin`, and ran it by absolute path: `profiles list`, `context show`,
+`providers list`, a guided-setup preview, and a `doctor` that the read-only
+sandbox stopped before it probed anything. Nothing was written. Hiding the CLIs
+from PATH and HOME cannot stop an absolute path, and Codex 0.154 no longer
+accepts the approval policy that would have refused it. The runner caught the
+breach and marked the run untrusted, but catching it is not preventing it.
+Containment needs Codex running where no model CLI is installed at all, and
+that change is not in yet; until it is, the guard below detects and does not
+contain.
+
+The prompts ask for real work -- `afriend resume run-123` -- so each run is
+checked rather than trusted:
 
 - `-s read-only` and `--ephemeral`.
 - `HOME` is an empty directory per run. Codex runs commands through your login
