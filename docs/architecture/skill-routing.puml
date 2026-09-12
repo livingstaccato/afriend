@@ -1,32 +1,58 @@
 @startuml skill-routing
+' Theme: colours sampled from docs/images/brand/afriend-logo-512.png.
+' Avenir Next and SF Mono ship with macOS and are absent from the CI runner,
+' which only checks that a source renders -- the committed PNG and SVG pair
+' is produced by `make diagrams` on a machine that has them.
+
 skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "Avenir Next"
+skinparam defaultMonospacedFontName "SF Mono"
+skinparam defaultFontSize 13
 skinparam shadowing false
-skinparam defaultFontName Helvetica
-skinparam ArrowColor #37474F
-skinparam rectangle {
-  BorderColor #1565C0
-  BackgroundColor #E3F2FD
-}
+skinparam ArrowColor #6E8288
+skinparam ArrowFontColor #5B7079
+skinparam ArrowFontSize 12
+skinparam TitleFontSize 19
+skinparam TitleFontColor #2D424E
+skinparam legendBackgroundColor #F8FCFC
+skinparam legendBorderColor #A8C3CC
+skinparam legendFontSize 12
+skinparam noteBackgroundColor #F4F1E8
+skinparam noteBorderColor #B3AA97
+skinparam noteFontColor #4A4436
+skinparam noteFontSize 12
+skinparam componentStyle rectangle
+skinparam RectangleBorderColor #7E99A3
+skinparam RectangleBackgroundColor #EAF3F4
+skinparam RectangleBorderThickness 1
+skinparam RectangleFontColor #2D424E
+skinparam RectangleFontSize 13
+skinparam PackageBorderColor #4F7981
+skinparam PackageBackgroundColor #F1F8F8
+skinparam PackageFontColor #4F7981
+skinparam PackageFontSize 13
+skinparam PackageFontStyle bold
+
 title afriend skill selection
 
-rectangle "host-session resolver\nexplicit evidence / session window" as resolver #FFF8E1
-rectangle "CLI composer\nafriend context compose" as composer #E8F5E9
-rectangle "deterministic, content-bound composite + manifest" as composite #F3E5F5
-rectangle "session preflight\ntarget, scope, judgment goal,\nand qualifying roster" as preflight #FFF8E1
+rectangle "host-session resolver\nexplicit evidence / session window" as resolver #F6E7C8
+rectangle "CLI composer\nafriend context compose" as composer #D9E8D5
+rectangle "deterministic, content-bound composite + manifest" as composite #E6E2DA
+rectangle "session preflight\ntarget, scope, judgment goal,\nand qualifying roster" as preflight #F6E7C8
 rectangle "review\nprimary entry" as review
 rectangle "status" as status
 rectangle "configure" as configure
 rectangle "resolve" as resolve
-rectangle "afriend run" as run #E8F5E9
-rectangle "normal run snapshot / resume" as snapshot #F3E5F5
-rectangle "events.jsonl\nsafe lifecycle stream" as events #F3E5F5
-rectangle "completion feedback\ninspect, resolve, resume, retry" as feedback #FFF8E1
-rectangle "afriend doctor" as doctor #E8F5E9
-rectangle "afriend status" as runstatus #E8F5E9
-rectangle "afriend providers" as providers #E8F5E9
-rectangle "afriend init / profiles" as setup #E8F5E9
-rectangle "afriend resolve" as resolution #E8F5E9
-rectangle "afriend run --resume" as resume #E8F5E9
+rectangle "afriend run" as run #D9E8D5
+rectangle "normal run snapshot / resume" as snapshot #E6E2DA
+rectangle "events.jsonl\nsafe lifecycle stream" as events #E6E2DA
+rectangle "completion feedback\ninspect, resolve, resume, retry" as feedback #F6E7C8
+rectangle "afriend doctor" as doctor #D9E8D5
+rectangle "afriend status" as runstatus #D9E8D5
+rectangle "afriend providers" as providers #D9E8D5
+rectangle "afriend init / profiles" as setup #D9E8D5
+rectangle "afriend resolve" as resolution #D9E8D5
+rectangle "afriend run --resume" as resume #D9E8D5
 
 review --> resolver : first review
 resolver --> composer : approved unambiguous chain

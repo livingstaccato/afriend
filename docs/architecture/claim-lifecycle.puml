@@ -3,32 +3,44 @@
 ' Traced against src/afriend/merge.py (exact_merge) and
 ' src/afriend/ledger.py.
 
+' Theme: colours sampled from docs/images/brand/afriend-logo-512.png.
+' Avenir Next and SF Mono ship with macOS and are absent from the CI runner,
+' which only checks that a source renders -- the committed PNG and SVG pair
+' is produced by `make diagrams` on a machine that has them.
+
 skinparam backgroundColor #FFFFFF
-skinparam defaultFontName "Helvetica"
+skinparam defaultFontName "Avenir Next"
+skinparam defaultMonospacedFontName "SF Mono"
 skinparam defaultFontSize 13
 skinparam shadowing false
-skinparam ArrowColor #37474F
-skinparam ArrowFontSize 11
-skinparam TitleFontSize 18
+skinparam ArrowColor #6E8288
+skinparam ArrowFontColor #5B7079
+skinparam ArrowFontSize 12
+skinparam TitleFontSize 19
+skinparam TitleFontColor #2D424E
+skinparam legendBackgroundColor #F8FCFC
+skinparam legendBorderColor #A8C3CC
+skinparam legendFontSize 12
+skinparam noteBackgroundColor #F4F1E8
+skinparam noteBorderColor #B3AA97
+skinparam noteFontColor #4A4436
+skinparam noteFontSize 12
 skinparam sequenceMessageAlign center
-
-skinparam participant {
-  BorderColor #546E7A
-  BackgroundColor #ECEFF1
-  FontSize 13
-}
-skinparam note {
-  BackgroundColor #FFF8E1
-  BorderColor #F9A825
-  FontSize 12
-}
+skinparam ParticipantBorderColor #7E99A3
+skinparam ParticipantBackgroundColor #EAF3F4
+skinparam ParticipantFontColor #2D424E
+skinparam ParticipantFontSize 13
+skinparam DatabaseBorderColor #7E99A3
+skinparam DatabaseBackgroundColor #EAF3F4
+skinparam SequenceLifeLineBorderColor #A8C3CC
+skinparam SequenceArrowColor #6E8288
 
 title How corroboration survives deduplication
 
-participant "friend A\nsecurity lens" as A #E8F5E9
-participant "friend B\nops lens" as B #E8F5E9
+participant "friend A\nsecurity lens" as A #D9E8D5
+participant "friend B\nops lens" as B #D9E8D5
 participant "exact_merge" as M
-database "claims.jsonl\nappend-only" as L #FFF8E1
+database "claims.jsonl\nappend-only" as L #F6E7C8
 participant "report.md" as R
 
 A -> M : claim c-0001\n"the guard is missing"\norigin = [fake/security]
@@ -57,7 +69,7 @@ end note
 M -> R : one finding, ranked
 R -> R : renders\n"corroborated by 2 friends"\nfake/security · fake/ops
 
-note over R #E8F5E9
+note over R #D9E8D5
   Two independent models reaching the same
   conclusion is the strongest signal this
   tool produces — so it is never collapsed

@@ -3,42 +3,79 @@
 ' src/afriend/commands/run.py (cmd_run's gate branch),
 ' commands/resolve.py, and resolutions.py.
 
+' Theme: colours sampled from docs/images/brand/afriend-logo-512.png.
+' Avenir Next and SF Mono ship with macOS and are absent from the CI runner,
+' which only checks that a source renders -- the committed PNG and SVG pair
+' is produced by `make diagrams` on a machine that has them.
+
 skinparam backgroundColor #FFFFFF
-skinparam defaultFontName "Helvetica"
+skinparam defaultFontName "Avenir Next"
+skinparam defaultMonospacedFontName "SF Mono"
 skinparam defaultFontSize 13
 skinparam shadowing false
-skinparam ArrowColor #37474F
-skinparam ArrowFontSize 11
-skinparam TitleFontSize 18
+skinparam ArrowColor #6E8288
+skinparam ArrowFontColor #5B7079
+skinparam ArrowFontSize 12
+skinparam TitleFontSize 19
+skinparam TitleFontColor #2D424E
+skinparam legendBackgroundColor #F8FCFC
+skinparam legendBorderColor #A8C3CC
+skinparam legendFontSize 12
+skinparam noteBackgroundColor #F4F1E8
+skinparam noteBorderColor #B3AA97
+skinparam noteFontColor #4A4436
+skinparam noteFontSize 12
+skinparam ActivityBorderColor #7E99A3
+skinparam ActivityBackgroundColor #EAF3F4
+skinparam ActivityFontColor #2D424E
+skinparam ActivityBorderThickness 1
+skinparam ActivityDiamondBackgroundColor #E7F9F8
+skinparam ActivityDiamondBorderColor #4F7981
+skinparam ActivityDiamondFontColor #2D424E
+skinparam ActivityDiamondFontSize 12
+skinparam PartitionBorderColor #A8C3CC
+skinparam PartitionBackgroundColor #F8FCFC
+skinparam PartitionFontColor #4F7981
 
-skinparam activity {
-  BorderColor #546E7A
-  BackgroundColor #ECEFF1
-  DiamondBorderColor #546E7A
-  DiamondBackgroundColor #ECEFF1
-  FontSize 13
-  DiamondFontSize 12
+' Semantic fills are <style> classes, not the `#RRGGBB:label;` prefix --
+' PlantUML 1.2026.8 cannot close a partition or repeat group anywhere near
+' an inline-coloured activity, and fails the whole source with "Cannot find
+' group". One property per line: `{ BackgroundColor #A  LineColor #B }`
+' parses as a single malformed value and the class is dropped in silence,
+' leaving the tagged nodes unstyled in a diagram that still "succeeds".
+<style>
+.downgrade {
+  BackgroundColor #F6E7C8
+  LineColor #C79B4E
 }
-skinparam note {
-  BackgroundColor #FFF8E1
-  BorderColor #F9A825
-  FontSize 12
+.failed {
+  BackgroundColor #F3D7D2
+  LineColor #C07A6E
 }
+.success {
+  BackgroundColor #D9E8D5
+  LineColor #7A9B72
+}
+.command {
+  BackgroundColor #D8EDEC
+  LineColor #4F7981
+}
+</style>
 
 title The gate loop
 
 start
 
-#E3F2FD:afriend run spec.md "--mode gate";
+:afriend run spec.md "--mode gate"; <<command>>
 :critique, then cross-examine;
 
 if (any non-advisory claim\nnot cleared by its state?) then (no)
-  #C8E6C9:exit 0 — gate clear;
+  :exit 0 — gate clear; <<success>>
   stop
 else (yes)
 endif
 
-#FFCDD2:exit 1 — names each blocking claim;
+:exit 1 — names each blocking claim; <<failed>>
 
 note right
   Only settled-refuted clears on its
@@ -51,10 +88,10 @@ end note
 
 repeat
   :a human changes something;
-  #E3F2FD:afriend resolve RUN_ID\nclaim = c-0001@1\ndisposition = fixed\nevidence = src/auth.py:38;
+  :afriend resolve RUN_ID\nclaim = c-0001@1\ndisposition = fixed\nevidence = src/auth.py:38; <<command>>
 
   if (evidence names a location?) then (no)
-    #FFCDD2:exit 2 — refused;
+    :exit 2 — refused; <<failed>>
     stop
   else (yes)
   endif
@@ -62,7 +99,7 @@ repeat
   :compare that location against\nthe run's frozen copy or snapshot;
 
   if (fixed, but nothing changed there?) then (yes)
-    #FFCDD2:exit 2 — refused;
+    :exit 2 — refused; <<failed>>
     stop
   else (no)
   endif
@@ -70,7 +107,7 @@ repeat
   :append resolution\nverified = changed | unchanged | unverifiable;
 repeat while (claims still blocking?) is (yes) not (no)
 
-#C8E6C9:exit 0 — gate clear;
+:exit 0 — gate clear; <<success>>
 stop
 
 @enduml

@@ -3,42 +3,50 @@
 ' Traced against src/afriend/verdicts.py (state_for,
 ' should_discard, build_successor) and spec §7.1-§7.2.
 
+' Theme: colours sampled from docs/images/brand/afriend-logo-512.png.
+' Avenir Next and SF Mono ship with macOS and are absent from the CI runner,
+' which only checks that a source renders -- the committed PNG and SVG pair
+' is produced by `make diagrams` on a machine that has them.
+
 skinparam backgroundColor #FFFFFF
-skinparam defaultFontName "Helvetica"
+skinparam defaultFontName "Avenir Next"
+skinparam defaultMonospacedFontName "SF Mono"
 skinparam defaultFontSize 13
 skinparam shadowing false
-skinparam ArrowColor #37474F
-skinparam ArrowFontSize 11
-skinparam TitleFontSize 18
-
-skinparam state {
-  BorderColor #546E7A
-  BackgroundColor #ECEFF1
-  FontSize 13
-  AttributeFontSize 12
-}
-skinparam note {
-  BackgroundColor #FFF8E1
-  BorderColor #F9A825
-  FontSize 12
-}
+skinparam ArrowColor #6E8288
+skinparam ArrowFontColor #5B7079
+skinparam ArrowFontSize 12
+skinparam TitleFontSize 19
+skinparam TitleFontColor #2D424E
+skinparam legendBackgroundColor #F8FCFC
+skinparam legendBorderColor #A8C3CC
+skinparam legendFontSize 12
+skinparam noteBackgroundColor #F4F1E8
+skinparam noteBorderColor #B3AA97
+skinparam noteFontColor #4A4436
+skinparam noteFontSize 12
+skinparam StateBorderColor #7E99A3
+skinparam StateBackgroundColor #EAF3F4
+skinparam StateFontColor #2D424E
+skinparam StateFontSize 13
+skinparam StateAttributeFontSize 12
 
 title Claim states in cross-examination
 
 legend top right
-  |<#C8E6C9>    | terminal, clears a gate |
-  |<#FFCDD2>    | terminal, needs a human |
-  |<#ECEFF1>    | another round could change it |
+  <color:#7A9B72>██</color>  terminal, clears a gate
+  <color:#C07A6E>██</color>  terminal, needs a human
+  <color:#7E99A3>██</color>  another round could change it
 endlegend
 
 state "contested" as C
-state "settled-upheld" as SU #FFCDD2
-state "settled-refuted" as SR #C8E6C9
-state "superseded" as SUP #C8E6C9
-state "deadlocked" as DL #FFCDD2
+state "settled-upheld" as SU #F3D7D2
+state "settled-refuted" as SR #D9E8D5
+state "superseded" as SUP #D9E8D5
+state "deadlocked" as DL #F3D7D2
 state "unproven" as UP
 state "incomplete" as IN
-state "discarded" as DIS #C8E6C9
+state "discarded" as DIS #D9E8D5
 
 [*] --> C : round 1 raised it
 

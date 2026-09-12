@@ -1,8 +1,13 @@
-"""The diagram gate's own failure modes.
+"""The diagram gate's own failure modes, and the ones no gate can see.
 
 `ci/verify_diagrams_render.sh` had no test of its own, so the one thing it
 asserts -- that a silently broken render is caught -- was never exercised.
-Both checks below fail against the pre-fix script.
+The first two checks fail against the pre-fix script.
+
+The source checks after them guard what rendering cannot. One names a
+colour syntax that renders on PlantUML 1.2026.6 and fails on 1.2026.7, so
+it depends on which release is installed; the other two name styling
+mistakes that render perfectly and wrong, and would never fail anything.
 """
 
 from pathlib import Path
@@ -67,6 +72,67 @@ def test_the_gate_uses_no_pipe_into_a_quiet_grep():
         if not line.lstrip().startswith("#") and re.search(r"(?<!\|)\|(?!\|)\s*grep\s+-\w*q", line)
     ]
     assert offenders == [], offenders
+
+
+DIAGRAMS = sorted((REPO / "docs" / "architecture").glob("*.puml"))
+
+# `#RRGGBB:label;` -- the inline activity colour. A legend swatch is written
+# `|<#RRGGBB> |`, a table cell rather than an activity, so anchoring on the
+# `#` at the start of the line keeps the two apart.
+INLINE_COLOUR = re.compile(r"^\s*#[0-9A-Fa-f]{6}\s*:")
+
+
+@pytest.mark.parametrize("source", DIAGRAMS, ids=lambda p: p.stem)
+def test_no_activity_carries_an_inline_colour_prefix(source):
+    """PlantUML 1.2026.7 stopped rendering this form inside a group.
+
+    A coloured activity in or beside a `partition` or `repeat` fails the
+    whole source with "Cannot find group", reported against the line that
+    closes the group rather than the coloured one. `ci/install_plantuml.sh`
+    pins a release that rejects it, so the render gate would now catch a
+    reintroduction -- but only where plantuml is installed, and that gate
+    skips silently when it is not. This says so without rendering anything.
+    """
+    offenders = [
+        line.strip()
+        for line in source.read_text(encoding="utf-8").splitlines()
+        if INLINE_COLOUR.match(line)
+    ]
+    assert offenders == [], offenders
+
+
+@pytest.mark.parametrize("source", DIAGRAMS, ids=lambda p: p.stem)
+def test_every_style_class_declares_one_property_per_line(source):
+    """The silent half, which no renderer can catch for us.
+
+    `.downgrade { BackgroundColor #A  LineColor #B }` is read as one
+    malformed value: PlantUML drops the whole class without a word, the
+    tagged activities render unstyled, and the diagram still reports
+    success. Every semantic fill in these sources depends on that not
+    happening, and nothing downstream would notice if it did.
+    """
+    text = source.read_text(encoding="utf-8")
+    offenders = [
+        line.strip()
+        for line in text.splitlines()
+        # A class opened and closed on one line, carrying two properties.
+        if re.match(r"^\s*\.\w+\s*\{.*\}", line)
+        and len(re.findall(r"[A-Za-z]+\s+#[0-9A-Fa-f]{6}", line)) > 1
+    ]
+    assert offenders == [], offenders
+
+
+@pytest.mark.parametrize("source", DIAGRAMS, ids=lambda p: p.stem)
+def test_every_stereotype_used_is_a_class_the_source_defines(source):
+    """A misspelt `<<class>>` is not an error either -- it renders plain.
+
+    The node keeps its default fill and the diagram succeeds, so a typo
+    costs exactly the meaning the colour was carrying.
+    """
+    text = source.read_text(encoding="utf-8")
+    defined = set(re.findall(r"^\s*\.(\w+)\s*\{", text, re.MULTILINE))
+    used = set(re.findall(r"<<(\w+)>>", text))
+    assert used <= defined, sorted(used - defined)
 
 
 @pytest.mark.skipif(shutil.which("plantuml") is None, reason="plantuml not installed")

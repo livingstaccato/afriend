@@ -2,27 +2,39 @@
 ' Module architecture of the afriend package.
 ' Mirrors the real layout under src/afriend/.
 
+' Theme: colours sampled from docs/images/brand/afriend-logo-512.png.
+' Avenir Next and SF Mono ship with macOS and are absent from the CI runner,
+' which only checks that a source renders -- the committed PNG and SVG pair
+' is produced by `make diagrams` on a machine that has them.
+
 skinparam backgroundColor #FFFFFF
-skinparam defaultFontName "Helvetica"
+skinparam defaultFontName "Avenir Next"
+skinparam defaultMonospacedFontName "SF Mono"
 skinparam defaultFontSize 13
 skinparam shadowing false
-skinparam ArrowColor #37474F
-skinparam ArrowFontSize 11
-skinparam TitleFontSize 18
+skinparam ArrowColor #6E8288
+skinparam ArrowFontColor #5B7079
+skinparam ArrowFontSize 12
+skinparam TitleFontSize 19
+skinparam TitleFontColor #2D424E
+skinparam legendBackgroundColor #F8FCFC
+skinparam legendBorderColor #A8C3CC
+skinparam legendFontSize 12
+skinparam noteBackgroundColor #F4F1E8
+skinparam noteBorderColor #B3AA97
+skinparam noteFontColor #4A4436
+skinparam noteFontSize 12
 skinparam componentStyle rectangle
-
-skinparam rectangle {
-  BorderColor #546E7A
-  BackgroundColor #ECEFF1
-  BorderThickness 1
-  FontSize 13
-}
-skinparam package {
-  BorderColor #1565C0
-  BackgroundColor #E3F2FD
-  FontSize 13
-  FontStyle bold
-}
+skinparam RectangleBorderColor #7E99A3
+skinparam RectangleBackgroundColor #EAF3F4
+skinparam RectangleBorderThickness 1
+skinparam RectangleFontColor #2D424E
+skinparam RectangleFontSize 13
+skinparam PackageBorderColor #4F7981
+skinparam PackageBackgroundColor #F1F8F8
+skinparam PackageFontColor #4F7981
+skinparam PackageFontSize 13
+skinparam PackageFontStyle bold
 
 title afriend — module architecture
 
@@ -64,9 +76,9 @@ package "Interpret & record" {
   rectangle "runstore.py\n<size:11>run dir layout</size>" as STORE
 }
 
-database "assets/\nadapters · harnesses · lenses\nentrypoints/ (five skills)" as ASSETS #FFF8E1
-cloud "exec friend CLIs\nclaude · codex · Antigravity (agy) · opencode" as FRIENDS #E8F5E9
-cloud "Ollama HTTP endpoint" as HTTP #E8F5E9
+database "assets/\nadapters · harnesses · lenses\nentrypoints/ (five skills)" as ASSETS #F6E7C8
+cloud "exec friend CLIs\nclaude · codex · Antigravity (agy) · opencode" as FRIENDS #D9E8D5
+cloud "Ollama HTTP endpoint" as HTTP #D9E8D5
 
 CLI --> ARGS
 CLI --> RUN
