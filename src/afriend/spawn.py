@@ -238,9 +238,7 @@ def run_process(
         # `str(exc)` omits the path entirely for this failure (e.g. WinError
         # 193, "%1 is not a valid Win32 application") -- unlike POSIX, where
         # Popen sets `.filename` and it appears in `str(exc)` on its own.
-        return _early_failure(
-            argv, time.monotonic() - started, f"failed to start {argv[0]}: {exc}"
-        )
+        return _early_failure(argv, time.monotonic() - started, f"failed to start {argv[0]}: {exc}")
     # start_new_session=True runs setsid() in the child before exec, which
     # makes it both a new session leader and a new process group leader --
     # its pgid is therefore always its own pid. Capturing that now means
