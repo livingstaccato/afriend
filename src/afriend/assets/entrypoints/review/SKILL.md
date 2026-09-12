@@ -1,6 +1,6 @@
 ---
 name: review
-description: Use for an explicit afriend review of a supplied artifact: when the user directly selects this skill ($afriend:review), for a request that names afriend ("afriend this plan", "afriend to docs/design.md"), or for an operative "ask/use a friend to review ..." request. Do not use for generic review, challenge, poke-holes, second-opinion, or architecture requests, and not for an incidental mention of a friend.
+description: Use for an explicit afriend review of a supplied artifact: when the user directly selects this skill ($afriend:review), for a request that names afriend ("afriend this plan", "afriend to docs/design.md"), for an operative "ask/use a friend to review ..." request, or to resume a halted run ("afriend resume <run-id>"). Do not use for generic review, challenge, poke-holes, second-opinion, or architecture requests, and not for an incidental mention of a friend.
 ---
 
 # afriend review

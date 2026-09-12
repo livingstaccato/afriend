@@ -1,6 +1,6 @@
 ---
 name: status
-description: Use only through direct qualified selection ($afriend:status) or an explicit afriend request to inspect provider readiness or a named existing run. This is read-only.
+description: Use only through direct qualified selection ($afriend:status) or an explicit afriend request to report on provider readiness or on a named existing run. This is read-only: it never starts, resumes, or changes a run, so "afriend resume <run-id>" is not a status request and belongs to afriend:review.
 ---
 
 # afriend status

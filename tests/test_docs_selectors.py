@@ -125,6 +125,48 @@ def test_resume_routes_to_run_without_claim_resolution_inputs():
     assert "afriend run --resume" in resume_eval["expected_output"]
 
 
+def _activation_description(skill: str) -> str:
+    """The `description:` a host reads to decide whether to select a skill.
+
+    Only the frontmatter drives activation. Everything else in a SKILL.md is
+    read *after* selection, so a routing rule stated in the body cannot make
+    the host pick that skill in the first place.
+    """
+    text = (ENTRYPOINTS / skill / "SKILL.md").read_text(encoding="utf-8")
+    match = re.search(r"^description:(.*)$", text, re.MULTILINE)
+    assert match, f"{skill}/SKILL.md has no description frontmatter"
+    return " ".join(match.group(1).lower().split())
+
+
+def test_resume_is_claimed_by_review_and_disclaimed_by_status_in_activation_text():
+    """The shipped 0.11.0 regression, in the one place that decides routing.
+
+    `status` said it covered "a named existing run", gated behind "explicit
+    /afriend routing" -- a selector that was then removed, leaving the gate as
+    the far broader "an explicit afriend request". `afriend resume run-123` is
+    one, so status swallowed it. Nothing pulled the other way: `review` named
+    artifacts and never named resume.
+
+    The rule was written down the whole time, in `review`'s body and in
+    `resolve`'s -- and `test_resume_routes_to_run_without_claim_resolution_inputs`
+    checked exactly those two bodies. A host never reads them to choose, so
+    the eval caught what every text guard missed. This asserts on the text
+    that actually routes.
+    """
+    review = _activation_description("review")
+    status = _activation_description("status")
+
+    assert "afriend resume" in review
+    assert "afriend resume" in status
+    assert "belongs to afriend:review" in status
+    assert "never starts, resumes, or changes a run" in status
+
+    # The widening clause is only safe while it is paired with the
+    # disclaimer above; an unqualified claim over "a named run" competes
+    # with review for every `afriend resume <run-id>`.
+    assert "read-only" in status
+
+
 def test_status_describes_resume_authority_as_current_command_line_grant():
     status = " ".join((ENTRYPOINTS / "status" / "SKILL.md").read_text().lower().split())
     assert "past run's authority record is descriptive only" in status

@@ -41,18 +41,32 @@ That assertion now lives outside the harness, because the harness cannot
 express it:
 
 ```bash
-claude plugin eval plugins/afriend/evals --ablation none --keep-temp
-scripts/check_eval_skill_selection.py <the kept directory>
+claude plugin eval plugins/afriend --ablation none --keep-temp
+scripts/check_eval_skill_selection.py plugins/afriend/evals/results
 ```
 
-`expectations.json` names the skill each positive case must select, and the
-script reads the kept transcripts and checks the qualified name against it.
+The target is the **plugin** directory, never the suite directory below it.
+`claude plugin eval plugins/afriend/evals` is accepted and resolves no plugin,
+so every case runs with no afriend skill loaded: the positives all fail with
+"Skill called 0x" and the negatives all pass for the wrong reason, because a
+skill that cannot fire trivially satisfies "must not fire". Results then land
+in `evals/evals/results/` rather than `evals/results/`, which is the visible
+tell.
+
+`expectations.json` names the skill each positive case must select. The script
+reads `aggregate-result.json`, which maps each case to the `tracePath` of
+every run it launched -- the only link between the two, since a kept temp
+directory is `/tmp/claude-eval-<random>` and names no case -- and checks the
+qualified name in those transcripts. It reads only the plugin-loaded `with`
+arm; the ablation baseline runs without the plugin by design.
+
 `tests/test_eval_skill_selection.py` exercises its *rejection* path against
-synthetic traces -- correct selection, wrong skill, no skill at all, and an
-empty directory -- so the check is verified without any paid model call. The
-empty-directory case returns 2 rather than 0 on purpose: a checker that
-reports success when it found nothing to check is the defect it exists to
-close.
+synthetic runs -- correct selection, wrong skill, no skill at all, a discarded
+trace, a stale results directory, and an empty one -- so the check is verified
+without any paid model call. Three distinct states return 2 rather than 0 on
+purpose: nothing to check, traces not kept, and a run that loaded no plugin. A
+checker that reports success when it found nothing to check is the defect it
+exists to close.
 
 `evals/evals.json` at the repository root is a different thing: a fixture the
 pytest suite checks for internal consistency. It never runs a model. These
