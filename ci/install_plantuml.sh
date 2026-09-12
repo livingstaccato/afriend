@@ -47,12 +47,15 @@ sudo chmod 0755 /usr/local/bin/plantuml
 
 # Prove the launcher works and reports the pinned version, so a silently
 # broken install cannot look like a successful one.
+#
+# Compare the extracted version token for equality rather than asking whether
+# the banner CONTAINS the pinned string: as a substring, a pin of 1.2026.8 is
+# satisfied by 1.2026.80, and the check that exists to catch the wrong release
+# would wave through a different one.
 installed="$(plantuml -version | head -1)"
 echo "$installed"
-case "$installed" in
-    *"$VERSION"*) ;;
-    *)
-        echo "ERROR: expected PlantUML $VERSION, got: $installed" >&2
-        exit 1
-        ;;
-esac
+reported="$(printf '%s\n' "$installed" | sed -n 's/.*[Vv]ersion \([0-9][0-9.]*\).*/\1/p')"
+if [ "$reported" != "$VERSION" ]; then
+    echo "ERROR: expected PlantUML $VERSION, got: ${reported:-no version in \"$installed\"}" >&2
+    exit 1
+fi

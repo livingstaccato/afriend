@@ -76,10 +76,40 @@ def test_the_gate_uses_no_pipe_into_a_quiet_grep():
 
 DIAGRAMS = sorted((REPO / "docs" / "architecture").glob("*.puml"))
 
-# `#RRGGBB:label;` -- the inline activity colour. A legend swatch is written
-# `|<#RRGGBB> |`, a table cell rather than an activity, so anchoring on the
-# `#` at the start of the line keeps the two apart.
-INLINE_COLOUR = re.compile(r"^\s*#[0-9A-Fa-f]{6}\s*:")
+# `#RRGGBB:label;` -- the inline activity colour. PlantUML accepts a colour
+# NAME and three-digit hex in the same position, so six hex digits is the
+# narrowest possible spelling and the least likely to be typed by hand:
+# `#LightYellow:label;` breaks a group exactly as `#FFE0B2:label;` does. A
+# legend swatch is written `|<#RRGGBB> |`, a table cell rather than an
+# activity, so anchoring on the `#` at the start of the line keeps the two
+# apart; a skinparam carries its colour mid-line and is not matched either.
+INLINE_COLOUR = re.compile(r"^\s*#[0-9A-Za-z]{3,}\s*:")
+
+# `BackgroundColor #F6E7C8` -- one styling property and its value.
+STYLE_PROPERTY = re.compile(r"[A-Za-z]+\s+#[0-9A-Za-z]{3,}")
+
+
+def _style_class_body_lines(text: str) -> list[str]:
+    """Every line inside a `<style>` class body, brace depth tracked.
+
+    Line-by-line matching on `.name { ... }` only ever sees a class opened
+    and closed on one line, which is a form none of these sources use.
+    """
+    inside = False
+    depth = 0
+    body: list[str] = []
+    for line in text.splitlines():
+        opens = line.count("{")
+        closes = line.count("}")
+        if not inside and re.match(r"^\s*\.\w+\s*\{", line):
+            inside = True
+            depth = 0
+        if inside:
+            body.append(line)
+            depth += opens - closes
+            if depth <= 0 and closes:
+                inside = False
+    return body
 
 
 @pytest.mark.parametrize("source", DIAGRAMS, ids=lambda p: p.stem)
@@ -110,14 +140,17 @@ def test_every_style_class_declares_one_property_per_line(source):
     tagged activities render unstyled, and the diagram still reports
     success. Every semantic fill in these sources depends on that not
     happening, and nothing downstream would notice if it did.
+
+    The first version of this test matched `^\\s*\\.\\w+\\s*\\{.*\\}`, which
+    requires the class to open and close on one line. Every class here spans
+    four, so the realistic mistake -- reflowing two properties onto an
+    interior line, which begins with `BackgroundColor` -- was never looked
+    at, and the test passed by construction on the shape the sources have.
     """
-    text = source.read_text(encoding="utf-8")
     offenders = [
         line.strip()
-        for line in text.splitlines()
-        # A class opened and closed on one line, carrying two properties.
-        if re.match(r"^\s*\.\w+\s*\{.*\}", line)
-        and len(re.findall(r"[A-Za-z]+\s+#[0-9A-Fa-f]{6}", line)) > 1
+        for line in _style_class_body_lines(source.read_text(encoding="utf-8"))
+        if len(STYLE_PROPERTY.findall(line)) > 1
     ]
     assert offenders == [], offenders
 
@@ -128,11 +161,79 @@ def test_every_stereotype_used_is_a_class_the_source_defines(source):
 
     The node keeps its default fill and the diagram succeeds, so a typo
     costs exactly the meaning the colour was carrying.
+
+    The pattern deliberately accepts anything between the angle brackets
+    rather than `\\w+`. `<<#FFE0B2>>` is this repository's ORIGINAL colour
+    syntax, abandoned because it fails inside a nested `if` on every release
+    tried; spelled `\\w+`, a reintroduced one would not even be looked at,
+    because `#` is not a word character.
     """
     text = source.read_text(encoding="utf-8")
     defined = set(re.findall(r"^\s*\.(\w+)\s*\{", text, re.MULTILINE))
-    used = set(re.findall(r"<<(\w+)>>", text))
+    used = set(re.findall(r"<<([^>]+)>>", text))
     assert used <= defined, sorted(used - defined)
+
+
+STYLED = [source for source in DIAGRAMS if "<style>" in source.read_text(encoding="utf-8")]
+
+
+def test_some_source_actually_declares_style_classes():
+    """Guard the parametrization below.
+
+    If `STYLED` ever empties -- the classes removed, the block renamed --
+    the fill check would collect no cases and disappear from the run
+    without failing anything.
+    """
+    assert STYLED, "no diagram declares <style> classes, so the fill check covers nothing"
+
+
+@pytest.mark.parametrize("source", STYLED, ids=lambda p: p.stem)
+def test_every_used_class_fill_reaches_the_committed_render(source):
+    """The one check that holds however the class was broken.
+
+    A dropped class is invisible to everything else here: PlantUML renders
+    the node in the default fill and exits 0, `make diagrams` rewrites the
+    PNG and SVG, `scripts/write_diagram_manifest.py` rewrites the digests to
+    match what it just wrote, and the render gate sees a clean diagram. Every
+    gate stays green while the semantic colour -- the whole point of the
+    class -- is gone. Asserting the declared fill is present in the render is
+    what separates correct output from silently degraded output, and it does
+    not care which malformation caused it.
+    """
+    text = source.read_text(encoding="utf-8")
+    fills = dict(
+        re.findall(r"\.(\w+)\s*\{[^}]*?BackgroundColor\s+(#[0-9A-Za-z]{3,})", text, re.DOTALL)
+    )
+    used = set(re.findall(r"<<(\w+)>>", text))
+    rendered = source.with_suffix(".svg").read_text(encoding="utf-8").lower()
+
+    missing = sorted(
+        name for name in used if name not in fills or fills[name].lower() not in rendered
+    )
+    assert missing == [], missing
+
+
+INSTALLER = REPO / "ci" / "install_plantuml.sh"
+
+# The release that stopped parsing the inline colour form. Pinned below this,
+# the render gate happily accepts what
+# `test_no_activity_carries_an_inline_colour_prefix` exists to reject, and the
+# two halves of that guard quietly stop agreeing.
+FIRST_STRICT_PLANTUML = (1, 2026, 7)
+
+
+def test_the_pinned_plantuml_is_one_that_rejects_the_inline_colour_form():
+    """The coupling was prose in a docstring, true of nothing.
+
+    Someone pinning an older release to sidestep an unrelated layout change
+    would re-arm the exact defect this gate was built for, with every check
+    still green.
+    """
+    declared = re.search(r"^VERSION=(\S+)", INSTALLER.read_text(encoding="utf-8"), re.MULTILINE)
+    assert declared, "ci/install_plantuml.sh declares no VERSION"
+
+    pinned = tuple(int(part) for part in declared.group(1).split("."))
+    assert pinned >= FIRST_STRICT_PLANTUML, (pinned, FIRST_STRICT_PLANTUML)
 
 
 @pytest.mark.skipif(shutil.which("plantuml") is None, reason="plantuml not installed")

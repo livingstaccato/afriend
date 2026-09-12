@@ -30,9 +30,18 @@ brew install plantuml graphviz
 
 These are the things that broke in review and are easy to reintroduce:
 
-- **Colour an activity with `:text;<<#RRGGBB>>`, never `#RRGGBB:text;`.**
-  The second form is deprecated and PlantUML renders a warning banner *into
-  the image* rather than failing the build.
+- **Colour an activity with a named `<style>` class — `:text; <<downgrade>>`
+  — never `#RRGGBB:text;` and never `<<#RRGGBB>>`.** This rule has now been
+  rewritten twice, so it is worth saying why rather than just asserting it.
+  `<<#RRGGBB>>` fails inside a nested `if` on every release from 1.2020.02
+  to 1.2026.8. `#RRGGBB:text;` replaced it and fails from 1.2026.7 onward,
+  anywhere near a `partition` or `repeat`, with `Cannot find group` reported
+  against the line that CLOSES the group. A named class renders on every
+  release that `ci/install_plantuml.sh` will install. Declare one property
+  per line: `{ BackgroundColor #A  LineColor #B }` is read as a single
+  malformed value, and the class is dropped in silence while the diagram
+  still reports success. `tests/test_diagram_gate.py` enforces all of this,
+  including that each declared fill actually reaches the committed render.
 - **Wrap CLI flags in `""` — `""--mode""`, not `--mode`.** A line containing
   two `--` sequences is parsed as strikethrough markup, so `--mode / --preset`
   silently renders struck through. The `""` form also renders monospace.
