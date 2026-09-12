@@ -559,7 +559,9 @@ def test_the_override_lets_it_run_unconfined(monkeypatch, tmp_path):
         allow_unsandboxed=True,
     )
     assert "refused" not in (outcome.failure_reason or "")
-    assert outcome.argv[0] == "true", "it should have run unwrapped"
+    # build_argv resolves the binary through `which`, falling back to the
+    # bare name; either way it is first, not a sandbox wrapper.
+    assert outcome.argv[0] == (shutil.which("true") or "true"), "it should have run unwrapped"
     assert outcome.os_confined is False
 
 

@@ -33,6 +33,9 @@ import stat
 import sys
 
 _WINDOWS = sys.platform == "win32"
+# Windows-only open flag, 0 elsewhere; spelled once so the Windows branches
+# below type-check on POSIX too.
+_O_BINARY: int = getattr(os, "O_BINARY", 0)
 
 DIR_MODE = 0o700
 FILE_MODE = 0o600
@@ -143,7 +146,7 @@ def _win_reject_reparse(path: Path) -> None:
         info = os.lstat(path)
     except FileNotFoundError:
         return
-    if stat.S_ISLNK(info.st_mode) or getattr(info, "st_reparse_tag", 0):
+    if stat.S_ISLNK(info.st_mode) or getattr(info, "st_reparse_tag", 0) != 0:
         raise OSError(errno.ELOOP, "secure path component is a symlink or reparse point", str(path))
 
 
@@ -169,7 +172,7 @@ def _win_walk(root: Path, target: Path, *, create: bool = False) -> Path:
         if not current.exists():
             if not create:
                 raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(current))
-            os.mkdir(current, DIR_MODE)
+            current.mkdir(DIR_MODE)
         _win_reject_reparse(current)
         if not current.is_dir():
             raise OSError(errno.ENOTDIR, "secure path component is not a directory", str(current))
@@ -203,7 +206,7 @@ def _win_open_in_parent(anchor: Path, target: Path, flags: int, mode: int = FILE
     parent_dir, name = _win_parent(anchor, target)
     final = parent_dir / name
     _win_reject_reparse(final)
-    return os.open(final, flags | os.O_BINARY, mode)
+    return os.open(final, flags | _O_BINARY, mode)
 
 
 # ---------------------------------------------------------------------------
@@ -233,7 +236,7 @@ def secure_mkdir(
             parent_dir = _win_walk(root, parent, create=parents)
             final = parent_dir / parts[-1]
             try:
-                os.mkdir(final, DIR_MODE)
+                final.mkdir(DIR_MODE)
             except FileExistsError:
                 if not exist_ok:
                     raise
@@ -285,7 +288,7 @@ def secure_init_root(path: Path) -> Path:
         for part in target.parts[1:]:
             current = current / part
             if not current.exists():
-                os.mkdir(current, DIR_MODE)
+                current.mkdir(DIR_MODE)
             _win_reject_reparse(current)
             if not current.is_dir():
                 raise OSError(
@@ -382,7 +385,7 @@ def secure_open_read(path: Path, *, root: Path) -> int:
         # checked, and wrong even for a caller expecting text, which should
         # get exactly one well-defined newline translation (Python's own
         # universal-newline handling), not a second, hidden one underneath it.
-        descriptor = os.open(final, os.O_RDONLY | os.O_BINARY)
+        descriptor = os.open(final, os.O_RDONLY | _O_BINARY)
     else:
         with _parent_fd(root, path) as (parent, name):
             descriptor = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=parent)
@@ -554,7 +557,7 @@ def secure_replace(source: Path, target: Path, *, root: Path) -> Path:
         raise OSError(errno.EXDEV, "secure replacement requires one directory")
     if _WINDOWS:
         parent_dir, source_name = _win_parent(root, source_path)
-        os.replace(parent_dir / source_name, parent_dir / target_path.name)
+        (parent_dir / source_name).replace(parent_dir / target_path.name)
         return Path(target)
     with _parent_fd(root, source_path) as (parent, source_name):
         os.replace(source_name, target_path.name, src_dir_fd=parent, dst_dir_fd=parent)
@@ -565,7 +568,7 @@ def secure_unlink(path: Path, *, root: Path, missing_ok: bool = False) -> None:
     if _WINDOWS:
         parent_dir, name = _win_parent(root, path)
         try:
-            os.unlink(parent_dir / name)
+            (parent_dir / name).unlink()
         except FileNotFoundError:
             if not missing_ok:
                 raise
@@ -586,7 +589,7 @@ def secure_read_text(path: Path, *, root: Path) -> str:
         # O_BINARY: the fdopen("r", ...) below already does one well-defined
         # universal-newline translation; without this the raw fd would do
         # a second, hidden one underneath it at the CRT level first.
-        descriptor = os.open(final, os.O_RDONLY | os.O_BINARY)
+        descriptor = os.open(final, os.O_RDONLY | _O_BINARY)
     else:
         with _parent_fd(root, path) as (parent, name):
             descriptor = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=parent)
@@ -625,7 +628,7 @@ def repair_private_tree(root: Path) -> None:
         def repair_windows(directory: Path) -> None:
             for entry in os.scandir(directory):
                 info = entry.stat(follow_symlinks=False)
-                if stat.S_ISLNK(info.st_mode) or getattr(info, "st_reparse_tag", 0):
+                if stat.S_ISLNK(info.st_mode) or getattr(info, "st_reparse_tag", 0) != 0:
                     continue
                 if stat.S_ISDIR(info.st_mode):
                     repair_windows(Path(entry.path))
