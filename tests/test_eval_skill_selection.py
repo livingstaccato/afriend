@@ -71,6 +71,21 @@ def _run(tmp_path: Path, cases: dict[str, tuple[str, ...]], *, plugin: bool = Tr
     return results
 
 
+def _expected_for(*cases: str) -> dict[str, str]:
+    """The real expectation for each named case, and only those.
+
+    `check()` refuses a run that leaves an expected case unverified, so a
+    fixture exercising one case must say it expects one case -- otherwise the
+    other twelve are correctly reported missing and every test measures that.
+    """
+    real = json.loads((EVALS / "expectations.json").read_text(encoding="utf-8"))["cases"]
+    return {case: real[case] for case in cases}
+
+
+def _check(target: Path, *cases: str) -> int:
+    return _module().check(target, _expected_for(*cases))
+
+
 def test_the_expected_skill_map_covers_every_positive_case():
     """A case absent from the map is silently unchecked, which is the state
     this script exists to leave behind."""
@@ -89,19 +104,19 @@ def test_the_expected_skill_map_covers_every_positive_case():
 
 def test_a_correct_selection_passes(tmp_path):
     results = _run(tmp_path, {"pos-afriend-resume-run-123": ("afriend:review",)})
-    assert _module().check(results) == 0
+    assert _check(results, "pos-afriend-resume-run-123") == 0
 
 
 def test_the_wrong_skill_is_rejected(tmp_path):
     """The exact case the harness cannot catch: `afriend resume run-123`
     routed to claim resolution instead of run resumption."""
     results = _run(tmp_path, {"pos-afriend-resume-run-123": ("afriend:resolve",)})
-    assert _module().check(results) == 1
+    assert _check(results, "pos-afriend-resume-run-123") == 1
 
 
 def test_a_trace_with_no_skill_at_all_is_rejected(tmp_path):
     results = _run(tmp_path, {"pos-afriend-status": ()})
-    assert _module().check(results) == 1
+    assert _check(results, "pos-afriend-status") == 1
 
 
 def test_an_empty_directory_reports_nothing_to_check_rather_than_success(tmp_path):
@@ -117,7 +132,7 @@ def test_a_run_that_loaded_no_plugin_is_refused_rather_than_failed(tmp_path):
     fires nothing, which is a true statement about a meaningless run -- so it
     must report "cannot check", not "wrong skill"."""
     results = _run(tmp_path, {"pos-afriend-status": ()}, plugin=False)
-    assert _module().check(results) == 2
+    assert _check(results, "pos-afriend-status") == 2
 
 
 def test_a_case_whose_trace_was_not_kept_is_not_counted_as_checked(tmp_path):
@@ -126,7 +141,7 @@ def test_a_case_whose_trace_was_not_kept_is_not_counted_as_checked(tmp_path):
     results = _run(tmp_path, {"pos-afriend-status": ("afriend:status",)})
     payload = json.loads((results / "aggregate-result.json").read_text(encoding="utf-8"))
     Path(payload["cases"][0]["arms"]["with"][0]["tracePath"]).unlink()
-    assert _module().check(results) == 2
+    assert _check(results, "pos-afriend-status") == 2
 
 
 def test_the_newest_run_is_chosen_when_pointed_at_the_results_parent(tmp_path):
@@ -151,7 +166,7 @@ def test_the_newest_run_is_chosen_when_pointed_at_the_results_parent(tmp_path):
         ),
         encoding="utf-8",
     )
-    assert _module().check(results.parent) == 0
+    assert _check(results.parent, "pos-afriend-status") == 0
 
 
 def test_the_ablation_baseline_arm_is_not_read_as_evidence(tmp_path):
@@ -165,19 +180,141 @@ def test_the_ablation_baseline_arm_is_not_read_as_evidence(tmp_path):
     _write_trace(baseline)
     payload["cases"][0]["arms"]["without"] = [{"tracePath": str(baseline)}]
     path.write_text(json.dumps(payload), encoding="utf-8")
-    assert _module().check(results) == 0
+    assert _check(results, "pos-afriend-status") == 0
 
 
 def test_extra_skills_alongside_the_right_one_still_pass(tmp_path):
     """A run may legitimately consult more than one skill; the contract is
     that the expected one was among them."""
     results = _run(tmp_path, {"pos-afriend-status-run-123": ("afriend:review", "afriend:status")})
-    assert _module().check(results) == 0
+    assert _check(results, "pos-afriend-status-run-123") == 0
 
 
 @pytest.mark.parametrize("case", ["pos-afriend-configure", "pos-afriend-resolve"])
 def test_each_family_is_checked_against_its_own_expectation(tmp_path, case):
     expected = json.loads((EVALS / "expectations.json").read_text(encoding="utf-8"))["cases"]
-    assert _module().check(_run(tmp_path / "ok", {case: (expected[case],)})) == 0
+    assert _check(_run(tmp_path / "ok", {case: (expected[case],)}), case) == 0
     other = "afriend:review" if expected[case] != "afriend:review" else "afriend:status"
-    assert _module().check(_run(tmp_path / "bad", {case: (other,)})) == 1
+    assert _check(_run(tmp_path / "bad", {case: (other,)}), case) == 1
+
+
+def _payload(results: Path) -> dict:
+    return json.loads((results / "aggregate-result.json").read_text(encoding="utf-8"))
+
+
+def _save(results: Path, payload: dict) -> None:
+    (results / "aggregate-result.json").write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_full_coverage_with_every_trace_kept_still_passes(tmp_path):
+    """The guard on the guards below: refusing partial runs must not become
+    refusing every run."""
+    results = _run(
+        tmp_path,
+        {
+            "pos-afriend-status": ("afriend:status",),
+            "pos-afriend-resume-run-123": ("afriend:review",),
+        },
+    )
+    assert _check(results, "pos-afriend-status", "pos-afriend-resume-run-123") == 0
+
+
+def test_an_expected_case_the_run_never_executed_is_refused(tmp_path, capsys):
+    """One passing case used to stand in for all of them.
+
+    An absent case was skipped without even being counted, and the exit-2
+    guard fired only when NOTHING was checked -- so a run that executed two
+    of thirteen cases printed "all 2 checked case(s) selected the expected
+    skill" and exited 0.
+    """
+    results = _run(tmp_path, {"pos-afriend-status": ("afriend:status",)})
+    assert _check(results, "pos-afriend-status", "pos-afriend-resume-run-123") == 2
+    assert "pos-afriend-resume-run-123" in capsys.readouterr().err
+
+
+def test_one_unkept_case_is_not_masked_by_one_checked_case(tmp_path, capsys):
+    results = _run(
+        tmp_path,
+        {
+            "pos-afriend-status": ("afriend:status",),
+            "pos-afriend-resume-run-123": ("afriend:review",),
+        },
+    )
+    payload = _payload(results)
+    Path(payload["cases"][1]["arms"]["with"][0]["tracePath"]).unlink()
+    assert _check(results, "pos-afriend-status", "pos-afriend-resume-run-123") == 2
+    assert "pos-afriend-resume-run-123" in capsys.readouterr().err
+
+
+def test_a_case_missing_one_of_its_run_traces_is_refused(tmp_path):
+    """Kept traces were filtered to the ones that exist, so a case declaring
+    three runs was "checked" on whichever one survived."""
+    results = _run(tmp_path, {"pos-afriend-status": ("afriend:status",)})
+    payload = _payload(results)
+    payload["cases"][0]["arms"]["with"].append({"tracePath": str(tmp_path / "gone.jsonl")})
+    _save(results, payload)
+    assert _check(results, "pos-afriend-status") == 2
+
+
+def test_one_correct_run_does_not_mask_a_wrong_one(tmp_path, capsys):
+    """Every run's invocations were pooled before comparison.
+
+    Under `--runs 3`, the resume case choosing `afriend:review` once and
+    `afriend:status` twice -- the 0.11.0 regression, two times in three --
+    passed, because the pooled list contained the right name.
+    """
+    results = _run(tmp_path, {"pos-afriend-resume-run-123": ("afriend:review",)})
+    payload = _payload(results)
+    wrong = tmp_path / "second-run.jsonl"
+    _write_trace(wrong, "afriend:status")
+    payload["cases"][0]["arms"]["with"].append({"tracePath": str(wrong)})
+    _save(results, payload)
+    assert _check(results, "pos-afriend-resume-run-123") == 1
+    assert "run 2" in capsys.readouterr().err
+
+
+def test_result_trees_at_different_depths_are_refused_as_ambiguous(tmp_path, capsys):
+    """Whole paths were sorted, so the directory component beat the timestamp.
+
+    Pointed one level too high, at a checkout holding both `evals/results/`
+    and the mis-targeted `evals/evals/results/` the README names as the tell,
+    `sorted(rglob)[-1]` picked by path order: `evals/results` sorts after
+    `evals/evals` because "r" > "e", whatever either run's date.
+    """
+    evals = tmp_path / "evals"
+    stale = _run(evals, {"pos-afriend-status": ("afriend:review",)})
+    other = _run(evals / "evals", {"pos-afriend-status": ("afriend:status",)})
+    assert _check(evals, "pos-afriend-status") == 2
+    err = capsys.readouterr().err
+    assert str(stale.parent) in err and str(other.parent) in err
+
+
+def test_a_missing_suite_object_is_a_schema_mismatch_not_a_wrong_target(tmp_path, capsys):
+    """An absent key and an empty value gave the same advice.
+
+    With no `suite` at all the user was told to re-target the plugin
+    directory -- specific, confident, and wrong, sending them to rerun an
+    eval they had already pointed at the right place.
+    """
+    results = _run(tmp_path, {"pos-afriend-status": ("afriend:status",)})
+    payload = _payload(results)
+    del payload["suite"]
+    _save(results, payload)
+    assert _check(results, "pos-afriend-status") == 2
+    err = capsys.readouterr().err
+    assert "schema" in err
+    assert "plugin directory" not in err
+
+
+def test_a_renamed_arms_key_is_a_schema_mismatch_not_unkept_traces(tmp_path, capsys):
+    """Any shape mismatch in a case landed in `unkept`, whose message says
+    the traces are gone and to rerun with `--keep-temp` -- a paid rerun of a
+    suite that kept every trace it was asked to."""
+    results = _run(tmp_path, {"pos-afriend-status": ("afriend:status",)})
+    payload = _payload(results)
+    payload["cases"][0]["runs"] = payload["cases"][0].pop("arms")
+    _save(results, payload)
+    assert _check(results, "pos-afriend-status") == 2
+    err = capsys.readouterr().err
+    assert "schema" in err
+    assert "--keep-temp" not in err

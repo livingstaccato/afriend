@@ -17,8 +17,11 @@ Run it after an eval run, pointing at the results directory:
     claude plugin eval plugins/afriend --ablation none --keep-temp
     scripts/check_eval_skill_selection.py plugins/afriend/evals/results
 
-Exit codes: 0 all checked cases selected what they should, 1 a mismatch,
-2 the run holds nothing this can check.
+Exit codes: 0 every expected case ran, kept every trace, and selected the
+expected skill in every run; 1 a run selected the wrong skill; 2 the run
+cannot verify that -- a case missing, a trace not kept, no plugin loaded,
+results under more than one `results/` directory, or a result file whose
+shape this does not recognise. Partial verification is not a pass.
 """
 
 from __future__ import annotations
@@ -26,9 +29,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import sys
+from typing import TypeVar
 
 REPO = Path(__file__).resolve().parents[1]
 EXPECTATIONS = REPO / "plugins" / "afriend" / "evals" / "expectations.json"
+
+_T = TypeVar("_T")
 
 
 def skills_invoked(trace: object) -> list[str]:
@@ -77,48 +83,86 @@ def load_trace(path: Path) -> list[object]:
     return records
 
 
-def find_result_file(target: Path) -> Path | None:
-    """The `aggregate-result.json` a results path refers to, newest last.
+class Unreadable(Exception):
+    """This run cannot be checked, for a reason worded so a user can act on it."""
 
-    Accepts the file itself, the single run directory that holds it, or the
-    `results/` parent -- whose children are ISO-8601 timestamps, so the
-    lexicographic maximum is the most recent run.
+
+def find_result_file(target: Path) -> Path | None:
+    """The `aggregate-result.json` a results path refers to.
+
+    Accepts the file itself, the run directory holding it, or a `results/`
+    directory whose children are one ISO-8601-named directory per run.
+
+    It used to return `sorted(target.rglob(...))[-1]`, which orders WHOLE
+    paths, so the directory component outranked the timestamp. Pointed one
+    level too high -- at a checkout holding both `evals/results/` and the
+    mis-targeted `evals/evals/results/` -- it chose `evals/results` because
+    "r" sorts after "e", whatever either run's date. Candidates spanning more
+    than one results directory are now refused rather than guessed between.
     """
     if target.is_file():
         return target
     direct = target / "aggregate-result.json"
     if direct.is_file():
         return direct
-    candidates = sorted(target.rglob("aggregate-result.json"))
-    return candidates[-1] if candidates else None
+    candidates = list(target.rglob("aggregate-result.json"))
+    if not candidates:
+        return None
+    trees = sorted({path.parent.parent for path in candidates})
+    if len(trees) > 1:
+        raise Unreadable(
+            f"{target} holds results from {len(trees)} different results directories "
+            f"({', '.join(str(tree) for tree in trees)}); point this at one of them. "
+            "Choosing by path order would check whichever sorts last, not whichever ran last"
+        )
+    # One results directory: compare run directory NAMES, which are timestamps.
+    return max(candidates, key=lambda path: path.parent.name)
 
 
-def _with_arm_traces(case: object) -> list[Path]:
-    """Trace paths for the plugin-loaded arm of one case.
+def _field(container: object, key: str, kind: type[_T], where: str) -> _T:
+    """`container[key]`, or a schema mismatch naming exactly what was absent.
 
-    The ablation baseline arm runs with no plugin on purpose, so its
-    transcript can never contain an afriend skill and must not be read as
-    evidence that one failed to fire.
+    An absent key and an empty value used to share a diagnosis, and both
+    diagnoses were confidently specific: a missing `suite` told the user to
+    re-target the plugin directory, and a renamed `arms` told them their
+    traces were gone and to rerun with `--keep-temp`. When the harness changes
+    its format, neither is true and both send someone to rerun a paid suite.
     """
-    if not isinstance(case, dict):
-        return []
-    arms = case.get("arms")
-    if not isinstance(arms, dict):
-        return []
-    runs = arms.get("with")
-    if not isinstance(runs, list):
-        return []
-    paths: list[Path] = []
-    for run in runs:
-        if isinstance(run, dict) and isinstance(run.get("tracePath"), str):
-            paths.append(Path(run["tracePath"]))
-    return paths
+    if not isinstance(container, dict) or key not in container:
+        raise Unreadable(f"schema mismatch: {where} has no `{key}`")
+    value = container[key]
+    if not isinstance(value, kind):
+        raise Unreadable(
+            f"schema mismatch: {where} `{key}` is {type(value).__name__}, not {kind.__name__}"
+        )
+    return value
 
 
-def check(target: Path) -> int:
-    expected = json.loads(EXPECTATIONS.read_text(encoding="utf-8"))["cases"]
+def _with_arm_traces(case: object, name: str) -> list[Path]:
+    """Every trace path the plugin-loaded arm of one case DECLARES.
 
-    result_file = find_result_file(target)
+    Declared, not merely present: filtering to the files that still exist
+    let a case that launched three runs be "checked" on whichever one
+    survived. The ablation baseline arm runs with no plugin on purpose, so its
+    transcript can never contain an afriend skill and is not read.
+    """
+    arms = _field(case, "arms", dict, f"case `{name}`")
+    runs = _field(arms, "with", list, f"case `{name}` `arms`")
+    return [
+        Path(_field(run, "tracePath", str, f"case `{name}` run {index}"))
+        for index, run in enumerate(runs, start=1)
+    ]
+
+
+def check(target: Path, expected: dict[str, str] | None = None) -> int:
+    if expected is None:
+        expected = json.loads(EXPECTATIONS.read_text(encoding="utf-8"))["cases"]
+
+    try:
+        result_file = find_result_file(target)
+    except Unreadable as exc:
+        print(f"error: {exc}.", file=sys.stderr)
+        return 2
     if result_file is None:
         print(
             f"error: no aggregate-result.json under {target}. Point this at the "
@@ -133,60 +177,91 @@ def check(target: Path) -> int:
         print(f"error: {result_file} is not readable JSON: {exc}", file=sys.stderr)
         return 2
 
-    suite = result.get("suite") if isinstance(result.get("suite"), dict) else {}
-    if not suite.get("plugins"):
-        print(
-            f"error: {result_file} records no plugin under test, so no afriend skill "
-            "could have fired and every case would fail for the wrong reason. The "
-            "eval target must be the plugin directory (plugins/afriend), not the "
-            "suite directory below it.",
-            file=sys.stderr,
-        )
-        return 2
-
-    cases = result.get("cases")
-    by_name = {
-        case["name"]: case
-        for case in (cases if isinstance(cases, list) else [])
-        if isinstance(case, dict) and isinstance(case.get("name"), str)
-    }
-
     failures: list[str] = []
+    missing: list[str] = []
     unkept: list[str] = []
     checked = 0
+    runs_read = 0
+    try:
+        suite = _field(result, "suite", dict, "the result file")
+        plugins = _field(suite, "plugins", list, "`suite`")
+        if not plugins:
+            print(
+                f"error: {result_file} records no plugin under test, so no afriend skill "
+                "could have fired and every case would fail for the wrong reason. The "
+                "eval target must be the plugin directory (plugins/afriend), not the "
+                "suite directory below it.",
+                file=sys.stderr,
+            )
+            return 2
+        by_name: dict[str, object] = {
+            _field(case, "name", str, f"cases[{index}]"): case
+            for index, case in enumerate(_field(result, "cases", list, "the result file"))
+        }
 
-    for case, want in sorted(expected.items()):
-        if case not in by_name:
-            continue
-        traces = [path for path in _with_arm_traces(by_name[case]) if path.is_file()]
-        if not traces:
-            unkept.append(case)
-            continue
-        invoked = [name for trace in traces for name in skills_invoked(load_trace(trace))]
-        checked += 1
-        if not invoked:
-            failures.append(f"{case}: no Skill invocation in its trace, expected {want}")
-        elif want not in invoked:
-            failures.append(f"{case}: selected {invoked}, expected {want}")
-
-    if checked == 0:
-        detail = (
-            f"{len(unkept)} case(s) ran but their traces are gone -- rerun with --keep-temp"
-            if unkept
-            else f"the run covered no case named in {EXPECTATIONS.name}"
-        )
+        for case, want in sorted(expected.items()):
+            if case not in by_name:
+                missing.append(case)
+                continue
+            traces = _with_arm_traces(by_name[case], case)
+            if not traces:
+                missing.append(f"{case} (no plugin-loaded runs)")
+                continue
+            gone = [trace for trace in traces if not trace.is_file()]
+            if gone:
+                unkept.append(f"{case} ({len(gone)} of {len(traces)} run traces gone)")
+                continue
+            checked += 1
+            # Each run on its own. Pooling every run's invocations let one
+            # correct choice excuse the others: under `--runs 3`, selecting
+            # `afriend:status` twice and `afriend:review` once passed.
+            for index, trace in enumerate(traces, start=1):
+                runs_read += 1
+                invoked = skills_invoked(load_trace(trace))
+                label = f"{case} run {index} of {len(traces)}"
+                if not invoked:
+                    failures.append(f"{label}: no Skill invocation in its trace, expected {want}")
+                elif want not in invoked:
+                    failures.append(f"{label}: selected {invoked}, expected {want}")
+    except Unreadable as exc:
         print(
-            f"error: nothing to check in {result_file}: {detail}. Reporting success "
-            "here would be a check that cannot fail.",
+            f"error: {result_file}: {exc}. The eval harness may have changed its result "
+            "format; nothing here says the eval itself was run wrongly, and rerunning it "
+            "would not fix this.",
             file=sys.stderr,
         )
         return 2
+
     if failures:
-        print(f"wrong skill selected in {len(failures)} of {checked} case(s):", file=sys.stderr)
+        print(f"wrong skill selected in {len(failures)} run(s):", file=sys.stderr)
         print(*(f"  {line}" for line in failures), sep="\n", file=sys.stderr)
+        if missing or unkept:
+            print("the run was also incomplete; see below.", file=sys.stderr)
+    # One verified case used to stand in for every one that was never checked:
+    # the refusal fired only when NOTHING was, so a run executing two of
+    # thirteen cases printed success and exited 0.
+    if missing or unkept or checked == 0:
+        print(
+            f"error: {result_file} does not verify every expected case, so it cannot pass.",
+            file=sys.stderr,
+        )
+        if missing:
+            print(f"  never executed: {', '.join(missing)}", file=sys.stderr)
+        if unkept:
+            print(
+                f"  traces not kept (rerun with --keep-temp): {', '.join(unkept)}",
+                file=sys.stderr,
+            )
+        if checked == 0 and not (missing or unkept):
+            print(f"  {EXPECTATIONS.name} names no case to check", file=sys.stderr)
+    if failures:
         return 1
-    skipped = f" ({len(unkept)} without a kept trace)" if unkept else ""
-    print(f"all {checked} checked case(s) selected the expected skill{skipped}.")
+    if missing or unkept or checked == 0:
+        return 2
+    print(
+        f"all {checked} expected case(s) selected the expected skill in every one of "
+        f"{runs_read} run(s)."
+    )
     return 0
 
 

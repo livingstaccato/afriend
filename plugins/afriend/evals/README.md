@@ -60,13 +60,25 @@ directory is `/tmp/claude-eval-<random>` and names no case -- and checks the
 qualified name in those transcripts. It reads only the plugin-loaded `with`
 arm; the ablation baseline runs without the plugin by design.
 
-`tests/test_eval_skill_selection.py` exercises its *rejection* path against
-synthetic runs -- correct selection, wrong skill, no skill at all, a discarded
-trace, a stale results directory, and an empty one -- so the check is verified
-without any paid model call. Three distinct states return 2 rather than 0 on
-purpose: nothing to check, traces not kept, and a run that loaded no plugin. A
-checker that reports success when it found nothing to check is the defect it
-exists to close.
+It passes only on complete evidence. Every case in `expectations.json` must
+appear in the run, every one of its plugin-loaded runs must have kept its
+trace, and every run -- not the case as a whole -- must have selected the
+expected skill: under `--runs 3`, one right choice no longer excuses two wrong
+ones. A wrong selection exits 1. Anything short of complete verification exits
+2 and names what is missing: an expected case the run never executed, a run
+whose trace was not kept, a run that loaded no plugin, results under more than
+one `results/` directory (the checker will not guess which you meant), or a
+result file whose shape it does not recognise. That last one is reported as a
+schema mismatch rather than as advice to re-target or rerun, because the
+harness changing its format is not something rerunning the eval would fix.
+
+`tests/test_eval_skill_selection.py` exercises each of those paths against
+synthetic runs, so the check is verified without any paid model call. The
+fixtures all share one assumed schema and no real harness output is committed,
+so they prove the checker's logic, not that the harness still writes that
+schema. A checker that reports success when it found nothing to check is the
+defect it exists to close -- and so is one that reports success having checked
+a fraction of what it was given.
 
 `evals/evals.json` at the repository root is a different thing: a fixture the
 pytest suite checks for internal consistency. It never runs a model. These
