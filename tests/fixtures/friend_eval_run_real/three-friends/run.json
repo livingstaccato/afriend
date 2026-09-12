@@ -1,0 +1,22 @@
+{
+  "mode": "crossexam",
+  "stop_reason": "incomplete",
+  "claim_states": {
+    "c-0001@1": "discarded",
+    "c-0002@1": "unproven",
+    "c-0003@1": "settled-refuted",
+    "c-0004@1": "settled-upheld",
+    "c-0005@1": "settled-upheld",
+    "c-0006@1": "unproven",
+    "c-0007@1": "deadlocked",
+    "c-0008@1": "settled-upheld",
+    "c-0009@1": "deadlocked",
+    "c-0010@1": "unproven",
+    "c-0011@1": "settled-refuted",
+    "c-0012@1": "discarded",
+    "c-0013@1": "discarded",
+    "c-0014@1": "discarded",
+    "c-0015@1": "discarded",
+    "c-0016@1": "deadlocked"
+  }
+}

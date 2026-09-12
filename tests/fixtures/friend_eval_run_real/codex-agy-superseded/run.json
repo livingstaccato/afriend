@@ -1,0 +1,15 @@
+{
+  "mode": "crossexam",
+  "stop_reason": "incomplete",
+  "claim_states": {
+    "c-0001@1": "settled-upheld",
+    "c-0002@1": "settled-upheld",
+    "c-0003@1": "settled-upheld",
+    "c-0004@1": "settled-upheld",
+    "c-0005@1": "settled-upheld",
+    "c-0006@1": "superseded",
+    "c-0006@2": "unproven",
+    "c-0007@1": "settled-upheld",
+    "c-0008@1": "settled-upheld"
+  }
+}

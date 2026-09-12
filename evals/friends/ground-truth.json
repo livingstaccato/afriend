@@ -1,0 +1,280 @@
+{
+  "artifact": "spec-v2.md",
+  "source": "design spec \u00a719, v3 entry",
+  "note": "agy findings #4 and #6 reproduced claude H4 and H2 and are listed under claude's ids",
+  "findings": [
+    {
+      "id": "H1",
+      "finding": "`settled-refuted` unreachable",
+      "raised_by": "claude",
+      "disposition": "upheld",
+      "v3_change": "\u00a77.1 originator removed from the dispositive set; quorum and the one-judge branch rewritten",
+      "category": "review-finding"
+    },
+    {
+      "id": "H2",
+      "finding": "deny list defeated by ordinary flags",
+      "raised_by": "claude",
+      "disposition": "upheld",
+      "v3_change": "\u00a713 inverted to an allowlist; `extra_args` and `profile` removed from the roster schema",
+      "category": "review-finding"
+    },
+    {
+      "id": "H3",
+      "finding": "`git stash create` omits untracked",
+      "raised_by": "claude",
+      "disposition": "upheld",
+      "v3_change": "\u00a712.1 explicit temp-index snapshot",
+      "category": "review-finding"
+    },
+    {
+      "id": "H4",
+      "finding": "`loop` cannot terminate past a deadlock",
+      "raised_by": "claude",
+      "disposition": "upheld",
+      "v3_change": "\u00a77.3 `deadlocked` is terminal for loop purposes",
+      "category": "review-finding"
+    },
+    {
+      "id": "H5",
+      "finding": "doc scope is cwd containment",
+      "raised_by": "claude",
+      "disposition": "upheld",
+      "v3_change": "\u00a712.2 OS-level sandbox or refusal; \u00a712.3 states the residual risk",
+      "category": "review-finding"
+    },
+    {
+      "id": "M6",
+      "finding": "repair re-prompt contradicts \u00a74.1",
+      "raised_by": "claude",
+      "disposition": "upheld",
+      "v3_change": "\u00a714.2 repair is a pure transformation, no model call",
+      "category": "review-finding"
+    },
+    {
+      "id": "M7",
+      "finding": "exit-10 halt breaks the standalone CLI",
+      "raised_by": "claude",
+      "disposition": "upheld",
+      "v3_change": "\u00a74.2 `--merge=exact` default; orchestrator halt opt-in",
+      "category": "review-finding"
+    },
+    {
+      "id": "M8",
+      "finding": "amendment originator undefined",
+      "raised_by": "claude",
+      "disposition": "upheld",
+      "v3_change": "\u00a76.1 `origin` is a list; \u00a77.2 final-round amendments downgrade -- the downgrade has since been removed, see the \u00a77.2 M8 note below",
+      "category": "review-finding"
+    },
+    {
+      "id": "M9",
+      "finding": "`--max-calls 60` below default fan-out",
+      "raised_by": "claude",
+      "disposition": "upheld",
+      "v3_change": "\u00a77.4 derived from the resolved roster",
+      "category": "review-finding"
+    },
+    {
+      "id": "M10",
+      "finding": "dry-round counting contradictory",
+      "raised_by": "claude",
+      "disposition": "upheld",
+      "v3_change": "\u00a77.3 pseudocode",
+      "category": "review-finding"
+    },
+    {
+      "id": "M11",
+      "finding": "hash check satisfied by any edit",
+      "raised_by": "claude",
+      "disposition": "upheld",
+      "v3_change": "\u00a76.4 per-location verification; resolutions labeled attestations",
+      "category": "review-finding"
+    },
+    {
+      "id": "M12",
+      "finding": "`incomplete` per-claim vs run-level",
+      "raised_by": "claude",
+      "disposition": "upheld",
+      "v3_change": "\u00a77.2 run-level rule; auth failure aborts. Implemented per claim as well -- see the \u00a77.2 M12 note below",
+      "category": "review-finding"
+    },
+    {
+      "id": "L13",
+      "finding": "isolation test vacuous",
+      "raised_by": "claude",
+      "disposition": "upheld",
+      "v3_change": "\u00a716 positive assertions",
+      "category": "review-finding"
+    },
+    {
+      "id": "L14",
+      "finding": "deny list direction-blind",
+      "raised_by": "claude",
+      "disposition": "upheld",
+      "v3_change": "subsumed by \u00a713's allowlist",
+      "category": "review-finding"
+    },
+    {
+      "id": "L15",
+      "finding": "exit precedence undefined",
+      "raised_by": "claude",
+      "disposition": "upheld",
+      "v3_change": "\u00a77.6",
+      "category": "review-finding"
+    },
+    {
+      "id": "unproven-lens",
+      "finding": "lens leaks attribution",
+      "raised_by": "claude",
+      "disposition": "upheld",
+      "v3_change": "\u00a75.1 exact blind-slice field set",
+      "category": "review-finding"
+    },
+    {
+      "id": "agy-1",
+      "finding": "RCE via `git worktree add` running a cloned repo's hooks",
+      "raised_by": "agy",
+      "disposition": "refuted",
+      "v3_change": "Refuted \u2014 `git clone` does not transfer `.git/hooks/`. Mitigation adopted anyway for the committed-`.husky/` vector (\u00a712.1).",
+      "category": "review-finding"
+    },
+    {
+      "id": "agy-2",
+      "finding": "Shared worktree lets parallel friends corrupt each other",
+      "raised_by": "agy",
+      "disposition": "upheld",
+      "v3_change": "Upheld, new \u2014 \u00a712.1 now gives every non-`readonly` friend a private worktree per round",
+      "category": "review-finding"
+    },
+    {
+      "id": "agy-3",
+      "finding": "`unproven` claims are relitigated identically every round",
+      "raised_by": "agy",
+      "disposition": "upheld",
+      "v3_change": "Upheld, new \u2014 \u00a77.2 adds terminal `discarded` after two unchanged rounds",
+      "category": "review-finding"
+    },
+    {
+      "id": "agy-4",
+      "finding": "Hash check rejects fixes that land outside the artifact",
+      "raised_by": "agy",
+      "disposition": "upheld",
+      "v3_change": "Upheld \u2014 \u00a76.4 verifies the named location, never the artifact as a whole",
+      "category": "review-finding"
+    },
+    {
+      "id": "agy-5",
+      "finding": "Repair runs on a timed-out friend's truncated output",
+      "raised_by": "agy",
+      "disposition": "upheld",
+      "v3_change": "Upheld \u2014 \u00a714 gives timeout precedence over malformed-JSON handling",
+      "category": "review-finding"
+    },
+    {
+      "id": "folded-1",
+      "finding": "Exit status is not a success signal",
+      "raised_by": "v2 backlog (\u00a719.1)",
+      "disposition": "upheld",
+      "category": "folded-in",
+      "v3_change": "\u00a77.3 defines \"completed successfully\"; \u00a716 smoke tests"
+    },
+    {
+      "id": "folded-2",
+      "finding": "Roster unit should carry model",
+      "raised_by": "v2 backlog (\u00a719.1)",
+      "disposition": "upheld",
+      "category": "folded-in",
+      "v3_change": "\u00a78.1 `(cli, model, effort, lens)`; \u00a78.2 pair-wise self-exclusion"
+    },
+    {
+      "id": "folded-3",
+      "finding": "agy exposes effort twice",
+      "raised_by": "v2 backlog (\u00a719.1)",
+      "disposition": "upheld",
+      "category": "folded-in",
+      "v3_change": "\u00a710, adapter emits `--effort` only until probed"
+    },
+    {
+      "id": "folded-4",
+      "finding": "Auth detection cannot match stderr",
+      "raised_by": "v2 backlog (\u00a719.1)",
+      "disposition": "upheld",
+      "category": "folded-in",
+      "v3_change": "\u00a714 classified detection"
+    },
+    {
+      "id": "folded-5",
+      "finding": "Remediation is not always a command",
+      "raised_by": "v2 backlog (\u00a719.1)",
+      "disposition": "upheld",
+      "category": "folded-in",
+      "v3_change": "\u00a714"
+    },
+    {
+      "id": "folded-6",
+      "finding": "Ship the gemini adapter?",
+      "raised_by": "v2 backlog (\u00a719.1)",
+      "disposition": "upheld",
+      "category": "folded-in",
+      "v3_change": "\u00a718.1 removed, stub retained"
+    },
+    {
+      "id": "folded-7",
+      "finding": "`claude -p --permission-mode plan` writes to a plan file",
+      "raised_by": "v2 backlog (\u00a719.1)",
+      "disposition": "upheld",
+      "category": "folded-in",
+      "v3_change": "\u00a711.2; read-only is `--tools`"
+    },
+    {
+      "id": "folded-8",
+      "finding": "`-p`/`-s` collide across CLIs",
+      "raised_by": "v2 backlog (\u00a719.1)",
+      "disposition": "upheld",
+      "category": "folded-in",
+      "v3_change": "\u00a711.2 adapters spell flags long"
+    },
+    {
+      "id": "folded-9",
+      "finding": "CLI-internal timeouts unreconciled; 300s too short",
+      "raised_by": "v2 backlog (\u00a719.1)",
+      "disposition": "upheld",
+      "category": "folded-in",
+      "v3_change": "\u00a711.3 default 900s, runner deadline strictly greater"
+    },
+    {
+      "id": "folded-10",
+      "finding": "agy's dual effort surface (v2 \u00a719.1 item 3)",
+      "raised_by": "v2 backlog (\u00a719.1)",
+      "disposition": "upheld",
+      "category": "folded-in",
+      "v3_change": "Probed and resolved: no precedence, agy errors on conflict; ladders are per-model and derived from `agy models` (\u00a710)"
+    },
+    {
+      "id": "folded-11",
+      "finding": "opencode `--variant` ladder unprobed",
+      "raised_by": "v2 backlog (\u00a719.1)",
+      "disposition": "upheld",
+      "category": "folded-in",
+      "v3_change": "Probed: accepts any string silently; effort recorded as `unverified` (\u00a710, \u00a718.8)"
+    },
+    {
+      "id": "folded-12",
+      "finding": "Local models unconsidered",
+      "raised_by": "v2 backlog (\u00a719.1)",
+      "disposition": "upheld",
+      "category": "folded-in",
+      "v3_change": "\u00a711.5 \u2014 ollama as a tool-free friend over HTTP, and as a backing provider for codex and opencode; `ollama launch` excluded as TTY-only"
+    },
+    {
+      "id": "folded-13",
+      "finding": "CI forbade all live model calls",
+      "raised_by": "v2 backlog (\u00a719.1)",
+      "disposition": "upheld",
+      "category": "folded-in",
+      "v3_change": "\u00a716 \u2014 restriction narrowed to *metered* calls; local end-to-end tests added, paid endpoints must fail closed"
+    }
+  ],
+  "note_categories": "review-finding: raised by an independent reviewer against v2; folded-in: v2's own acknowledged backlog, fixed in v3 -- scorers can count it in or out"
+}
