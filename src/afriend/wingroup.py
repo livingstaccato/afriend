@@ -26,6 +26,11 @@ the whole tree.
 
 import ctypes
 from ctypes import wintypes
+import sys
+
+# Imported only on Windows (spawn.py, tests/test_wingroup.py). The assert
+# also tells mypy to skip this module elsewhere, where ctypes has no WinDLL.
+assert sys.platform == "win32"
 
 _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 

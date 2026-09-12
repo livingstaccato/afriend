@@ -6,6 +6,10 @@ import sys
 
 import pytest
 
+from afriend import cli, cliargs
+from afriend.commands import runs
+from afriend.events import EventRecord
+
 pytestmark = pytest.mark.skipif(
     sys.platform == "win32",
     reason="afriend runs prune is POSIX-only for now -- its deletion "
@@ -15,10 +19,6 @@ pytestmark = pytest.mark.skipif(
 
 if sys.platform != "win32":
     import fcntl
-
-from afriend import cli, cliargs
-from afriend.commands import runs
-from afriend.events import EventRecord
 
 
 def _terminal_run(

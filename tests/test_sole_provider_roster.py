@@ -24,8 +24,23 @@ from afriend.providerconfig import ProviderPolicy, ProviderSetting
 ADAPTER_DIR = Path(__file__).resolve().parents[1] / "src" / "afriend" / "assets" / "adapters"
 
 
+def _echo(directory: Path) -> str:
+    """A real, harmless executable that exits 0 and prints its arguments.
+
+    Readiness runs a deny-argv capability probe against whatever `which`
+    returns and needs exit 0 with the probe's own flags in the output, so a
+    made-up path, or an interpreter that rejects those flags, fails as
+    policy-blocked and the roster is empty for the wrong reason. Windows has
+    no echo binary, so there it is a one-line batch file."""
+    if sys.platform != "win32":
+        return "/bin/echo"
+    stub = directory / "echo.cmd"
+    stub.write_text("@echo %*\r\n", encoding="ascii")
+    return str(stub)
+
+
 @pytest.fixture
-def only_codex(monkeypatch):
+def only_codex(monkeypatch, tmp_path):
     """Exactly one ready provider, which is the whole point of this file."""
     registry = adapters.load_adapters(ADAPTER_DIR)
     monkeypatch.setattr(
@@ -35,15 +50,9 @@ def only_codex(monkeypatch):
             {name: ProviderSetting(enabled=name == "codex", model=None) for name in registry}
         ),
     )
-    # A real, harmless executable: readiness runs a deny-argv capability probe
-    # against whatever `which` returns, so a made-up path fails as
-    # policy-blocked and the roster is empty for the wrong reason. The
-    # running interpreter is used rather than a POSIX-only path like
-    # `/bin/echo` so this fixture works on every platform: handed the
-    # adapter's real (nonsense-to-it) probe flags, it fails to open them as a
-    # script and exits promptly rather than hanging -- verified directly.
+    echo = _echo(tmp_path)
     monkeypatch.setattr(
-        friends_module.shutil, "which", lambda name: sys.executable if name == "codex" else None
+        friends_module.shutil, "which", lambda name: echo if name == "codex" else None
     )
     monkeypatch.setenv("AF_NO_HTTP_DISCOVERY", "1")
     # Reproduce the reported session: the host is claude, so claude is
@@ -157,10 +166,11 @@ def test_the_fanned_roster_survives_a_round_trip_through_run_metadata(only_codex
 
 
 @pytest.fixture
-def codex_host_and_claude(monkeypatch):
+def codex_host_and_claude(monkeypatch, tmp_path):
     """The layout most operators actually have: codex hosting the session
     (advisory, non-independent) and exactly one other ready provider."""
     registry = adapters.load_adapters(ADAPTER_DIR)
+    echo = _echo(tmp_path)
     monkeypatch.setattr(
         friends_module.providerconfig,
         "load",
@@ -174,7 +184,7 @@ def codex_host_and_claude(monkeypatch):
     monkeypatch.setattr(
         friends_module.shutil,
         "which",
-        lambda name: sys.executable if name in {"codex", "claude"} else None,
+        lambda name: echo if name in {"codex", "claude"} else None,
     )
     monkeypatch.setenv("AF_NO_HTTP_DISCOVERY", "1")
     monkeypatch.setenv("CODEX_SANDBOX", "seatbelt")

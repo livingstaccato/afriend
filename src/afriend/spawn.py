@@ -66,10 +66,17 @@ from .procio import (
 
 _WINDOWS = sys.platform == "win32"
 
-if _WINDOWS:
+# Branches that call Windows-only APIs test sys.platform itself rather than
+# _WINDOWS: mypy skips a sys.platform branch that cannot run on the platform
+# it is checking, and would otherwise report those APIs missing on POSIX.
+if sys.platform == "win32":
     from . import wingroup
+
+    _CREATIONFLAGS = subprocess.CREATE_NEW_PROCESS_GROUP
 else:
     from .procgroup import _terminate_group
+
+    _CREATIONFLAGS = 0
 
 # Wait windows for group escalation: this long for the group to exit after
 # SIGTERM, then (if anything is still alive) this long for it to actually
@@ -212,7 +219,7 @@ def run_process(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             start_new_session=True,
-            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if _WINDOWS else 0,
+            creationflags=_CREATIONFLAGS,
             # None inherits, which is what an unconfined friend gets. A
             # confined one is handed an allowlisted environment instead --
             # see childenv, and dispatch._dispatch for who gets which.
@@ -248,7 +255,7 @@ def run_process(
     # which uses a Job Object instead -- see the `_WINDOWS` branch below.
     pgid = process.pid
     job: int | None = None
-    if _WINDOWS:
+    if sys.platform == "win32":
         try:
             job = wingroup.create_job()
             wingroup.assign(job, process.pid)
@@ -346,7 +353,7 @@ def run_process(
     # or writing files after this round has already been decided. This is
     # also what unblocks the output-pump threads when a descendant was
     # holding a pipe open: killing the group closes its copy of the fd.
-    if _WINDOWS:
+    if sys.platform == "win32":
         if job is not None:
             orphans_suspected = wingroup.terminate(job, WINDOWS_KILLED_AFTER_ANSWER_EXIT_CODE)
             wingroup.close(job)
@@ -358,11 +365,11 @@ def run_process(
             # recognize this path -- an accepted narrowing of this fallback
             # of a fallback, not a correctness bug: a nonzero code here is
             # simply reported as a real failure instead.
-            result = subprocess.run(
+            taskkill = subprocess.run(
                 ["taskkill", "/PID", str(process.pid), "/T", "/F"],
                 capture_output=True,
             )
-            orphans_suspected = result.returncode != 0
+            orphans_suspected = taskkill.returncode != 0
         # TerminateJobObject/taskkill change what GetExitCodeProcess reports,
         # but Python's Popen only queries that when told to: unlike POSIX's
         # `_reap_after_signal`, nothing above this point calls wait()/poll()
