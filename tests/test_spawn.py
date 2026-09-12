@@ -294,7 +294,9 @@ def test_setsid_escape_does_not_leak_pump_threads():
     to its starting value instead of growing."""
     baseline = threading.active_count()
     escapee_pids = []
-    for i in range(20):
+    # Five escapes already leaked ten threads before the fix, so more runs add
+    # minutes, not evidence.
+    for i in range(5):
         pidfile = Path(tempfile.mkdtemp()) / f"escapee-{i}.pid"
         result = spawn.run_process(
             [sys.executable, FAKE, "escape", str(pidfile)],
@@ -315,7 +317,7 @@ def test_setsid_escape_does_not_leak_pump_threads():
 
     for pid in escapee_pids:
         with contextlib.suppress(ProcessLookupError):
-            os.kill(pid, signal.SIGKILL)  # clean up the 20 escapees directly
+            os.kill(pid, signal.SIGKILL)  # clean up the escapees directly
 
     assert after == baseline, (
         f"thread count did not return to baseline: before={baseline} after={after}"
