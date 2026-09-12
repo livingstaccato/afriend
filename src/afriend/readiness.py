@@ -8,6 +8,7 @@ from pathlib import Path
 import shutil
 import signal
 import subprocess
+import sys
 import threading
 
 from . import http_transport, sandbox
@@ -110,10 +111,17 @@ def probe_deny_argv(
         process.wait(timeout=timeout_s)
     except subprocess.TimeoutExpired:
         timed_out = True
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except (ProcessLookupError, PermissionError):
+        if sys.platform == "win32":
+            # No process-group kill on Windows for a bare capability probe --
+            # it is never OS-confined and never a friend dispatch, so it does
+            # not warrant a Job Object; killing just this one process is
+            # enough for a bounded, declarative --help/--version invocation.
             process.kill()
+        else:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                process.kill()
         process.wait()
     finally:
         stop.set()

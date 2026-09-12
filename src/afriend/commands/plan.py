@@ -1,11 +1,10 @@
 """Write one durable, non-mutating implementation proposal for a terminal run."""
 
 import argparse
-import os
 from pathlib import Path
 
 from ..errors import UsageError
-from ..secureio import secure_create_bytes, secure_open_directory, secure_regular_exists
+from ..secureio import secure_create_bytes, secure_regular_exists, secure_sync_directory
 from . import status
 
 
@@ -155,11 +154,7 @@ def cmd_plan(args: argparse.Namespace) -> int:
     except OSError as exc:
         raise UsageError(f"cannot create proposal {target}: {exc}") from exc
     try:
-        directory = secure_open_directory(run_dir, root=root)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
+        secure_sync_directory(run_dir, root=root)
     except OSError as exc:
         raise UsageError(
             f"proposal was created but its directory could not be synced: {exc}"

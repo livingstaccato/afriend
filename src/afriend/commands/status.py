@@ -4,7 +4,6 @@ import argparse
 from collections import Counter
 from collections.abc import Iterable, Iterator
 import json
-import os
 from pathlib import Path
 import sys
 import time
@@ -17,7 +16,7 @@ from ..jsonio import MAX_JSON_FILE_BYTES, decode_json_object
 from ..ledger import Alias, Claim, Resolution, record_from_dict
 from ..reviewcompleteness import from_friends
 from ..runstore import default_root
-from ..secureio import secure_open_directory, secure_read_bytes, secure_regular_exists
+from ..secureio import secure_read_bytes, secure_regular_exists, secure_validate_directory
 from ..verdicts import CONTESTED, INCOMPLETE, SETTLED_REFUTED, TERMINAL_STATES, UNPROVEN
 
 STATUS_SCHEMA_VERSION = 4
@@ -43,10 +42,9 @@ def _as_root(value: str | None) -> Path:
 
 def _open_directory(path: Path, *, root: Path) -> None:
     try:
-        descriptor = secure_open_directory(path, root=root)
+        secure_validate_directory(path, root=root)
     except OSError as exc:
         raise UsageError(f"cannot inspect run directory {path}: {exc}") from exc
-    os.close(descriptor)
 
 
 def find_run(run_id_or_path: str, out: str | None) -> tuple[Path, Path]:

@@ -3,13 +3,13 @@
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field as dataclass_field
-import fcntl
 import json
 import os
 from pathlib import Path
 import tempfile
 from types import MappingProxyType
 
+from . import filelock
 from .errors import UsageError
 from .jsonio import load_json_object
 from .reviewprofiles import (
@@ -298,7 +298,7 @@ def _update_lock(env: Mapping[str, str] | None = None) -> Iterator[None]:
         lock_path.parent.mkdir(parents=True, exist_ok=True)
         handle = lock_path.open("a+b")
         try:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            filelock.lock_exclusive(handle.fileno())
         except OSError:
             handle.close()
             raise
@@ -308,7 +308,7 @@ def _update_lock(env: Mapping[str, str] | None = None) -> Iterator[None]:
         yield
     finally:
         try:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            filelock.unlock(handle.fileno())
         finally:
             handle.close()
 

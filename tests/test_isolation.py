@@ -1,4 +1,5 @@
 import subprocess
+import sys
 
 import pytest
 
@@ -299,6 +300,15 @@ def test_remove_worktree_then_add_worktree_reuses_the_dest_cleanly(repo, tmp_pat
     assert (second / "tracked.py").read_text() == "original\n"
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="git for Windows defaults core.symlinks to false and checks a "
+    "committed symlink out as a plain text file naming its target, plus "
+    "creating one at all needs Developer Mode or admin -- an environment-"
+    "dependent limitation of git-on-Windows, not something isolation.py "
+    "could paper over even if it wanted to (see the test's own docstring on "
+    "why this is deliberately out of its four-function interface)",
+)
 def test_symlink_inside_the_repo_pointing_outside_survives_the_snapshot_verbatim(repo, tmp_path):
     """Documents a real, unresolved gap rather than hiding it: git stores and checks
     out symlinks as symlink blobs, not resolved targets, so a symlink already
@@ -323,6 +333,13 @@ def test_symlink_inside_the_repo_pointing_outside_survives_the_snapshot_verbatim
     assert link.readlink() == outside
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="NTFS cannot represent a newline in a filename at all -- the "
+    "write this test uses to create the fixture fails with OSError before "
+    "git or isolation.py are even involved; this is a hard OS-level "
+    "restriction, not a gap in either",
+)
 def test_unicode_and_newline_filenames_survive_the_snapshot(repo, tmp_path):
     unicode_name = "café-日本語-\U0001f600.txt"
     (repo / unicode_name).write_bytes(b"unicode, committed\n")

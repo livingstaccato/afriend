@@ -18,7 +18,12 @@ from types import MappingProxyType
 from typing import Final
 
 from .errors import UsageError
-from .secureio import secure_open_append, secure_open_directory, secure_open_read, secure_read_bytes
+from .secureio import (
+    secure_open_append,
+    secure_open_read,
+    secure_read_bytes,
+    secure_sync_directory,
+)
 
 EVENT_SCHEMA_VERSION: Final = 1
 MAX_EVENT_BYTES: Final = 4 * 1024
@@ -251,11 +256,7 @@ class EventWriter:
                 os.fsync(descriptor)
             finally:
                 os.close(descriptor)
-            directory = secure_open_directory(self.path.parent, root=self.root)
-            try:
-                os.fsync(directory)
-            finally:
-                os.close(directory)
+            secure_sync_directory(self.path.parent, root=self.root)
 
 
 def read_events(path: Path, *, root: Path) -> list[EventRecord]:

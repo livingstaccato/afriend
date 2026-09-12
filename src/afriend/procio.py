@@ -8,6 +8,23 @@ polled with `selectors`, so a pump thread is always back at its stop check
 within one `_POLL_INTERVAL_S` and can never be stuck in a syscall it cannot
 get out of.
 
+**This is the POSIX story.** Windows has no non-blocking polling primitive
+for a pipe at all -- verified on this runtime: `selectors.DefaultSelector().
+select()` on a pipe fd raises `OSError 10093`, because Windows' `select()`
+only ever operates on sockets. The `_windows` variants below read and write
+in a plain blocking loop instead, and lean on a different guarantee to stay
+safe: `wingroup.py`'s Job Object never permits `CREATE_BREAKAWAY_FROM_JOB`,
+so (unlike a POSIX `os.setsid()` escapee) a friend's descendant cannot
+normally survive job termination to hold a pipe open forever. Terminating
+the job therefore closes every handle in the tree essentially immediately,
+which unblocks a pending `os.read()`/`os.write()` the same way closing every
+group member's fd does on POSIX. See `spawn.run_process`'s Windows branch,
+which terminates the job before joining these pump threads. The accepted
+residual gap -- a descendant that somehow outlives job termination anyway --
+hangs its pump thread forever; it is a daemon thread, so it costs nothing but
+the `orphans_suspected` warning `run_process` already raises for exactly this
+shape of leak.
+
 Split out of spawn.py, which had grown past the then-current line cap.
 """
 
@@ -16,9 +33,12 @@ import contextlib
 import os
 import selectors
 import subprocess
+import sys
 import threading
 import time
 from typing import IO
+
+_WINDOWS = sys.platform == "win32"
 
 _POLL_INTERVAL_S = 0.05
 _READ_CHUNK = 65536
@@ -28,7 +48,7 @@ _READ_CHUNK = 65536
 _DRAIN_JOIN_S = 2.0
 
 
-def _pump_stdin(
+def _pump_stdin_posix(
     process: subprocess.Popen[bytes],
     stdin_text: str | None,
     stop_event: threading.Event,
@@ -97,7 +117,7 @@ def _pump_stdin(
             stream.close()
 
 
-def _pump_output(
+def _pump_output_posix(
     stream: IO[bytes],
     chunks: list[str],
     stop_event: threading.Event,
@@ -197,6 +217,91 @@ def _pump_output(
             sel.close()
         with contextlib.suppress(OSError):
             stream.close()
+
+
+def _pump_stdin_windows(
+    process: subprocess.Popen[bytes],
+    stdin_text: str | None,
+    stop_event: threading.Event,
+) -> None:
+    """Windows analogue of `_pump_stdin_posix` -- see the module docstring
+    for why a plain blocking write loop is safe here. `stop_event` is
+    accepted only to keep the same call signature as the POSIX pump; it is
+    not polled, for the same reason it cannot usefully be: there is no way
+    to interrupt a blocking `os.write()` from another thread on Windows
+    either, so job termination (which closes the friend's end of this pipe)
+    is what actually unblocks a write stuck on a full buffer, not this
+    thread noticing a flag."""
+    assert process.stdin is not None
+    stream = process.stdin
+    try:
+        if stdin_text:
+            payload = stdin_text.encode("utf-8")
+            fd = stream.fileno()
+            view = memoryview(payload)
+            while view:
+                try:
+                    written = os.write(fd, view)
+                except OSError:
+                    break
+                if written <= 0:
+                    break
+                view = view[written:]
+    except (BrokenPipeError, OSError):
+        pass
+    finally:
+        with contextlib.suppress(OSError):
+            stream.close()
+
+
+def _pump_output_windows(
+    stream: IO[bytes],
+    chunks: list[str],
+    stop_event: threading.Event,
+    limit: int,
+    overflow_event: threading.Event,
+    failed_event: threading.Event | None = None,
+) -> None:
+    """Windows analogue of `_pump_output_posix` -- see the module docstring
+    for why a plain blocking read loop, unblocked by job termination rather
+    than a stop-event poll, is the right trade here. `stop_event` is
+    accepted only to keep the same call signature as the POSIX pump."""
+    fd = stream.fileno()
+    decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+    total = 0
+    try:
+        while True:
+            try:
+                raw = os.read(fd, _READ_CHUNK)
+            except OSError:
+                # A real read failure, not an orderly close -- same
+                # distinction _pump_output_posix draws, and for the same
+                # reason: a partial answer that happens to parse must not be
+                # reported as the whole of it.
+                if failed_event is not None:
+                    failed_event.set()
+                break
+            if not raw:
+                break
+            total += len(raw)
+            if total > limit:
+                overflow_event.set()
+                # Discarded at full speed, deliberately -- see
+                # _pump_output_posix's comment on why pacing this was tried
+                # and reverted.
+                continue
+            chunks.append(decoder.decode(raw))
+        chunks.append(decoder.decode(b"", final=True))
+    except OSError:
+        if failed_event is not None:
+            failed_event.set()
+    finally:
+        with contextlib.suppress(OSError):
+            stream.close()
+
+
+_pump_stdin = _pump_stdin_windows if _WINDOWS else _pump_stdin_posix
+_pump_output = _pump_output_windows if _WINDOWS else _pump_output_posix
 
 
 def _buffer_looks_finished(chunks: list[str]) -> bool:

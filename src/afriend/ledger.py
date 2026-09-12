@@ -14,7 +14,7 @@ from typing import Any, cast
 
 from .errors import UsageError
 from .outcomes import json_node_count
-from .secureio import secure_mkdir, secure_open_append, secure_open_directory, secure_open_read
+from .secureio import secure_mkdir, secure_open_append, secure_open_read, secure_sync_directory
 
 
 @dataclass(frozen=True)
@@ -220,7 +220,10 @@ class Ledger:
         encoded = (json.dumps(record_to_dict(record), sort_keys=True) + "\n").encode("utf-8")
         fd = secure_open_append(self.path, root=self.root)
         try:
-            os.fchmod(fd, 0o600)
+            # secure_open_append already applies FILE_MODE (0o600) itself on
+            # POSIX; this used to redo it here too, which is what crashed on
+            # Windows (no os.fchmod there) for a call that was always
+            # redundant.
             view = memoryview(encoded)
             while view:
                 written = os.write(fd, view)
@@ -230,11 +233,7 @@ class Ledger:
             os.fsync(fd)
         finally:
             os.close(fd)
-        parent_fd = secure_open_directory(self.path.parent, root=self.root)
-        try:
-            os.fsync(parent_fd)
-        finally:
-            os.close(parent_fd)
+        secure_sync_directory(self.path.parent, root=self.root)
 
     def records(self) -> Iterator[Record]:
         try:

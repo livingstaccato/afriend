@@ -59,6 +59,33 @@ BASE_PASS = (
     "NVM_DIR",
     "PYTHONPATH",
     "PYTHONHOME",
+    # Windows equivalents of the above, plus variables Windows networking
+    # itself depends on to start at all. Found by running this tool against
+    # a real installed codex on Windows: withholding SystemRoot made DNS
+    # resolution fail inside the child with "os error 11003" (WSANO_DATA)
+    # on every request, even though the exact same command run directly in
+    # the operator's own shell reached the network fine -- Winsock
+    # initialization needs SystemRoot to load its own system DLLs, which a
+    # POSIX-shaped allowlist had no reason to know about. None of these
+    # carries a credential either; PATHEXT is what lets Windows execute a
+    # CLI shipped as a `.cmd`/`.bat` shim at all.
+    "SystemRoot",
+    "windir",
+    "USERPROFILE",
+    "USERNAME",
+    "USERDOMAIN",
+    "APPDATA",
+    "LOCALAPPDATA",
+    "ALLUSERSPROFILE",
+    "PROGRAMDATA",
+    "PROGRAMFILES",
+    "PROGRAMFILES(X86)",
+    "PROGRAMW6432",
+    "COMSPEC",
+    "PATHEXT",
+    "COMPUTERNAME",
+    "NUMBER_OF_PROCESSORS",
+    "PROCESSOR_ARCHITECTURE",
 )
 
 
@@ -132,10 +159,23 @@ def build(
     exporting an empty value for an unset variable would tell a CLI that a
     setting exists when it does not, which is its own source of confusing
     failures.
+
+    Matched case-insensitively. Windows environment variable names are
+    case-insensitive by OS convention -- found live on this runtime:
+    `SystemRoot` in `BASE_PASS` never matched, because the real variable
+    is stored as `SYSTEMROOT`, and a plain case-sensitive set membership
+    check (unlike `name in os.environ`, which Windows' own `os.environ`
+    special-cases) does not know that. Withholding it silently broke DNS
+    resolution inside every confined child on Windows -- Winsock needs it
+    to load its own system DLLs -- so a critique that reached the network
+    fine when run directly failed inside every dispatched friend instead.
+    Case-insensitive matching is harmless on POSIX, where a real process
+    exporting two names differing only in case is not a case this project
+    needs to support.
     """
     source = os.environ if environ is None else environ
-    allowed = {*BASE_PASS, *adapter_pass, *operator_pass}
-    return {name: value for name, value in source.items() if name in allowed}
+    allowed = {name.upper() for name in (*BASE_PASS, *adapter_pass, *operator_pass)}
+    return {name: value for name, value in source.items() if name.upper() in allowed}
 
 
 def withheld(
@@ -150,5 +190,5 @@ def withheld(
     protected would be its own leak.
     """
     source = os.environ if environ is None else environ
-    allowed = {*BASE_PASS, *adapter_pass, *operator_pass}
-    return sorted(name for name in source if name not in allowed)
+    allowed = {name.upper() for name in (*BASE_PASS, *adapter_pass, *operator_pass)}
+    return sorted(name for name in source if name.upper() not in allowed)

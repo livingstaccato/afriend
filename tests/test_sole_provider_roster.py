@@ -11,6 +11,7 @@ through the CLI's own roster builder.
 
 import json
 from pathlib import Path
+import sys
 
 import pytest
 
@@ -36,9 +37,13 @@ def only_codex(monkeypatch):
     )
     # A real, harmless executable: readiness runs a deny-argv capability probe
     # against whatever `which` returns, so a made-up path fails as
-    # policy-blocked and the roster is empty for the wrong reason.
+    # policy-blocked and the roster is empty for the wrong reason. The
+    # running interpreter is used rather than a POSIX-only path like
+    # `/bin/echo` so this fixture works on every platform: handed the
+    # adapter's real (nonsense-to-it) probe flags, it fails to open them as a
+    # script and exits promptly rather than hanging -- verified directly.
     monkeypatch.setattr(
-        friends_module.shutil, "which", lambda name: "/bin/echo" if name == "codex" else None
+        friends_module.shutil, "which", lambda name: sys.executable if name == "codex" else None
     )
     monkeypatch.setenv("AF_NO_HTTP_DISCOVERY", "1")
     # Reproduce the reported session: the host is claude, so claude is
@@ -169,7 +174,7 @@ def codex_host_and_claude(monkeypatch):
     monkeypatch.setattr(
         friends_module.shutil,
         "which",
-        lambda name: "/bin/echo" if name in {"codex", "claude"} else None,
+        lambda name: sys.executable if name in {"codex", "claude"} else None,
     )
     monkeypatch.setenv("AF_NO_HTTP_DISCOVERY", "1")
     monkeypatch.setenv("CODEX_SANDBOX", "seatbelt")

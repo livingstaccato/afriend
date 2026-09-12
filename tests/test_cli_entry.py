@@ -8,8 +8,12 @@ import sys
 # running under (venv bin/, however that venv was created) -- this is the
 # real, packaged entry point (`[project.scripts] afriend = ...`), not a
 # hand-maintained shim, so a passing test here proves the actual install
-# works, not just that some file happens to exist on disk.
-AF = Path(sys.executable).parent / "afriend"
+# works, not just that some file happens to exist on disk. On Windows,
+# pip/setuptools generate a native `.exe` launcher for it rather than a bare
+# `afriend` file (verified: `afriend.exe`) -- named explicitly rather than
+# guessed, since this file's whole point is exercising the real installed
+# entry point, not a workaround for it.
+AF = Path(sys.executable).parent / ("afriend.exe" if sys.platform == "win32" else "afriend")
 REPO = Path(__file__).resolve().parents[1]
 
 

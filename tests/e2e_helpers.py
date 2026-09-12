@@ -25,14 +25,38 @@ import tempfile
 
 import pytest
 
-# The installed console script sits next to whichever interpreter pytest is
-# running under -- the real, packaged entry point, not a hand-maintained
-# shim. `sys.executable str(AF) ...` at call sites still works: setuptools
-# generates console scripts as plain Python files, so passing one as a
-# script argument to the interpreter runs it exactly as invoking it
-# directly would.
+
+def _make_af_shim() -> Path:
+    """A tiny wrapper script that runs afriend's CLI via an absolute import,
+    under the same interpreter these tests already use.
+
+    This used to point straight at the installed console-script entry
+    point next to `sys.executable`, on the theory that "setuptools
+    generates console scripts as plain Python files, so passing one as a
+    script argument to the interpreter runs it exactly as invoking it
+    directly would." Verified false on Windows: pip/setuptools generate a
+    native `.exe` launcher there instead (`afriend.exe`, not a bare
+    `afriend` file), which `python.exe <path>` cannot run as a script at
+    all -- every one of the ~40 call sites built on `AF` failed with
+    "can't open file ...\\afriend: No such file or directory" before a
+    single run directory was even created.
+    `src/afriend/__main__.py` isn't a fix either: it uses `from .cli import
+    main`, a relative import that requires launching via `-m afriend`, so
+    it can't be run as a bare script path either. An absolute import
+    sidesteps both: it works identically everywhere `import afriend`
+    already does, which is guaranteed for these tests since they only run
+    against an installed (or editable) `afriend`.
+    """
+    shim = Path(tempfile.mkdtemp(prefix="af-shim-")) / "afriend_shim.py"
+    shim.write_text(
+        "import sys\nfrom afriend.cli import main\nsys.exit(main(sys.argv[1:]))\n",
+        encoding="utf-8",
+    )
+    return shim
+
+
 REPO = Path(__file__).resolve().parents[1]
-AF = Path(sys.executable).parent / "afriend"
+AF = _make_af_shim()
 FAKE = REPO / "tests" / "fake_friend.py"
 
 
@@ -67,6 +91,21 @@ def _env(extra=None):
     }
     if "HOME" in os.environ:
         env["HOME"] = os.environ["HOME"]
+    if sys.platform == "win32":
+        # Without these, the subprocess under test can't even call
+        # Path.home() -- Windows has no HOME by default, and `expanduser`
+        # falls back through USERPROFILE / HOMEDRIVE+HOMEPATH, none of which
+        # this fixed dict forwarded. Verified live: every one of these tests
+        # failed before a run directory was even created, with
+        # `RuntimeError: Could not determine home directory` out of
+        # sessionconfig.config_path's `Path.home()` fallback. SystemRoot is
+        # forwarded for the same reason childenv.py needs it for a
+        # dispatched friend (see its own comment): Winsock can't resolve
+        # DNS without it, which several of these tests' subprocesses also do
+        # via git.
+        for name in ("USERPROFILE", "HOMEDRIVE", "HOMEPATH", "SYSTEMROOT", "WINDIR", "PATHEXT"):
+            if name in os.environ:
+                env[name] = os.environ[name]
     if extra:
         env.update(extra)
     return env

@@ -8,6 +8,7 @@ speculation — see the spec's "verified invocation traps" section.
 from dataclasses import dataclass, field
 import json
 from pathlib import Path
+import shutil
 import tomllib
 from typing import Any, Literal
 
@@ -563,7 +564,15 @@ def build_argv(
     not be able to forge a capability by being present in the argv list.
     """
     prompt = Path(prompt_file).read_text(encoding="utf-8")
-    argv = [adapter.binary, *adapter.base_argv]
+    # The resolved path, not the bare declared name. Windows' CreateProcess
+    # does not itself retry PATHEXT the way shutil.which does, so a bare
+    # "claude"/"codex"/"agy" -- installed as a .cmd/.ps1 shim, the normal
+    # shape for an npm/node-based CLI on Windows -- raises FileNotFoundError
+    # from Popen even though `which` resolves it. Falls back to the bare name
+    # when `which` finds nothing, so the existing "binary not found" message
+    # from spawn.run_process still names the declared binary.
+    resolved_binary = shutil.which(adapter.binary) if adapter.binary else None
+    argv = [resolved_binary or adapter.binary, *adapter.base_argv]
     authority = enforce(adapter, external_tool_policy)
 
     # A friend never needs to write, in EITHER scope: it reads the artifact
