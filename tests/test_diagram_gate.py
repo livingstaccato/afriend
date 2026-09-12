@@ -114,11 +114,13 @@ def _style_class_body_lines(text: str) -> list[str]:
 
 @pytest.mark.parametrize("source", DIAGRAMS, ids=lambda p: p.stem)
 def test_no_activity_carries_an_inline_colour_prefix(source):
-    """PlantUML 1.2026.7 stopped rendering this form inside a group.
+    """PlantUML 1.2026.7 stopped rendering this form in certain positions.
 
-    A coloured activity in or beside a `partition` or `repeat` fails the
-    whole source with "Cannot find group", reported against the line that
-    closes the group rather than the coloured one. `ci/install_plantuml.sh`
+    A coloured activity directly before an `if` -- with or without a group --
+    at a group boundary, or ending an `if` branch whose `else` is empty or
+    absent inside a group fails the whole source, as "Cannot find group",
+    "Cannot find if", "Cannot find repeat" or "Syntax Error?", and often
+    against a later line than the coloured one. `ci/install_plantuml.sh`
     pins a release that rejects it, so the render gate would now catch a
     reintroduction -- but only where plantuml is installed, and that gate
     skips silently when it is not. This says so without rendering anything.

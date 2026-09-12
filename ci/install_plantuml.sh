@@ -5,10 +5,14 @@
 # any current distribution, and the two parsers disagree about how an activity
 # may be coloured. The `<style>` class form the sources use renders on 1.2026.x
 # and fails on 1.2020.02; the inline `#RRGGBB:label;` form it replaced does the
-# reverse, failing on 1.2026.8 with "Cannot find group" anywhere a coloured
-# activity sits in or beside a partition or repeat. No colour syntax satisfies
-# both, so a gate running the parser nobody develops against passes sources
-# nobody can render -- which is the defect the diagram gate exists to catch.
+# reverse. From 1.2026.7 it fails a source whose coloured activity sits
+# directly before an `if` (group or no group), at a group boundary, or at the
+# end of an `if` branch whose `else` is empty or absent inside a group -- as
+# "Cannot find group", "Cannot find if", "Cannot find repeat" or "Syntax
+# Error?". Every shape tested is in .provide/plantuml-1.2026.7-regression-issue.md.
+# No colour syntax satisfies both, so a gate running the parser nobody develops
+# against passes sources nobody can render -- which is the defect the diagram
+# gate exists to catch.
 #
 # Pinned by version AND digest. An unpinned "latest" would change the parser
 # under the gate without a commit, which is exactly how 1.2026.8 broke these

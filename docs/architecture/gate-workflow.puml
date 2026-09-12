@@ -38,9 +38,11 @@ skinparam PartitionBackgroundColor #F8FCFC
 skinparam PartitionFontColor #4F7981
 
 ' Semantic fills are <style> classes, not the `#RRGGBB:label;` prefix --
-' PlantUML 1.2026.8 cannot close a partition or repeat group anywhere near
-' an inline-coloured activity, and fails the whole source with "Cannot find
-' group". One property per line: `{ BackgroundColor #A  LineColor #B }`
+' From 1.2026.7, an inline-coloured activity directly before an `if`, at a
+' group boundary, or ending an `if` branch with an empty or absent `else`
+' inside a group fails the whole source ("Cannot find group", "Cannot find
+' if", "Cannot find repeat", "Syntax Error?"). One property per line:
+' `{ BackgroundColor #A  LineColor #B }`
 ' parses as a single malformed value and the class is dropped in silence,
 ' leaving the tagged nodes unstyled in a diagram that still "succeeds".
 <style>

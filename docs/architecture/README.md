@@ -34,10 +34,13 @@ These are the things that broke in review and are easy to reintroduce:
   — never `#RRGGBB:text;` and never `<<#RRGGBB>>`.** This rule has now been
   rewritten twice, so it is worth saying why rather than just asserting it.
   `<<#RRGGBB>>` fails inside a nested `if` on every release from 1.2020.02
-  to 1.2026.8. `#RRGGBB:text;` replaced it and fails from 1.2026.7 onward,
-  anywhere near a `partition` or `repeat`, with `Cannot find group` reported
-  against the line that CLOSES the group. A named class renders on every
-  release that `ci/install_plantuml.sh` will install. Declare one property
+  to 1.2026.8. `#RRGGBB:text;` replaced it and fails from 1.2026.7 onward
+  when the coloured activity sits directly before an `if` (group or no
+  group), at a group boundary, or at the end of an `if` branch whose `else`
+  is empty or absent inside a group -- reported as `Cannot find group`,
+  `Cannot find if`, `Cannot find repeat` or `Syntax Error?`, often against a
+  later line. A named class renders on every release that
+  `ci/install_plantuml.sh` will install. Declare one property
   per line: `{ BackgroundColor #A  LineColor #B }` is read as a single
   malformed value, and the class is dropped in silence while the diagram
   still reports success. `tests/test_diagram_gate.py` enforces all of this,
