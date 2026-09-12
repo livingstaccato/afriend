@@ -649,6 +649,7 @@ def test_hostile_setext_underline_does_not_forge_a_heading():
 
 
 @pytest.mark.skipif(CMARK is None, reason="cmark not installed on this machine")
+@pytest.mark.external
 def test_hostile_html_comment_evidence_does_not_swallow_findings_under_cmark():
     """End-to-end proof against a real CommonMark renderer, not just an
     assertion on the escaped source: both claims must render as real
@@ -661,6 +662,7 @@ def test_hostile_html_comment_evidence_does_not_swallow_findings_under_cmark():
 
 
 @pytest.mark.skipif(CMARK is None, reason="cmark not installed on this machine")
+@pytest.mark.external
 def test_hostile_setext_underline_does_not_forge_a_heading_under_cmark():
     hostile = _two_line_evidence_claim("c-0001@1", "===")
     victim = claim("c-0002@1")
@@ -672,6 +674,7 @@ def test_hostile_setext_underline_does_not_forge_a_heading_under_cmark():
 
 
 @pytest.mark.skipif(CMARK is None, reason="cmark not installed on this machine")
+@pytest.mark.external
 def test_hostile_div_evidence_does_not_swallow_the_next_field_under_cmark():
     hostile = _two_line_evidence_claim("c-0001@1", "<div>never closes")
     victim = claim("c-0002@1")

@@ -27,6 +27,8 @@ from afriend.commands import (
 )
 from afriend.paths import ADAPTER_DIR
 
+pytestmark = pytest.mark.git
+
 
 class _OllamaStub(BaseHTTPRequestHandler):
     """A real HTTP boundary for Ollama CLI tests, without a local model."""
@@ -414,6 +416,7 @@ def test_artifact_in_a_nested_subdirectory_of_a_repo_resolves_the_real_root(tmp_
     assert "not inside a git repository" not in report.lower()
 
 
+@pytest.mark.slow
 def test_a_slow_friend_timing_out_does_not_prevent_others_from_being_reported(
     monkeypatch, tmp_path
 ):
@@ -471,6 +474,7 @@ def test_kill_grace_period_constant_is_sixty_seconds():
     assert cli.KILL_GRACE_S == 60
 
 
+@pytest.mark.slow
 def test_kill_deadline_is_strictly_greater_than_the_configured_timeout(monkeypatch, tmp_path):
     """Direct proof of the arithmetic (not just "eventually times out"):
     with KILL_GRACE_S monkeypatched down to 1s (see the test above this
@@ -522,6 +526,7 @@ def test_all_friends_failing_exits_1_and_says_so(tmp_path):
     assert "failed" in report.lower()
 
 
+@pytest.mark.slow
 def test_zero_response_review_is_persisted_reported_and_printed(tmp_path):
     artifact = tmp_path / "spec.md"
     artifact.write_text("# spec\n")

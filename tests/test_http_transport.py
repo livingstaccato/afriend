@@ -244,6 +244,8 @@ def test_capability_never_claims_readonly():
     not http_transport.probe("http://127.0.0.1:11434/api/generate"),
     reason="no ollama listening on 127.0.0.1:11434",
 )
+@pytest.mark.external
+@pytest.mark.slow
 def test_against_a_real_local_ollama(tmp_path):
     """The stub above proves this module's own logic; it cannot prove the
     request shape matches what ollama actually accepts. This one does, and

@@ -2,6 +2,8 @@ from pathlib import Path
 import subprocess
 import tomllib
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
 
@@ -18,6 +20,8 @@ def test_compatibility_distributions_are_exact_metadata_only_aliases() -> None:
         assert not any(path.suffix == ".py" for path in project.rglob("*.py"))
 
 
+@pytest.mark.external
+@pytest.mark.slow
 def test_release_verifier_builds_and_smokes_all_three_distributions() -> None:
     result = subprocess.run(
         ["bash", "ci/verify_release_distributions.sh"],

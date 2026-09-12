@@ -239,6 +239,7 @@ def test_the_pinned_plantuml_is_one_that_rejects_the_inline_colour_form():
 
 
 @pytest.mark.skipif(shutil.which("plantuml") is None, reason="plantuml not installed")
+@pytest.mark.external
 def test_the_gate_passes_on_the_committed_sources():
     """The success path, so a gate that refuses everything is not mistaken
     for a gate that verifies something."""

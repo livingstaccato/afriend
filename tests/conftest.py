@@ -14,10 +14,18 @@ test rather than of the machine. A test that wants a host still sets one with
 """
 
 import os
+import sys
 
+from markers_support import apply_marks
 import pytest
 
 from afriend.readiness import HOST_ENV_MARKERS
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Apply the rule-based marks (markers_support.py) before `-m` deselects."""
+    apply_marks(items, sys.platform)
 
 
 @pytest.fixture(autouse=True)

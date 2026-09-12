@@ -24,6 +24,9 @@ import sys
 import time
 
 from e2e_helpers import AF, _env, _git_commit, _git_repo, run_af
+import pytest
+
+pytestmark = [pytest.mark.process, pytest.mark.git]
 
 
 def _ps_all() -> list[tuple[int, int, str]]:
@@ -239,6 +242,7 @@ def test_sigint_tears_down_isolation_and_kills_the_friend_and_its_child(tmp_path
     _assert_signal_tears_everything_down(tmp_path, signal.SIGINT)
 
 
+@pytest.mark.slow
 def test_orphans_suspected_is_surfaced_end_to_end(tmp_path):
     """Task 12 review, Finding 4: spawn.SpawnResult.orphans_suspected was
     plumbed into cmd_run's .meta file and status string, but never actually

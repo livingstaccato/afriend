@@ -14,9 +14,10 @@ import time
 
 import pytest
 
-pytestmark = pytest.mark.skipif(
-    sys.platform != "win32", reason="wingroup.py is the Windows-only process-tree kill path"
-)
+pytestmark = [
+    pytest.mark.windows_only(reason="wingroup.py is the Windows-only process-tree kill path"),
+    pytest.mark.process,
+]
 
 if sys.platform == "win32":
     from afriend import wingroup

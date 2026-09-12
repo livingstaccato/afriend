@@ -11,10 +11,12 @@ import pytest
 
 from afriend import spawn
 
+pytestmark = pytest.mark.process
+
+
 FAKE = str(Path(__file__).resolve().parent / "fake_friend.py")
 
-_POSIX_ONLY = pytest.mark.skipif(
-    sys.platform == "win32",
+_POSIX_ONLY = pytest.mark.posix_only(
     reason="tests a POSIX-specific escape/signal mechanism (os.setsid(), "
     "SIGTERM-then-SIGKILL escalation) with no Windows equivalent -- Job "
     "Objects (wingroup.py) structurally prevent the escape rather than "
@@ -73,6 +75,7 @@ def test_no_findings_marker_is_a_success():
     assert result.result.succeeded is True
 
 
+@pytest.mark.slow
 def test_timeout_kills_the_whole_process_group(tmp_path):
     """Corrected from the brief, as added robustness: rather than parsing a
     child pid out of stdout captured after a SIGKILL, have the fake friend
@@ -93,6 +96,7 @@ def test_timeout_kills_the_whole_process_group(tmp_path):
     _assert_process_dead(child_pid)  # already reaped
 
 
+@pytest.mark.slow
 def test_timeout_takes_precedence_over_parsing():
     """A killed friend is a failure regardless of what it managed to print."""
     result = spawn.run_process([sys.executable, FAKE, "hang"], None, 2, Path.cwd())
@@ -112,6 +116,7 @@ def test_timeout_takes_precedence_over_parsing():
 # exists to prove that limitation rather than hide it.
 
 
+@pytest.mark.slow
 def test_grandchild_is_reaped_through_two_levels(tmp_path):
     """child spawns its own child (a grandchild relative to the runner);
     neither calls setsid, so both stay in the friend's process group and
@@ -132,6 +137,7 @@ def test_grandchild_is_reaped_through_two_levels(tmp_path):
 
 
 @_POSIX_ONLY
+@pytest.mark.slow
 def test_sigterm_ignoring_friend_is_still_killed(tmp_path):
     """The friend itself ignores SIGTERM; SIGKILL cannot be ignored, so
     escalation must still finish it off within the grace windows."""
@@ -147,6 +153,7 @@ def test_sigterm_ignoring_friend_is_still_killed(tmp_path):
     _assert_process_dead(pid)
 
 
+@pytest.mark.slow
 def test_closing_stdout_early_does_not_hang_the_runner():
     """A friend that closes stdout and then hangs must not cause the runner
     itself to block waiting for pipe EOF that will never come from that fd;
@@ -189,6 +196,7 @@ def test_exit0_with_leftover_descendant_is_reaped(tmp_path):
 
 
 @_POSIX_ONLY
+@pytest.mark.slow
 def test_setsid_escapee_is_not_reaped(tmp_path):
     """Honest negative result: a descendant that calls os.setsid() before
     the runner intervenes leaves the friend's process group entirely and
@@ -231,8 +239,7 @@ def test_missing_binary_returns_a_spawn_result_not_an_exception():
     assert result.failure_reason == f"binary not found: {missing}"
 
 
-@pytest.mark.skipif(
-    sys.platform == "win32",
+@pytest.mark.posix_only(
     reason="Windows has no execute-bit permission concept -- executability "
     "there is gated by file extension/PE header, not a chmod-able mode, so "
     "there is no Windows equivalent of 'not executable but otherwise valid'",
@@ -275,6 +282,7 @@ def test_enoexec_binary_returns_a_spawn_result_not_a_raw_traceback(tmp_path):
 
 
 @_POSIX_ONLY
+@pytest.mark.slow
 def test_setsid_escape_does_not_leak_pump_threads():
     """Finding: the earlier implementation's daemon pump threads blocked
     forever in a plain readline() on a pipe an escaped descendant held

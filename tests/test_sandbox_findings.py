@@ -8,6 +8,8 @@ within a minute.
 
 from pathlib import Path
 
+import pytest
+
 from afriend import sandbox
 
 
@@ -81,6 +83,7 @@ def test_a_system_bin_never_grants_the_filesystem_root():
         assert str(granted) != "/", "the sandbox must never grant the filesystem root"
 
 
+@pytest.mark.sandbox
 def test_a_confined_process_really_cannot_see_withheld_secrets(tmp_path):
     """The end-to-end proof, not an assertion about a dict.
 

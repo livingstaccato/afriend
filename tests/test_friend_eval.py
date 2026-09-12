@@ -18,6 +18,9 @@ import sys
 
 import pytest
 
+pytestmark = pytest.mark.git
+
+
 REPO = Path(__file__).resolve().parents[1]
 REAL = REPO / "tests" / "fixtures" / "friend_eval_run_real"
 THREE = REAL / "three-friends"

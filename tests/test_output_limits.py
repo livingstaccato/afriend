@@ -17,7 +17,11 @@ because a prefix can still parse.
 import json
 import sys
 
+import pytest
+
 from afriend import spawn
+
+pytestmark = pytest.mark.process
 
 
 def test_output_past_the_cap_fails_the_round_instead_of_growing(tmp_path):

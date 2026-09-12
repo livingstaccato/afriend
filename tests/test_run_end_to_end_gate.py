@@ -23,6 +23,9 @@ import subprocess
 import sys
 
 from e2e_helpers import AF, _env, _git_commit, _git_repo, run_af
+import pytest
+
+pytestmark = pytest.mark.git
 
 
 def _repo(tmp_path):
@@ -246,6 +249,7 @@ def test_a_resolution_is_appended_to_the_ledger(tmp_path):
     assert recorded[0]["verified"] == "location-changed"
 
 
+@pytest.mark.slow
 def test_fixed_naming_an_unchanged_location_is_refused(tmp_path):
     """The one attestation the runner can positively contradict."""
     repo = _repo(tmp_path)

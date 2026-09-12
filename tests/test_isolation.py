@@ -1,10 +1,11 @@
 import subprocess
-import sys
 
 import pytest
 
 from afriend import isolation
 from afriend.errors import AfError
+
+pytestmark = pytest.mark.git
 
 
 @pytest.fixture
@@ -300,8 +301,7 @@ def test_remove_worktree_then_add_worktree_reuses_the_dest_cleanly(repo, tmp_pat
     assert (second / "tracked.py").read_text() == "original\n"
 
 
-@pytest.mark.skipif(
-    sys.platform == "win32",
+@pytest.mark.posix_only(
     reason="git for Windows defaults core.symlinks to false and checks a "
     "committed symlink out as a plain text file naming its target, plus "
     "creating one at all needs Developer Mode or admin -- an environment-"
@@ -333,8 +333,7 @@ def test_symlink_inside_the_repo_pointing_outside_survives_the_snapshot_verbatim
     assert link.readlink() == outside
 
 
-@pytest.mark.skipif(
-    sys.platform == "win32",
+@pytest.mark.posix_only(
     reason="NTFS cannot represent a newline in a filename at all -- the "
     "write this test uses to create the fixture fails with OSError before "
     "git or isolation.py are even involved; this is a hard OS-level "

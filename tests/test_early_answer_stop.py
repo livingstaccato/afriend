@@ -11,6 +11,8 @@ import json
 import sys
 import time
 
+import pytest
+
 from afriend import envelopes, spawn
 from afriend.envelopes import (
     TERMINAL_SCAN_BYTES,
@@ -18,6 +20,9 @@ from afriend.envelopes import (
     Envelope,
     answer_is_complete,
 )
+
+pytestmark = pytest.mark.process
+
 
 JSON_PATH = Envelope(kind="json_path", path="response")
 NDJSON = Envelope(kind="ndjson")
@@ -76,6 +81,7 @@ def test_the_run_stops_waiting_for_a_process_that_has_answered_and_hung(tmp_path
     assert "timeout waiting for response" in outcome.stdout
 
 
+@pytest.mark.slow
 def test_a_process_that_never_answers_still_runs_to_the_deadline(tmp_path):
     """The stop is 'it has answered', not 'it has written something'. A
     friend still working must not be cut off because its output happens to

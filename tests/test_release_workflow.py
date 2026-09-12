@@ -2,6 +2,8 @@ from pathlib import Path
 import re
 import subprocess
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
 TEST_WORKFLOW = ROOT / ".github" / "workflows" / "test-release.yml"
@@ -189,6 +191,7 @@ def test_every_action_is_pinned_to_a_full_commit_sha():
     assert all(re.fullmatch(r"[0-9a-f]{40}", reference) for reference in references)
 
 
+@pytest.mark.external
 def test_wheel_asset_verifier_ignores_stale_intermediate_assets():
     """A deleted asset in setuptools' build/lib must not leak into a wheel."""
     stale_asset = ROOT / "build/lib/afriend/assets/SKILL.md"

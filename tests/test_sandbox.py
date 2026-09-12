@@ -216,6 +216,7 @@ _REAL_LINUX_BWRAP = pytest.mark.skipif(
         ("../run/NetworkManager/resolv.conf", "run/NetworkManager/resolv.conf"),
     ],
 )
+@pytest.mark.sandbox
 def test_bwrap_reads_a_synthetic_resolver_symlink_at_its_namespace_target(tmp_path, link, target):
     """Regression proof: bwrap must follow `/etc/resolv.conf` to the fake
     root's one-file bind, never to a broader host `/run` mount.
@@ -362,6 +363,7 @@ def _run_confined(tmp_path, target: Path):
 
 
 @_REAL
+@pytest.mark.sandbox
 def test_a_file_inside_the_workdir_is_readable(tmp_path):
     """The other half of the claim: confinement that blocked everything
     would be trivially secure and useless."""
@@ -375,6 +377,7 @@ def test_a_file_inside_the_workdir_is_readable(tmp_path):
 
 
 @_REAL
+@pytest.mark.sandbox
 def test_a_file_outside_the_workdir_is_not_readable(tmp_path):
     """§12.2's actual attack, run for real rather than asserted about.
 
@@ -392,6 +395,7 @@ def test_a_file_outside_the_workdir_is_not_readable(tmp_path):
 
 @_REAL
 @pytest.mark.skipif(sys.platform != "darwin", reason="home layout differs per platform")
+@pytest.mark.sandbox
 def test_the_real_ssh_directory_is_not_readable(tmp_path):
     """The literal example §12.2 gives. Skipped when there is no key to
     fail to read."""
@@ -634,6 +638,7 @@ def test_a_friend_whose_binary_is_missing_is_not_sandboxed(tmp_path):
 
 
 @_REAL
+@pytest.mark.sandbox
 def test_a_confined_friend_gets_the_sandbox_prefix(tmp_path):
     """With a mechanism available, the friend's argv is actually wrapped --
     and the profile it ran under is written next to its prompt for a human

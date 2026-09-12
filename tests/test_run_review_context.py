@@ -12,6 +12,8 @@ import pytest
 from afriend.commands.reviewcontext import capture_review_context
 from afriend.reviewcontext import compose
 
+pytestmark = pytest.mark.git
+
 
 def _head(repo):
     return subprocess.run(

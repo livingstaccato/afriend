@@ -50,6 +50,7 @@ claim resolution; it requires neither disposition nor evidence.
 ```bash
 make install      # uv sync
 make test         # pytest
+make test-fast    # pytest without the tests marked slow
 make quality      # every portable CI gate, wheel checks, and tests
 ```
 
@@ -57,6 +58,13 @@ make quality      # every portable CI gate, wheel checks, and tests
 isolated installation. Linux CI additionally installs bubblewrap and requires
 the real OS-confinement tests to execute; macOS cannot reproduce that Linux-
 specific assertion locally. Use `make act-ci` for the closest local Linux run.
+
+Tests carry marks for running a subset with `pytest -m`: `slow` (2s or more),
+`e2e` (a whole run through the CLI, applied from the file name), `process`,
+`git`, `sandbox` and `external`. A platform-specific test takes
+`@pytest.mark.posix_only(reason=...)` or `windows_only(reason=...)` instead of a
+`skipif`. `make test` and CI still run everything; `pyproject.toml` lists the
+marks and `tests/markers_support.py` applies the rule-based ones.
 
 Two gates are especially easy to trip:
 

@@ -29,6 +29,8 @@ import pytest
 
 from afriend import procgroup
 
+pytestmark = pytest.mark.process
+
 
 @pytest.fixture
 def dead_process():
