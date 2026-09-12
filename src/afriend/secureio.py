@@ -144,9 +144,7 @@ def _win_reject_reparse(path: Path) -> None:
     except FileNotFoundError:
         return
     if stat.S_ISLNK(info.st_mode) or getattr(info, "st_reparse_tag", 0):
-        raise OSError(
-            errno.ELOOP, "secure path component is a symlink or reparse point", str(path)
-        )
+        raise OSError(errno.ELOOP, "secure path component is a symlink or reparse point", str(path))
 
 
 def _win_walk(root: Path, target: Path, *, create: bool = False) -> Path:
@@ -241,9 +239,7 @@ def secure_mkdir(
                     raise
             _win_reject_reparse(final)
             if not final.is_dir():
-                raise OSError(
-                    errno.ENOTDIR, "secure path component is not a directory", str(final)
-                )
+                raise OSError(errno.ENOTDIR, "secure path component is not a directory", str(final))
             return target
         parts = _relative_parts(root, target)
         if not parts:
