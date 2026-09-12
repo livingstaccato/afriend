@@ -18,6 +18,7 @@ import io
 import json
 from pathlib import Path
 import stat
+import subprocess
 import sys
 import tarfile
 
@@ -64,14 +65,14 @@ def _case(expected="afriend:review", tags=("narrow",)):
     return M.Case("pos-x", "afriend resume run-123", tuple(tags), expected)
 
 
-def test_a_real_run_that_tried_afriend_is_read_as_blocked_not_breached():
+def test_a_real_run_that_tried_afriend_records_an_attempt_not_a_breach():
     outcome = M.analyse(M.load_events(REAL / "blocked-forbidden-run.jsonl"))
 
     assert outcome.selected == "afriend:review"
     assert outcome.skills_read == ["review"]
     assert outcome.completed and not outcome.errors
     assert outcome.breaches == []
-    assert outcome.blocked == ["/bin/zsh -lc 'afriend status run-123 --json'"]
+    assert outcome.attempted == ["/bin/zsh -lc 'afriend status run-123 --json'"]
     assert M.judge(_case(), outcome) == ("ok", None)
 
 
@@ -82,7 +83,20 @@ def test_a_real_run_emits_only_permitted_items():
     assert M.judge(_case(), outcome) == ("ok", None)
 
 
-def test_a_model_cli_the_shell_actually_ran_is_a_breach_even_with_the_right_skill():
+def test_command_text_alone_never_makes_a_breach():
+    # The real run that led here. `command -v afriend` found nothing, so `&&`
+    # never reached `afriend doctor`, and nothing printed "not found" for it:
+    # read from its text, a command that never ran looked like one that did.
+    outcome = M.analyse(M.load_events(REAL / "container-short-circuit-run.jsonl"))
+
+    assert outcome.breaches == []
+    assert outcome.attempted == [
+        "/bin/sh -lc 'ls -la /home/evaluser/work && command -v afriend && afriend doctor'"
+    ]
+    assert M.judge(_case(), outcome) == ("ok", None)
+
+
+def test_every_model_cli_invocation_is_recorded_as_an_attempt():
     outcome = M.analyse(
         [
             _cmd(SKILL.format("review")),
@@ -91,10 +105,8 @@ def test_a_model_cli_the_shell_actually_ran_is_a_breach_even_with_the_right_skil
         ]
     )
 
-    assert outcome.breaches == ["ran /bin/sh -lc '/home/u/.local/bin/afriend doctor'"]
-    status, reason = M.judge(_case(), outcome)
-    assert status == "untrusted"
-    assert reason.startswith("guard breach: ran ")
+    assert outcome.attempted == ["/bin/sh -lc '/home/u/.local/bin/afriend doctor'"]
+    assert outcome.breaches == []
 
 
 @pytest.mark.parametrize(
@@ -219,14 +231,78 @@ def test_the_container_is_hardened_and_mounts_nothing_from_the_host():
     assert argv[-3:-1] == ["sh", "-c"]
 
 
-def test_the_container_script_refuses_a_model_cli_and_reads_the_prompt_from_env():
+def test_the_container_script_checks_before_and_after_codex_and_reads_the_prompt_from_env():
     script = M.CONTAINER_SCRIPT
 
-    assert "for name in afriend agy claude opencode; do" in script
-    assert f"exit {M.MODEL_CLI_PRESENT}" in script
-    assert script.index(f"exit {M.MODEL_CLI_PRESENT}") < script.index("codex exec")
     assert '"$EVAL_PROMPT" </dev/null' in script
     assert "--dangerously-bypass-approvals-and-sandbox" in script
+    # `exec` would replace the shell, and the check after Codex would never run.
+    assert "exec codex" not in script
+    first, last = script.index("$(model_clis)"), script.rindex("$(model_clis)")
+    assert first < script.index("codex exec") < last
+
+
+TURN = 'echo \'{"type": "turn.completed"}\''
+
+
+def _container_script(tmp_path, exec_body, preinstalled=()):
+    """Run the container script under /bin/sh with a fake `codex`, no docker needed."""
+    home, scratch, bin_dir = tmp_path / "home", tmp_path / "tmp", tmp_path / "bin"
+    for directory in (home, scratch, bin_dir):
+        directory.mkdir()
+    codex = bin_dir / "codex"
+    codex.write_text(f'#!/bin/sh\nif [ "$1" = exec ]; then\n{exec_body}\nfi\n')
+    for tool in (codex, *(bin_dir / name for name in preinstalled)):
+        if not tool.exists():
+            tool.write_text("#!/bin/sh\n")
+        tool.chmod(tool.stat().st_mode | stat.S_IXUSR)
+    env = {
+        "HOME": str(home),
+        "TMPDIR": str(scratch),
+        "PATH": f"{bin_dir}:/usr/bin:/bin",
+        M.PROMPT_ENV: "afriend README.md",
+    }
+    return subprocess.run(
+        ["/bin/sh", "-c", M.CONTAINER_SCRIPT],
+        input=M.plugin_archive(),
+        env=env,
+        capture_output=True,
+        timeout=60,
+        check=False,
+    )
+
+
+def test_the_container_passes_codex_through_when_no_model_cli_appears(tmp_path):
+    proc = _container_script(tmp_path, TURN)
+
+    assert proc.returncode == 0, proc.stderr
+    assert b"turn.completed" in proc.stdout
+
+
+def test_the_container_keeps_codexs_own_exit_status(tmp_path):
+    assert _container_script(tmp_path, "exit 3").returncode == 3
+
+
+@pytest.mark.parametrize(
+    "install",
+    [
+        'mkdir -p "$HOME/.local/bin" && printf "#!/bin/sh\\n" > "$HOME/.local/bin/agy"'
+        ' && chmod +x "$HOME/.local/bin/agy"',
+        'ln -s /bin/sh "$TMPDIR/claude"',
+    ],
+)
+def test_a_model_cli_that_appears_during_the_run_is_a_breach(tmp_path, install):
+    proc = _container_script(tmp_path, install)
+
+    assert proc.returncode == M.MODEL_CLI_APPEARED
+    assert b"appeared during the run" in proc.stderr
+
+
+def test_a_model_cli_already_present_stops_before_codex_runs(tmp_path):
+    proc = _container_script(tmp_path, 'touch "$HOME/codex-ran"', preinstalled=("opencode",))
+
+    assert proc.returncode == M.MODEL_CLI_PRESENT
+    assert not (tmp_path / "home" / "codex-ran").exists()
 
 
 def test_the_login_shares_the_containers_hardening_and_volume():
@@ -343,7 +419,7 @@ def test_a_run_through_the_container_passes_and_records_what_it_blocked(tmp_path
     assert "plugins/afriend/skills/review/SKILL.md" in run["members"]
     [record] = json.loads((tmp_path / "out" / "summary.json").read_text())["results"]
     assert record["status"] == "ok"
-    assert record["blocked"] == ["/bin/zsh -lc 'afriend status run-123 --json'"]
+    assert record["attempted"] == ["/bin/zsh -lc 'afriend status run-123 --json'"]
 
 
 def test_a_wrong_selection_exits_1(tmp_path):
@@ -353,26 +429,18 @@ def test_a_wrong_selection_exits_1(tmp_path):
 
 
 @pytest.mark.parametrize(
-    ("override", "message"),
+    ("exit_code", "message"),
     [
-        ({"FAKE_IMAGE_EXIT": "1"}, "build` first"),
-        ({"FAKE_LOGIN_EXIT": "1"}, "run_codex_skill_eval.py login`"),
+        (M.MODEL_CLI_PRESENT, "installed in the image"),
+        (M.MODEL_CLI_APPEARED, "appeared in the container"),
     ],
 )
-def test_no_image_or_no_login_refuses_before_any_run(tmp_path, capsys, override, message):
-    env, log = _docker(tmp_path, **override)
-
-    assert _run(tmp_path, env, "--case", RESUME) == 2
-    assert not [call for call in _calls(log) if "prompt" in call]
-    assert message in capsys.readouterr().err
-
-
-def test_a_model_cli_in_the_image_makes_the_run_untrusted(tmp_path):
-    env, _ = _docker(tmp_path, FAKE_RUN_EXIT=str(M.MODEL_CLI_PRESENT))
+def test_a_model_cli_found_in_the_container_makes_the_run_untrusted(tmp_path, exit_code, message):
+    env, _ = _docker(tmp_path, FAKE_RUN_EXIT=str(exit_code))
 
     assert _run(tmp_path, env, "--case", RESUME) == 2
     [record] = json.loads((tmp_path / "out" / "summary.json").read_text())["results"]
-    assert "installed in the image" in record["reason"]
+    assert message in record["reason"]
 
 
 def test_a_dry_run_calls_nothing(tmp_path, capsys):

@@ -130,11 +130,19 @@ login volume. No host directory is mounted. Codex's own sandbox needs user
 namespaces a container does not grant, so Codex runs with that sandbox off and
 the container is the boundary.
 
-Detection stays as a second line. A run refuses to start if `afriend`, `agy`,
-`claude` or `opencode` is on the container's PATH. Any event item outside
-`agent_message`, `reasoning`, `command_execution` and `todo_list`, or a model
-CLI the shell actually ran, makes the run untrusted; one the shell reported not
-found is recorded as blocked.
+Detection stays as a second line. Before Codex starts and again after it
+finishes, the container looks for `afriend`, `agy`, `claude` or `opencode` on
+its PATH and as any file or link under its writable home and `/tmp`. One found
+before means a broken image; one found after is a breach. Either makes the run
+untrusted, as does any event item outside `agent_message`, `reasoning`,
+`command_execution` and `todo_list`.
+
+A command that invokes a model CLI is recorded as an attempt and judged no
+further. Whether a command ran cannot be read from its text: in the first
+container run, `command -v afriend && afriend doctor` never reached `afriend`,
+printed no "not found", and was reported as a breach. With no binary to run,
+an attempt cannot be one. What the second check misses is a run that installs
+a model CLI, uses it, and deletes it before Codex exits.
 
 Exit codes follow the Claude checker, except that an untrusted run exits 2 even
 when another run chose wrongly: a run that escaped its boundary says nothing

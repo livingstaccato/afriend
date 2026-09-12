@@ -28,10 +28,12 @@ volume, so the eval never reads or refreshes the host's credential. The plugin
 under test is this checkout's, streamed in as a tar rather than mounted.
 
 Codex's own sandbox cannot start in a container (bwrap needs user namespaces),
-so it runs with that sandbox off and the container as the boundary. Each run
-still refuses to start if a model CLI is on the container's PATH, and its event
-stream is checked: an item outside an allowlist of types, or a model CLI the
-shell actually ran, makes the run untrusted.
+so it runs with that sandbox off and the container as the boundary. Before Codex
+starts and again after it exits, the container looks for a model CLI on its PATH
+and under its writable home and /tmp: one there before is a broken image, one
+there after is a breach. A command that invokes a model CLI is recorded as an
+attempt only, because whether it ran cannot be read from its text. An event
+item outside an allowlist of types makes the run untrusted.
 
 Exit codes: 0 every selected case completed every run and selected the
 expected skill; 1 a run selected the wrong skill; 2 the result cannot be
@@ -84,8 +86,10 @@ DEFAULT_RUNS = 2
 RUN_TIMEOUT_S = 300
 PREFLIGHT_TIMEOUT_S = 60
 OUT_PREFIX = "codex-skill-eval-"
-# The container script's exit status when a model CLI is on its PATH.
+# The container script's exit status when a model CLI is there before Codex
+# starts, and when one appears while it runs.
 MODEL_CLI_PRESENT = 97
+MODEL_CLI_APPEARED = 98
 NEGATIVE_TAG = "no-activation"
 HIDDEN = ("afriend", "agy", "claude", "opencode")
 MODEL_CLIS = frozenset({*HIDDEN, "codex"})
@@ -117,24 +121,44 @@ CONTAINER = (
     f"CODEX_HOME={CONTAINER_CODEX_HOME}",
 )
 
-# Registration is removed before it is added, so a second run against the same
-# login volume does not stop on "already added". The prompt arrives in the
-# environment, never in the script, so no prompt can be read as shell.
+_MODEL_CLI_NAMES = " -o ".join(f"-name {name}" for name in HIDDEN)
+
+# The prompt arrives in the environment, never in the script, so no prompt can be
+# read as shell. `model_clis` looks on PATH, and for any file or link of that name
+# under the writable home and temp directory: the root filesystem is read-only,
+# so those are the only places one could be installed. It runs before Codex and
+# again after, which is why Codex is not `exec`ed. Registration is removed before
+# it is added, so a second run against the same login volume does not stop on
+# "already added".
 CONTAINER_SCRIPT = f"""set -eu
-for name in {" ".join(HIDDEN)}; do
-  if command -v "$name" >/dev/null 2>&1; then
-    echo "a model CLI is installed in the image: $name" >&2
-    exit {MODEL_CLI_PRESENT}
-  fi
-done
+model_clis() {{
+  for name in {" ".join(HIDDEN)}; do
+    if command -v "$name" >/dev/null 2>&1; then echo "$name (on PATH)"; fi
+  done
+  find "${{TMPDIR:-/tmp}}" "$HOME" \\( {_MODEL_CLI_NAMES} \\) \\( -type f -o -type l \\) \\
+    2>/dev/null || true
+}}
+present=$(model_clis)
+if [ -n "$present" ]; then
+  echo "a model CLI was already installed in the image: $present" >&2
+  exit {MODEL_CLI_PRESENT}
+fi
 mkdir -p "$HOME/src" "$HOME/work"
 tar -x -C "$HOME/src"
 codex plugin remove {PLUGIN} >/dev/null 2>&1 || true
 codex plugin marketplace remove {MARKETPLACE} >/dev/null 2>&1 || true
 codex plugin marketplace add "$HOME/src" >&2
 codex plugin add {PLUGIN} >&2
-exec codex exec --json --ephemeral --skip-git-repo-check \\
-  --dangerously-bypass-approvals-and-sandbox -C "$HOME/work" "${PROMPT_ENV}" </dev/null
+status=0
+codex exec --json --ephemeral --skip-git-repo-check \\
+  --dangerously-bypass-approvals-and-sandbox -C "$HOME/work" "${PROMPT_ENV}" </dev/null \\
+  || status=$?
+present=$(model_clis)
+if [ -n "$present" ]; then
+  echo "a model CLI appeared during the run: $present" >&2
+  exit {MODEL_CLI_APPEARED}
+fi
+exit "$status"
 """
 
 
@@ -159,7 +183,7 @@ class RunOutcome:
     errors: list[str] = field(default_factory=list)
     unpermitted: list[str] = field(default_factory=list)
     breaches: list[str] = field(default_factory=list)
-    blocked: list[str] = field(default_factory=list)
+    attempted: list[str] = field(default_factory=list)
 
 
 def _front_matter(text: str) -> tuple[str, str]:
@@ -254,18 +278,6 @@ def invoked_programs(command: str) -> list[str]:
     return programs
 
 
-def _not_found(output: str, program: str) -> bool:
-    # zsh, bash and dash respectively.
-    return any(
-        marker in output
-        for marker in (
-            f"command not found: {program}",
-            f"{program}: command not found",
-            f"{program}: not found",
-        )
-    )
-
-
 def analyse(events: Sequence[Mapping[str, object]]) -> RunOutcome:
     outcome = RunOutcome()
     for event in events:
@@ -287,14 +299,11 @@ def analyse(events: Sequence[Mapping[str, object]]) -> RunOutcome:
             continue
         command = str(item.get("command", ""))
         outcome.skills_read.extend(AFRIEND_SKILL.findall(command))
-        output = str(item.get("aggregated_output", ""))
-        for program in invoked_programs(command):
-            if program not in MODEL_CLIS:
-                continue
-            if _not_found(output, program):
-                outcome.blocked.append(command)
-            else:
-                outcome.breaches.append(f"ran {command}")
+        # An attempt, never a breach: whether it ran cannot be read from its text
+        # (`command -v afriend && afriend doctor` never reaches `afriend`), and the
+        # container itself checks, before Codex and after, for a CLI it could run.
+        if any(program in MODEL_CLIS for program in invoked_programs(command)):
+            outcome.attempted.append(command)
     if outcome.skills_read:
         outcome.selected = f"afriend:{outcome.skills_read[0]}"
     return outcome
@@ -449,7 +458,11 @@ def run_once(case: Case, run_dir: Path, archive: bytes, env: Mapping[str, str]) 
     if timed_out:
         outcome.errors.append(f"timed out after {RUN_TIMEOUT_S}s")
     elif proc.returncode == MODEL_CLI_PRESENT:
-        outcome.breaches.append("a model CLI is installed in the image (see stderr.txt)")
+        outcome.breaches.append("a model CLI was already installed in the image (see stderr.txt)")
+    elif proc.returncode == MODEL_CLI_APPEARED:
+        outcome.breaches.append(
+            "a model CLI appeared in the container during the run (see stderr.txt)"
+        )
     elif proc.returncode != 0:
         outcome.errors.append(f"the container exited {proc.returncode} (see stderr.txt)")
     return outcome
