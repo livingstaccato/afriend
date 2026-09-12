@@ -16,7 +16,7 @@ quickstart, see the [top-level README](../README.md); come here for detail.
 | [modes](../src/afriend/assets/entrypoints/review/references/modes.md) | All four modes — `report`, `crossexam`, `gate`, `loop` — plus claim states, ceilings, and exit codes |
 | [installation and plugin troubleshooting](installation-troubleshooting.md) | Separate CLI and Claude plugin setup, plus recovery from a missing marketplace file |
 
-`afriend resume <run-id>` routes through `/afriend` to `afriend run --resume
+`afriend resume <run-id>` routes through `review` to `afriend run --resume
 <run-id>`; it is not a claim-resolution disposition and needs no evidence.
 
 > These entrypoints ship **inside the wheel** as package and plugin distribution

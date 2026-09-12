@@ -3,8 +3,8 @@
 `afriend` has two separate installation surfaces:
 
 - `uv tool install afriend` installs the `afriend` command-line tool.
-- A Claude Code marketplace installs the `/afriend`, `review`, `status`,
-  `configure`, and `resolve` skills.
+- A Claude Code marketplace installs the `review`, `status`, `configure`,
+  and `resolve` skills.
 
 The Python wheel contains the portable skill payload used by the command-line
 tool. Claude Code marketplaces use the repository's `plugins/` projection, so

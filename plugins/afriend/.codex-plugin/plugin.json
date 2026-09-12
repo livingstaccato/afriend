@@ -27,7 +27,6 @@
     ],
     "websiteURL": "https://github.com/livingstaccato/afriend",
     "defaultPrompt": [
-      "/afriend README.md",
       "$afriend:review README.md",
       "$afriend:status",
       "$afriend:configure",
