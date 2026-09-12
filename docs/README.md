@@ -88,3 +88,10 @@ Rendered PNG and SVG are committed alongside each source. Regenerate with
 
 See [AGENTS.md](../AGENTS.md) for repository layout, the canonical-vs-mirror
 rule for skill assets, and the quality gates `make quality` enforces.
+
+The live evals make real model calls, so they run by hand and never in CI:
+
+| Document | What it covers |
+|---|---|
+| [activation evals](../plugins/afriend/evals/README.md) | Which afriend skill Claude Code and Codex select for each prompt, and why Codex runs in a container |
+| [friend eval](../evals/friends/README.md) | Whether friends find the defects a past review of the design spec found, and three ways to score a run |

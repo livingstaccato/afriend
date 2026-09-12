@@ -10,7 +10,7 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 [![Dependencies](https://img.shields.io/badge/runtime%20deps-none-brightgreen)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-2631-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2644-brightgreen)](tests/)
 
 It automates a workflow you may already do by hand: run a review, paste the
 findings into a different model, ask whether they hold up, carry the argument
@@ -663,6 +663,19 @@ Two gates catch drift that is otherwise silent:
   are hand-maintained.
 - **`version-sync`** — `VERSION` must match the `version` field in every
   plugin manifest.
+
+Three live evals measure what the test suite cannot. Each makes real model
+calls on your own logins, so none runs in `make quality` or CI:
+
+```bash
+make eval-claude    # which skill Claude Code selects for each activation case
+make eval-codex     # the same for Codex, in a container (eval-codex-build, eval-codex-login once)
+make eval-friends   # whether friends find the defects a past review of the spec found
+```
+
+[plugins/afriend/evals/README.md](plugins/afriend/evals/README.md) covers the
+activation evals, and [evals/friends/README.md](evals/friends/README.md) the
+friend eval and how to score it.
 
 See [AGENTS.md](AGENTS.md) for repository layout and conventions.
 

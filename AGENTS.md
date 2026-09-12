@@ -54,4 +54,11 @@ Two gates are especially easy to trip:
   exact dependency/version in either compatibility distribution. Bump the
   canonical package, plugins, and both compatibility projects together.
 
+Live evals are manual, because each makes real model calls on your own
+logins: `make eval-claude` and `make eval-codex` check which skill a host
+selects (`plugins/afriend/evals/README.md`), and `make eval-friends` checks
+whether friends find the defects a past review found (`evals/friends/README.md`).
+None is part of `make quality`; their scripts' tests run in `make test` with no
+model call.
+
 `mypy --strict` runs against `src/` only; `tests/` is deliberately exempt.

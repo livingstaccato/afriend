@@ -1,4 +1,17 @@
-.PHONY: help install lint type-check test plugin-sync mutation-probe version-sync max-loc wheel-assets wheel-install release-distributions diagrams plugin-sync-copy diagrams-check quality check act-dry act-ci
+.PHONY: help install lint type-check test plugin-sync mutation-probe version-sync max-loc wheel-assets wheel-install release-distributions diagrams plugin-sync-copy diagrams-check quality check act-dry act-ci \
+	eval-claude eval-codex-build eval-codex-login eval-codex eval-friends eval-friends-score
+
+# Live evals (`make eval-*`) make real model calls on your own logins, so they
+# are manual only: none is a prerequisite of `quality`, and CI runs none.
+EVAL_RUNS ?= 2
+# Outside any git repository: inside this checkout, friends would get
+# repository scope and could read the spec revision that holds the answers.
+FRIEND_EVAL_DIR ?= $(or $(TMPDIR),/tmp)/afriend-friend-eval
+# The run to score: `afriend run --out` holding exactly one run, or one run dir.
+FRIEND_EVAL_RUN ?= $(FRIEND_EVAL_DIR)/runs
+# 1 LLM judge, 2 hand mapping, 3 keyword heuristic; 1 and 2 need FRIEND_EVAL_MAPPING.
+FRIEND_EVAL_METHOD ?= 3
+FRIEND_EVAL_MAPPING ?=
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -72,3 +85,30 @@ act-ci: ## Run the CI quality job locally via act (slow; pulls an image first ru
 	# namespace creation; --init preserves the process-reaping parity in .actrc.
 	env -u DOCKER_HOST act -j quality --matrix python-version:3.13 --rm \
 		--container-options '--init --privileged'
+
+# See plugins/afriend/evals/README.md. The checker reads the newest run under
+# results/ and fails unless every expected case chose its skill in every run.
+eval-claude: ## Live eval: which skill Claude Code selects, asserted per run
+	claude plugin eval plugins/afriend --ablation none --keep-temp --no-publish --runs $(EVAL_RUNS)
+	python3 scripts/check_eval_skill_selection.py plugins/afriend/evals/results
+
+# Codex runs in a container holding no other model CLI, logged in to its own
+# account: build and log in once, then run eval-codex.
+eval-codex-build: ## Build the Codex eval image (once per Codex version)
+	python3 scripts/run_codex_skill_eval.py build
+
+eval-codex-login: ## Log the Codex eval's own account in (once)
+	python3 scripts/run_codex_skill_eval.py login
+
+eval-codex: ## Live eval: which skill Codex selects, in its container
+	python3 scripts/run_codex_skill_eval.py run --runs $(EVAL_RUNS)
+
+# See evals/friends/README.md. afriend exits 1 when a crossexam leaves claims
+# undecided, which make reports as an error; the run can still be scored.
+eval-friends: ## Live eval: crossexam spec v2 with codex, agy and a fresh claude worker
+	run=$$(python3 scripts/friend_eval.py artifact --out $(FRIEND_EVAL_DIR)/spec-v2.md) \
+		&& eval "$$run"
+
+eval-friends-score: ## Score the friend eval run (FRIEND_EVAL_METHOD=1, 2 or 3)
+	python3 scripts/friend_eval.py score $(FRIEND_EVAL_RUN) --method $(FRIEND_EVAL_METHOD) \
+		$(if $(FRIEND_EVAL_MAPPING),--mapping $(FRIEND_EVAL_MAPPING))

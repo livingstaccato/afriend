@@ -56,7 +56,7 @@ jobs:
       - name: mypy
         run: uv run mypy src
 
-      # Enforce 500-line per-file cap
+      # Enforce 777-line per-file cap (scripts/check_max_loc.py)
       - name: max-loc
         run: make max-loc
 
