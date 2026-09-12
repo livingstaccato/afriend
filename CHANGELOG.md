@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.11.1
+
+**`afriend resume <run-id>` went to the read-only skill.** Resuming a halted
+run dispatches friends and writes to the run directory; on 0.11.0 the request
+selected `status`, which can do none of that, so a user asking to resume got a
+report of the run instead and nothing resumed. Only the `description:`
+frontmatter decides selection, and `status` claimed "a named existing run"
+behind a gate -- "explicit /afriend routing" -- that 0.11.0 removed along with
+the selector, leaving the claim ungated. `review` now names resume and
+`status` disclaims it, in the canonical assets and the generated plugin mirror
+both. The rule had been written down the whole time in two skill bodies, and a
+host never reads a body to choose a skill, so every text guard passed while
+routing was broken; the new guard asserts on the frontmatter.
+
+**The eval checker that should have caught it could not run.**
+`scripts/check_eval_skill_selection.py` looked for case names in directory
+paths, but a kept temp directory is `/tmp/claude-eval-<random>` and carries no
+case name, so it matched nothing. It reads `aggregate-result.json` now -- the
+only thing mapping a case to each run's `tracePath` -- and only the
+plugin-loaded `with` arm, since the ablation baseline runs without the plugin
+by design. Three states exit 2 rather than 0: nothing to check, traces not
+kept, and a run that loaded no plugin. The last names the invocation that
+produces a suite of meaningless passes: `claude plugin eval
+plugins/afriend/evals` is accepted, resolves no plugin, and every negative
+then passes for the wrong reason.
+
+**The architecture diagrams could not be rendered from their own sources.**
+PlantUML 1.2026.7 stopped parsing `#RRGGBB:label;` anywhere near a
+`partition` or `repeat`, reporting `Cannot find group` against the line that
+CLOSES the group. Bisected across seven releases: 1.2026.0 through 1.2026.6
+render the same source. The colour moves to `<style>` classes, which fail on
+the 1.2020.02 that Ubuntu ships -- so CI installs a pinned jar instead, by
+version and sha256, rather than running a parser nobody develops against. An
+unpinned "latest" is what changed the renderer under the gate without a
+commit in the first place.
+
+Rendering cannot catch what comes with the class form, so tests do: a class
+body carrying two properties on one line is dropped in silence, a misspelt or
+colour-valued stereotype renders plain, and either way the diagram reports
+success with its meaning gone. The strongest of those checks asserts each
+declared fill actually reaches the committed SVG, which fails however the
+class was broken. `docs/architecture/README.md` had been telling contributors
+to use a third syntax, abandoned earlier still, and now records why each was
+dropped.
+
+Diagrams are also restyled on the project's own palette, and their legends no
+longer use tables whose swatch cells did not fill their rows.
+
 ## 0.11.0
 
 Breaking: `run.json` is schema 5, the `afriend` router skill is gone, both
