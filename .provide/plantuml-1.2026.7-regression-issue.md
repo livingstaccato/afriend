@@ -1,5 +1,9 @@
 # Upstream issue draft — plantuml/plantuml
 
+> Filing note: the `<style>` one-line class bug mentioned during review is
+> drafted separately in `.provide/plantuml-style-one-line-class-dropped-issue.md`.
+> File them as two issues and cross-link the URLs.
+
 **Title:** Regression in 1.2026.7: "Cannot find group" for a background-coloured activity in certain group/branch shapes
 
 ---
