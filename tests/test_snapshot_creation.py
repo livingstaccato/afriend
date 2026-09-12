@@ -11,6 +11,8 @@ from afriend import isolation
 from afriend.errors import UsageError
 from afriend.snapshots import SnapshotIdentity
 
+pytestmark = pytest.mark.git
+
 
 def _git(repo: Path, *args: str) -> str:
     result = subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True, text=True)

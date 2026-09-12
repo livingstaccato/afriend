@@ -406,6 +406,7 @@ def test_hostile_stderr_does_not_render_as_markdown_in_the_report(tmp_path):
 
 
 @pytest.mark.skipif(shutil.which("cmark") is None, reason="cmark not installed on this machine")
+@pytest.mark.external
 def test_hostile_stderr_produces_no_link_or_emphasis_under_cmark(tmp_path):
     """report.md legitimately uses **bold** labels ("**Claim:**", etc.) for
     every real finding, which correctly render as <strong> -- a blanket "no

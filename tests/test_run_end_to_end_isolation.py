@@ -38,6 +38,9 @@ from afriend.commands import friends as friends_module
 # fix targets, without needing two different real agent CLIs.
 
 
+pytestmark = pytest.mark.git
+
+
 def test_corroborating_friends_leave_no_dangling_alias_reference_in_the_ledger(tmp_path):
     artifact = tmp_path / "spec.md"
     artifact.write_text("# spec\n")

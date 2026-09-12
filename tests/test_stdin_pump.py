@@ -17,6 +17,8 @@ import os
 import threading
 import time
 
+import pytest
+
 from afriend import procio
 
 
@@ -27,6 +29,7 @@ class _FakeProcess:
         self.stdin = os.fdopen(fd, "wb")
 
 
+@pytest.mark.slow
 def test_a_reader_that_never_reads_does_not_pin_the_pump_forever():
     read_fd, write_fd = os.pipe()
     process = _FakeProcess(write_fd)

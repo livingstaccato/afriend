@@ -4,6 +4,9 @@ import os
 import subprocess
 
 from e2e_helpers import _env
+import pytest
+
+pytestmark = pytest.mark.git
 
 
 def test_global_git_config_is_neutralized_for_every_test():

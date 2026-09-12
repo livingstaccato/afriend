@@ -12,6 +12,7 @@ import subprocess
 import sys
 
 from e2e_helpers import AF, _env, run_af
+import pytest
 
 from afriend.commands.runmeta import CURRENT_SCHEMA_VERSION
 
@@ -634,6 +635,7 @@ def test_extracted_claims_reach_the_ledger_on_resume(tmp_path):
     assert "read out of prose by hand" in texts
 
 
+@pytest.mark.slow
 def test_an_extracted_claim_keeps_the_friend_as_its_author(tmp_path):
     """An orchestrator read the friend's words, it did not invent them --
     and judging is decided by origin (§7.1), so authorship has to survive."""
@@ -657,6 +659,7 @@ def test_an_extracted_claim_keeps_the_friend_as_its_author(tmp_path):
     assert extracted[0]["origin"] == [friend]
 
 
+@pytest.mark.slow
 def test_extracted_findings_are_held_to_the_claim_schema(tmp_path):
     """An orchestrator is trusted to read, not to bypass the schema: a
     hand-extracted claim missing failure_scenario is unsubstantiated for

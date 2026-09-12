@@ -111,6 +111,7 @@ def _run_confined(workdir: Path, private_root: Path, script: str, profile: Path)
 
 
 @_REAL
+@pytest.mark.sandbox
 def test_a_confined_friend_can_write_to_its_redirected_tmpdir(tmp_path):
     """The half that must keep working. Moving scratch out of the worktree
     is only a fix if the friend can still use it -- opencode writes a log on
@@ -124,6 +125,7 @@ def test_a_confined_friend_can_write_to_its_redirected_tmpdir(tmp_path):
 
 
 @_REAL
+@pytest.mark.sandbox
 def test_the_reviewed_worktree_is_left_clean(tmp_path):
     """The claim, run rather than asserted about: after a friend has used
     its scratch space, the tree it was reviewing contains nothing new."""
@@ -211,6 +213,7 @@ def test_dispatch_redirects_scratch_outside_the_working_directory(tmp_path):
 
 
 @_REAL
+@pytest.mark.sandbox
 def test_the_grant_does_not_reach_another_friend_isolation_tree(tmp_path):
     """The reason the grant names one directory instead of its parent. A
     sibling worktree in the same round belongs to a different friend, and

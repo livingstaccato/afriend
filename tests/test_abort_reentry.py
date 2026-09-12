@@ -5,6 +5,11 @@ import signal
 import subprocess
 import sys
 
+import pytest
+
+pytestmark = pytest.mark.process
+
+
 PROBE = Path(__file__).with_name("abort_reentry_probe.py")
 
 

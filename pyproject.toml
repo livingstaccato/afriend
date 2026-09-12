@@ -145,6 +145,18 @@ addopts = [
     "--tb=short",
     "--color=yes",
 ]
+# Selection only: `make test` and CI run every test. `e2e` is applied from the
+# file name and the platform marks become skips in tests/markers_support.py.
+markers = [
+    "slow: takes 2s or more; make test-fast leaves these out",
+    "e2e: drives a whole afriend run through the CLI; applied from the file name",
+    "process: exercises process groups, signals, timeouts or pipe pumps on real children",
+    "git: runs real git commands against a scratch repository",
+    "sandbox: runs a child under the real OS confinement mechanism",
+    "external: needs a tool beyond Python and git (cmark, plantuml, uv build, ollama)",
+    "posix_only(reason): skipped on Windows, for the reason given",
+    "windows_only(reason): skipped everywhere but Windows, for the reason given",
+]
 norecursedirs = [".git", "build", "dist", "*.egg-info", ".venv"]
 
 [dependency-groups]

@@ -1,4 +1,4 @@
-.PHONY: help install lint type-check test plugin-sync mutation-probe version-sync max-loc wheel-assets wheel-install release-distributions diagrams plugin-sync-copy diagrams-check quality check act-dry act-ci \
+.PHONY: help install lint type-check test test-fast plugin-sync mutation-probe version-sync max-loc wheel-assets wheel-install release-distributions diagrams plugin-sync-copy diagrams-check quality check act-dry act-ci \
 	eval-claude eval-codex-build eval-codex-login eval-codex eval-friends eval-friends-score
 
 # Live evals (`make eval-*`) make real model calls on your own logins, so they
@@ -29,6 +29,9 @@ type-check: ## Run mypy strict
 
 test: ## Run the test suite
 	uv run pytest -n 4
+
+test-fast: ## Run the test suite without the tests marked slow
+	uv run pytest -n 4 -m "not slow"
 
 max-loc: ## Enforce 777-line per-file cap
 	python3 scripts/check_max_loc.py

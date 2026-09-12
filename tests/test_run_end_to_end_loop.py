@@ -15,6 +15,7 @@ from dataclasses import replace
 import json
 
 from e2e_helpers import _env, run_af
+import pytest
 
 from afriend.commands.runmeta import CURRENT_SCHEMA_VERSION
 
@@ -350,6 +351,7 @@ def test_a_friend_that_recovers_is_not_disabled(tmp_path):
 # --- What an iteration must not redo ---------------------------------------
 
 
+@pytest.mark.slow
 def test_a_superseded_claim_is_not_re_judged_every_iteration(tmp_path):
     """Terminal is terminal (§7.2), across iterations too. Each iteration
     used to re-seed every claim `contested`, so a claim the last iteration

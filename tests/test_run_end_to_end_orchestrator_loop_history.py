@@ -23,6 +23,8 @@ import subprocess
 from e2e_helpers import _env, _git_commit, _git_repo, run_af
 import pytest
 
+pytestmark = pytest.mark.git
+
 
 def _artifact(tmp_path):
     path = tmp_path / "spec.md"

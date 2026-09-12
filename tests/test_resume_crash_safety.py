@@ -44,6 +44,9 @@ from afriend.reviewstate import ReviewState
 from afriend.runstore import RunStore
 from afriend.snapshots import SnapshotIdentity
 
+pytestmark = pytest.mark.git
+
+
 _FINDING = {
     "severity": "high",
     "location": None,

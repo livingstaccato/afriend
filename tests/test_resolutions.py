@@ -15,6 +15,8 @@ import pytest
 from afriend import resolutions, verdicts
 from afriend.ledger import Claim, Resolution
 
+pytestmark = pytest.mark.git
+
 
 def claim(cid="c-0001@1", advisory=False):
     return Claim(

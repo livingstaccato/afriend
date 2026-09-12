@@ -9,6 +9,8 @@ import pytest
 from afriend import sessionconfig
 from afriend.cli import main
 
+pytestmark = pytest.mark.git
+
 
 def _git(repo: Path, *args: str) -> str:
     result = subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True, text=True)

@@ -8,8 +8,13 @@ import sys
 import threading
 import time
 
+import pytest
+
 from afriend import spawn
 from afriend.envelopes import Envelope
+
+pytestmark = pytest.mark.process
+
 
 JSON_PATH = Envelope(kind="json_path", path="response")
 NDJSON = Envelope(kind="ndjson")
@@ -87,6 +92,7 @@ def test_a_json_path_run_still_stops_early(tmp_path):
     assert time.monotonic() - started < 15
 
 
+@pytest.mark.slow
 def test_a_pump_stops_promptly_even_while_data_keeps_arriving(tmp_path):
     """c-0007/c-0012. The loop `continue`d straight past its stop_event check
     after any successful read, so a writer trickling bytes forever kept the

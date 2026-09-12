@@ -15,6 +15,8 @@ from afriend.errors import UsageError
 from afriend.events import MAX_EVENT_LOG_BYTES, EventRecord, EventWriter
 from afriend.progress import Progress
 
+pytestmark = pytest.mark.git
+
 
 def _args(run_id: str, *, out: Path | None = None, json_output: bool = False, watch: bool = False):
     return argparse.Namespace(

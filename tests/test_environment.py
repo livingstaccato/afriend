@@ -8,6 +8,8 @@ import pytest
 from afriend.commands.environment import resolve_run_repo
 from afriend.errors import UsageError
 
+pytestmark = pytest.mark.git
+
 
 def _git_repo(root: Path) -> Path:
     root.mkdir()
