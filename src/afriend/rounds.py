@@ -648,6 +648,12 @@ def persist_result(
     return row
 
 
+# Bounded and sanitized: `checkpoint._validate_status` requires the status to
+# read exactly "ok (diagnostics: <this>; full text in <path>)" when a row
+# carries diagnostics, so the two must be built from one string.
+_RECOVERED_AUDIT_DIAGNOSTIC = "no persisted audit row; verdicts recovered from the ledger"
+
+
 def recover_result_audit(store: RunStore, round_no: int, spec: FriendSpec) -> dict[str, Any]:
     """Authenticate a persisted result row before exposing a replayed verdict."""
     path = store.friend_audit_path(round_no, spec.name)
@@ -672,15 +678,22 @@ def recover_result_audit(store: RunStore, round_no: int, spec: FriendSpec) -> di
             "readonly": False,
             "scope": spec.scope,
             "round": round_no,
-            # Every other field of this fallback row honestly says
-            # "unrecorded"; status must not be the one that claims success.
-            # `ok` is what checkpoint._success_status, any_friend_succeeded
-            # and reviewcompleteness._terminal_status all read as "supplied an
-            # answer", and the row round-trips a later --resume cleanly -- so
-            # the absence of any record that this friend ran became a durable
-            # claim that it passed.
-            "status": "failed: no persisted audit for this friend",
-            "diagnostics": "",
+            # Not `ok` on its own, and not `failed` either. A bare `ok`
+            # would turn the absence of any record that this friend ran into
+            # a durable claim that it passed. But `failed` is the opposite
+            # fabrication, and on this path it is contradicted by the very
+            # evidence that got us here: both callers reach this only for a
+            # judge whose verdicts were found in the durable ledger and are
+            # about to be counted, so report.md would attribute its verdicts
+            # to it while the friends table said it failed, and
+            # reviewcompleteness would score it a non-answering independent
+            # friend. The friend did answer; what is missing is its
+            # per-friend audit file, which is what the status now says.
+            "status": (
+                "ok (diagnostics: " + _RECOVERED_AUDIT_DIAGNOSTIC + "; full text in "
+                f"round-{round_no}/{spec.name}.err)"
+            ),
+            "diagnostics": _RECOVERED_AUDIT_DIAGNOSTIC,
             "diagnostics_path": f"round-{round_no}/{spec.name}.err",
         }
     from .commands.checkpoint import normalize_friend_rows

@@ -1,0 +1,18 @@
+{
+  "_comment": "Which afriend skill each positive case must select. `tool_used: Skill` proves only that SOME skill fired; scripts/check_eval_skill_selection.py reads a kept trace and checks the qualified name against this map.",
+  "cases": {
+    "pos-afriend-readme-md": "afriend:review",
+    "pos-afriend-review-readme-md": "afriend:review",
+    "pos-afriend-to-docs-readme-md-with-crossexam": "afriend:review",
+    "pos-afriend-to-readme-md-with-the-balanced-profile": "afriend:review",
+    "pos-ask-a-friend-to-review-readme-md": "afriend:review",
+    "pos-use-afriend-on-readme-md": "afriend:review",
+    "pos-afriend-resume-run-123": "afriend:review",
+    "pos-afriend-status": "afriend:status",
+    "pos-afriend-status-run-123": "afriend:status",
+    "pos-afriend-configure": "afriend:configure",
+    "pos-afriend-configure-set-up-a-focused-review-defa": "afriend:configure",
+    "pos-afriend-resolve": "afriend:resolve",
+    "pos-afriend-resolve-list-unresolved-claims-for-run": "afriend:resolve"
+  }
+}

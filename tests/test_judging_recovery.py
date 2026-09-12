@@ -3,11 +3,11 @@ import threading
 
 import pytest
 
-from afriend import rounds as rounds_mod
+from afriend import reviewcompleteness, rounds as rounds_mod
 from afriend.adapters import Capability, FriendSpec
 from afriend.authority import ExternalToolPolicy
 from afriend.ceilings import Budget
-from afriend.commands import crossexam as crossexam_mod
+from afriend.commands import checkpoint, crossexam as crossexam_mod
 from afriend.commands.crossexam import run_rounds
 from afriend.errors import UsageError
 from afriend.judgebatch import persist_judging_batch, recover_judging_batch
@@ -664,3 +664,40 @@ def test_judging_replay_does_not_let_future_votes_rewrite_an_earlier_successor(
     assert successor in outcome.claims
     assert not any(saved.id.endswith("@3") for saved in outcome.claims)
     assert outcome.verdicts[:2] == round_two
+
+
+def test_a_recovered_judge_row_does_not_contradict_the_verdicts_it_is_counted_with(tmp_path):
+    """The fallback row must not claim an outcome the run did not observe --
+    in either direction.
+
+    A bare `ok` was wrong because it turned the absence of any record that a
+    friend ran into a durable claim that it passed. Replacing it with
+    `failed: no persisted audit for this friend` was the opposite
+    fabrication, and on this path it is contradicted by the evidence that
+    reaches it: both callers get here only for a judge whose verdicts were
+    found in the durable ledger and are about to be seeded into the round.
+    report.md would then attribute those verdicts to a friend its own
+    friends table called failed, and `reviewcompleteness.from_friends` would
+    count it as a non-answering independent friend.
+
+    What is actually missing is the per-friend audit file, so that is what
+    the status says, in the one shape `_validate_status` accepts.
+    """
+    spec = _spec("fake-ops-0", "ops")
+    store = RunStore(tmp_path, "run-recovered-row")
+
+    row = rounds_mod.recover_result_audit(store, 2, spec)
+
+    assert not row["status"].startswith("failed"), row["status"]
+    assert "no persisted audit row" in row["status"]
+    assert "verdicts recovered from the ledger" in row["status"]
+
+    # Counted as having answered, because it did.
+    assert checkpoint._success_status(row["status"]) is True
+    assert reviewcompleteness._terminal_status(row["status"]) == (True, None)
+    assert checkpoint.any_friend_succeeded([row]) is True
+
+    # And the row still survives the validator a later --resume runs it
+    # through, rather than being a shape only this function can produce.
+    normalized = checkpoint.normalize_friend_rows([row], {spec.name})
+    assert normalized[0]["status"] == row["status"]

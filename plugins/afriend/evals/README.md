@@ -33,11 +33,26 @@ complete the work; firing the skill is the whole contract under test.
 ## What this does NOT verify
 
 `tool_used` accepts only a tool name -- `input`, `input_contains`, `args` and
-`skill` are all rejected by its schema -- so these cases prove that *an*
+`skill` are all rejected by its schema -- so the graders here prove that *an*
 afriend skill fired, not *which* one. A narrow prompt that wrongly selected
-`status` instead of `review` would still pass. Correct routing was confirmed
-once by reading a trace directly (`afriend README.md` produced
-`Skill(skill: "afriend:review", args: "README.md")`); it is not asserted here.
+`status` instead of `review` passes every grader in this directory.
+
+That assertion now lives outside the harness, because the harness cannot
+express it:
+
+```bash
+claude plugin eval plugins/afriend/evals --ablation none --keep-temp
+scripts/check_eval_skill_selection.py <the kept directory>
+```
+
+`expectations.json` names the skill each positive case must select, and the
+script reads the kept transcripts and checks the qualified name against it.
+`tests/test_eval_skill_selection.py` exercises its *rejection* path against
+synthetic traces -- correct selection, wrong skill, no skill at all, and an
+empty directory -- so the check is verified without any paid model call. The
+empty-directory case returns 2 rather than 0 on purpose: a checker that
+reports success when it found nothing to check is the defect it exists to
+close.
 
 `evals/evals.json` at the repository root is a different thing: a fixture the
 pytest suite checks for internal consistency. It never runs a model. These

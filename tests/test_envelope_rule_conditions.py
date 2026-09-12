@@ -13,8 +13,11 @@ own comment disagreeing.
 
 import json
 
+import pytest
+
 from afriend.adapters import load_adapters
 from afriend.envelopes import Envelope, EnvelopeRule, parse_envelope, unwrap_envelope
+from afriend.errors import UsageError
 from afriend.paths import ADAPTER_DIR
 
 
@@ -88,3 +91,61 @@ def test_parse_envelope_reads_the_condition_from_toml():
     assert envelope is not None
     assert envelope.rules[0].where == "item.type"
     assert envelope.rules[0].equals == "agent_message"
+
+
+def test_a_non_string_equals_is_refused_rather_than_compared_as_empty():
+    """The other half of the mis-declaration `_rule_where` already refuses.
+
+    `equals` was coerced to "" whenever it was not a string, and
+    `_scan_ndjson` then requires the `where` path to equal the empty string
+    -- true for no real event. The rule never fires, the friend's answer is
+    never recognised, and the run records that friend as having produced
+    nothing, with no diagnostic anywhere. Matching everything silently and
+    matching nothing silently are the same defect; only the direction
+    differs.
+    """
+    for bad in (1, 1.5, True, None, ["a"], {"a": 1}):
+        with pytest.raises(UsageError, match="`equals` must be a string"):
+            parse_envelope(
+                {
+                    "kind": "ndjson",
+                    "rules": [
+                        {"type": "item", "field": "text", "where": "item.type", "equals": bad}
+                    ],
+                }
+            )
+
+
+def test_a_string_equals_with_a_where_is_still_accepted():
+    envelope = parse_envelope(
+        {
+            "kind": "ndjson",
+            "rules": [{"type": "item", "field": "text", "where": "item.type", "equals": "answer"}],
+        }
+    )
+    assert envelope is not None
+    assert envelope.rules[0].equals == "answer"
+    assert envelope.rules[0].where == "item.type"
+
+
+def test_a_rule_declaring_neither_key_is_unchanged():
+    """`_rule_where`'s docstring promises this stays fine: a rule with no
+    `where` and no `equals` matches on event type alone, deliberately."""
+    envelope = parse_envelope({"kind": "ndjson", "rules": [{"type": "item", "field": "text"}]})
+    assert envelope is not None
+    assert envelope.rules[0].equals == ""
+    assert envelope.rules[0].where == ""
+
+
+def test_error_rules_get_the_same_refusal_as_answer_rules():
+    """Both comprehensions had the identical coercion; a fix applied to one
+    would leave the error path silently broken instead."""
+    with pytest.raises(UsageError, match="`equals` must be a string"):
+        parse_envelope(
+            {
+                "kind": "ndjson",
+                "error_rules": [
+                    {"type": "item", "field": "text", "where": "item.type", "equals": 7}
+                ],
+            }
+        )

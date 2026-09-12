@@ -32,6 +32,7 @@ import re
 from typing import Any, Final
 import unicodedata
 
+from .adapters import _friend_key_values
 from .dispatch import sanitize_display
 from .errors import UsageError
 from .ledger import Claim, Verdict
@@ -401,6 +402,40 @@ def _workspace_asset_lines(run_meta: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _advisory_judge_keys(run_meta: dict[str, Any]) -> set[str]:
+    """Ledger identities whose verdicts are advisory and excluded from
+    settlement.
+
+    `Verdict` carries no advisory field, so a judge's name alone does not
+    answer the question the verdict section's own preamble raises. The
+    roster rows do carry it, and they carry the (cli, lens, model, effort)
+    tuple `friend_key` is built from, which is exactly what
+    `Verdict.judge` holds.
+    """
+    keys: set[str] = set()
+    for entry in run_meta.get("roster") or ():
+        if not isinstance(entry, dict):
+            continue
+        advisory = entry.get("host_self_review", False) is True or (
+            entry.get("independent", True) is not True
+        )
+        if not advisory:
+            continue
+        cli, lens = entry.get("cli"), entry.get("lens")
+        if not isinstance(cli, str) or not isinstance(lens, str):
+            continue
+        model, effort = entry.get("model"), entry.get("effort")
+        keys.add(
+            _friend_key_values(
+                cli,
+                lens,
+                model if isinstance(model, str) else None,
+                effort if isinstance(effort, str) else None,
+            )
+        )
+    return keys
+
+
 def _render_verdict_sections(
     claims: list[Claim],
     verdicts: list[Verdict],
@@ -417,6 +452,7 @@ def _render_verdict_sections(
     reader has to be able to see the disagreement and decide, because nothing
     in this tool is entitled to decide it for them.
     """
+    advisory_judges = _advisory_judge_keys(run_meta)
     lines: list[str] = ["## Cross-examination", ""]
     if any(friend.get("host_self_review", False) for friend in run_meta.get("friends", [])):
         lines.extend(
@@ -478,15 +514,19 @@ def _render_verdict_sections(
                 )
                 lines.append("")
             for verdict in cast:
-                # Attributed. This section's own preamble says host
-                # self-review verdicts are advisory and excluded from
-                # settlement -- without the judge's name, a reader deciding a
-                # deadlock cannot tell which of the two quoted sides is the
-                # excluded advisory one, so an advisory verdict read as a
-                # second independent judge.
+                # Attributed AND marked. This section's own preamble says
+                # host self-review verdicts are advisory and excluded from
+                # settlement; naming the judge was half the fix, because
+                # `Verdict` has no advisory field and a bare name still
+                # forces a reader deciding a deadlock to cross-reference the
+                # friends table further down to learn which of the two
+                # quoted sides is the excluded one. Until then an advisory
+                # verdict read as a second independent judge. `*(advisory)*`
+                # is how `Claim.advisory` is already surfaced below.
+                advisory = " *(advisory)*" if verdict.judge in advisory_judges else ""
                 lines.append(
                     f"- **{_escape_cell(verdict.verdict)}** by "
-                    f"{_code_span(verdict.judge)} "
+                    f"{_code_span(verdict.judge)}{advisory} "
                     f"(confidence {_escape_cell(verdict.confidence)}, "
                     f"evidence {_escape_cell(verdict.evidence_assessment or 'not stated')}): "
                     f"{_escape_block(verdict.reasoning)}"

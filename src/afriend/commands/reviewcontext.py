@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
+import stat
 from typing import Any
 
 from ..errors import UsageError
@@ -23,12 +25,78 @@ def read_artifact_text(path: Path) -> str:
         raise UsageError(f"cannot read artifact {path}: {exc}") from exc
 
 
+def read_artifact_bytes_and_text(path: Path) -> tuple[bytes, str]:
+    """One bounded read, returning both forms.
+
+    The digest check needs the artifact's exact bytes and everything else
+    needs its newline-translated text, and these used to be two separate
+    reads of the same file: `read_artifact_text` followed by a bare
+    `artifact.read_bytes()`. That second read had neither of the protections
+    this module applies to the sidecar beside it -- no size bound, no
+    regular-file check, no OSError handling, so a failure escaped as a bare
+    traceback out of cli.main, which catches only AfError. It also doubled
+    peak memory, since the text was still held.
+
+    Worse, being a second read made the digest a claim about bytes that may
+    no longer be the ones dispatched: a file rewritten between the two reads
+    was verified in one form and sent in the other. That is the TOCTOU
+    `read_bounded_bytes` re-fstats to prevent, reintroduced one line below a
+    call that uses it.
+
+    Deliberately NOT `read_bounded_bytes`: that refuses symlinks, and an
+    artifact is allowed to be one -- `commands/environment.py` documents the
+    rule that a symlinked artifact picks its repository from the invocation
+    path rather than the link target. So this opens once and fstats the
+    descriptor it actually got, which is the same TOCTOU property without
+    the symlink refusal.
+
+    The 32 MiB ceiling is new on this path; neither previous read had one.
+    It is what `spawn.MAX_OUTPUT_BYTES` already allows a friend to produce,
+    and an artifact above it could not be dispatched into a prompt anyway,
+    so it refuses only inputs that were going to fail later and names the
+    limit when it does.
+    """
+    try:
+        descriptor = os.open(path, os.O_RDONLY)
+    except OSError as exc:
+        raise UsageError(f"cannot read artifact {path}: {exc}") from exc
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode):
+            raise UsageError(f"artifact {path} must be a regular file")
+        if info.st_size > MAX_JSON_FILE_BYTES:
+            raise UsageError(f"artifact {path} exceeds the {MAX_JSON_FILE_BYTES}-byte limit")
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            try:
+                chunk = os.read(descriptor, 1 << 20)
+            except OSError as exc:
+                raise UsageError(f"cannot read artifact {path}: {exc}") from exc
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > MAX_JSON_FILE_BYTES:
+                raise UsageError(f"artifact {path} exceeds the {MAX_JSON_FILE_BYTES}-byte limit")
+            chunks.append(chunk)
+    finally:
+        os.close(descriptor)
+    payload = b"".join(chunks)
+    try:
+        decoded = payload.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise UsageError(f"artifact must be valid UTF-8: {path}") from exc
+    # Match Path.read_text()'s universal-newline mode, which every existing
+    # consumer of the text form already assumes.
+    return payload, decoded.replace("\r\n", "\n").replace("\r", "\n")
+
+
 def _sha256(payload: bytes) -> str:
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
 def capture_review_context(
-    artifact: Path, artifact_text: str
+    artifact: Path, artifact_text: str, artifact_bytes: bytes | None = None
 ) -> tuple[dict[str, str], bytes] | None:
     """Capture the exact composer receipt adjacent to a marked artifact."""
     if artifact_text.split("\n", 1)[0] != COMPOSER_MARKER:
@@ -52,7 +120,10 @@ def capture_review_context(
     # or any CRLF file caught in the captured diff -- therefore produced an
     # artifact that `afriend context` published and `afriend run` immediately
     # refused. resume_review_context (below) already compares read_bytes().
-    if manifest.output_sha256 != _sha256(artifact.read_bytes()):
+    # The caller's own read, when it has one: re-reading here would verify
+    # bytes that are not necessarily the bytes about to be dispatched.
+    payload_bytes = artifact_bytes if artifact_bytes is not None else artifact.read_bytes()
+    if manifest.output_sha256 != _sha256(payload_bytes):
         raise UsageError(
             "review context manifest output_sha256 does not match the artifact it accompanies"
         )
@@ -70,8 +141,8 @@ def capture_artifact_input(
     artifact: Path,
 ) -> tuple[str, tuple[dict[str, str], bytes] | None]:
     """Decode an artifact and capture any marked composer receipt before setup."""
-    artifact_text = read_artifact_text(artifact)
-    return artifact_text, capture_review_context(artifact, artifact_text)
+    artifact_bytes, artifact_text = read_artifact_bytes_and_text(artifact)
+    return artifact_text, capture_review_context(artifact, artifact_text, artifact_bytes)
 
 
 def resume_review_context(

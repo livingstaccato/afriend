@@ -54,6 +54,30 @@ class ResolvedRoster:
     qualification: Qualification | None = None
 
 
+def _lens_was_passed(args: argparse.Namespace) -> bool:
+    """Whether the OPERATOR passed `--lens`, not merely whether it has a value.
+
+    `runmeta._resolve_fresh_profile` does `setattr(args, "lens", list(value))`
+    for any review profile whose settings carry `lenses`, so the merged value
+    is indistinguishable from an explicit flag. Testing it directly wrote
+    "--lens was given with --friend ..." into a run's durable downgrades and
+    into report.md for an operator who never typed it -- a false statement
+    about the invocation, in the record that exists to say what the
+    invocation was.
+
+    The parser already maintains `_profile_settings_explicit` for exactly
+    this distinction. A hand-built Namespace carrying no marker at all is
+    treated as having supplied its own value, matching how `_mode_explicit`
+    defaults to True for the same callers.
+    """
+    if not getattr(args, "lens", None):
+        return False
+    explicit = getattr(args, "_profile_settings_explicit", None)
+    if explicit is None:
+        return True
+    return "lens" in explicit
+
+
 def _selected_model(
     invocation_model: str | None,
     explicit_model: str | None,
@@ -305,7 +329,7 @@ def resolve_friends(
                 "both --friend and --roster were given; --friend replaces the "
                 "roster entirely (§10.1), so the roster file was not read."
             )
-        if getattr(args, "lens", None):
+        if _lens_was_passed(args):
             # --lens restricts what DISCOVERY assigns; --friend names each
             # lens itself, so there is nothing left for it to restrict. It
             # used to be parsed, validated against the lens directory, and
@@ -321,7 +345,7 @@ def resolve_friends(
         # not be able to choose who reviews it.
         roster_path = Path(args.roster) if args.roster else rosterfile.discover()
         if roster_path is not None:
-            if getattr(args, "lens", None):
+            if _lens_was_passed(args):
                 # The roster file names each friend's lens explicitly, exactly
                 # like --friend, so --lens has nothing to restrict here
                 # either. Passing available_lenses() below (rather than the

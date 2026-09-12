@@ -561,3 +561,50 @@ def test_a_repeated_lens_is_collapsed_before_it_can_collide(registry):
     specs = _discover(registry, min_workers=2, lenses=["ops", "ops", "security"])
 
     assert [spec.name for spec in specs] == ["codex-ops", "codex-security"]
+
+
+def test_capacity_says_which_friends_the_ceiling_cut(registry):
+    """`apply_capacity` always returned the discarded specs, and both call
+    sites bound them to `_dropped` and dropped them on the floor while
+    `notes` was in scope and unused. A friend removed by `--max-friends`
+    left no trace in downgrades, run.json or report.md -- the same silence
+    the readiness note immediately above one of those call sites exists to
+    break."""
+    notes: list[str] = []
+    specs = roster.resolve(
+        registry,
+        ["ops"],
+        {},
+        which=lambda name: f"/bin/{name}",
+        probe=lambda _: True,
+        provider_policy=ProviderPolicy({"ollama": ProviderSetting(enabled=True, model=None)}),
+        max_friends=1,
+        notes=notes,
+    )
+
+    assert len(specs) == 1
+    assert notes, "a friend removed by the ceiling must be reported"
+    note = " ".join(notes)
+    assert "--max-friends 1" in note
+    assert "below the ceiling" in note
+    # The names that went, not just a count.
+    for spec_name in note.split("below the ceiling:")[1].split(";"):
+        assert spec_name.strip()
+
+
+def test_no_capacity_note_when_the_ceiling_cut_nothing(registry):
+    """A note that appears when nothing was dropped is noise that trains the
+    reader to ignore the one that matters."""
+    notes: list[str] = []
+    roster.resolve(
+        registry,
+        ["ops"],
+        {},
+        which=lambda name: f"/bin/{name}" if name == "opencode" else None,
+        probe=lambda _: True,
+        provider_policy=ProviderPolicy({"ollama": ProviderSetting(enabled=True, model=None)}),
+        max_friends=5,
+        notes=notes,
+    )
+
+    assert not [note for note in notes if "below the ceiling" in note]

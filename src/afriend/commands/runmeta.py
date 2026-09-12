@@ -559,6 +559,19 @@ def _finished_at() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
+def _bound_exceeded(exc: BaseException) -> str:
+    """The metadata node bound is deliberate and symmetric with the reader
+    (runstore's writers and resumevalidation both enforce it), so a run wide
+    enough to exceed it must fail -- but as a diagnosable error naming the
+    remedy, not a bare traceback that discards the terminal run.json and
+    report.md after the review has been paid for."""
+    return (
+        f"this run's metadata exceeds the bound run.json is written under: {exc}. "
+        "The friend output and ledger on disk are intact; narrow the roster or "
+        "lower --max-loop-iterations to write a terminal report for it."
+    )
+
+
 def finish_run(
     args: argparse.Namespace,
     store: RunStore,
@@ -645,15 +658,32 @@ def finish_run(
     # not as a bare ValueError traceback out of cli.main, which is what
     # discarded the terminal run.json AND report.md after the entire review had
     # already been paid for.
+    # `outcome.apply` is deliberately OUTSIDE the bound handler. It runs
+    # RunOutcome's own validation -- `_thaw_json(self.repeat_tracker, ...)`
+    # and friends -- which raises ValueError/TypeError for a structurally
+    # invalid or non-JSON-safe value. That is a defect in how this run's
+    # state was assembled, not a size problem, and reporting it as one told
+    # the operator to "narrow the roster or lower --max-loop-iterations":
+    # the wrong cause and a remedy that cannot work. Both still have to be
+    # caught, because a bare traceback out of cli.main discards the terminal
+    # run.json AND report.md after the whole review has been paid for.
     try:
         meta = bounded_theme_metadata(meta)
-        meta = bounded_theme_metadata(outcome.apply(meta))
+    except (RecursionError, TypeError, ValueError) as exc:
+        raise AfError(_bound_exceeded(exc)) from exc
+    try:
+        applied = outcome.apply(meta)
     except (RecursionError, TypeError, ValueError) as exc:
         raise AfError(
-            f"this run's metadata exceeds the bound run.json is written under: {exc}. "
-            "The friend output and ledger on disk are intact; narrow the roster or "
-            "lower --max-loop-iterations to write a terminal report for it."
+            f"this run's outcome could not be recorded: {exc}. The friend output and "
+            "ledger on disk are intact. This is an invalid run state rather than a "
+            "size limit, so narrowing the roster or lowering --max-loop-iterations "
+            "will not change it."
         ) from exc
+    try:
+        meta = bounded_theme_metadata(applied)
+    except (RecursionError, TypeError, ValueError) as exc:
+        raise AfError(_bound_exceeded(exc)) from exc
     report = render(
         review,
         meta,

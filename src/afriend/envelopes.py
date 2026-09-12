@@ -131,13 +131,49 @@ class Envelope:
     terminal_event: str = ""
 
 
+def _rule_equals(rule: Mapping[str, object]) -> str:
+    """The rule's `equals` value, refusing one that cannot be compared.
+
+    `_rule_where` above refuses `equals` without `where`. This is the same
+    mis-declaration from the other side: a non-string `equals` was coerced
+    to "", and `_scan_ndjson` then requires the `where` path to equal the
+    empty string -- true for no real event. The rule never fires, the
+    friend's answer is never recognised, and the run records it as having
+    produced nothing, with no diagnostic anywhere. Silently matching
+    everything and silently matching nothing are the same defect.
+    """
+    if "equals" not in rule:
+        return ""
+    equals = rule["equals"]
+    if not isinstance(equals, str):
+        raise UsageError(
+            f"envelope rule `equals` must be a string, got {type(equals).__name__}: "
+            "a non-string value would be compared as the empty string, so the rule "
+            "would match no event and the friend's answer would be dropped unreported."
+        )
+    return equals
+
+
 def parse_envelope(data: dict[str, Any] | None) -> "Envelope | None":
     """Build an Envelope from the `[envelope]` table of an adapter TOML, or
-    return None if no (valid) envelope was declared. Never raises: a
-    malformed or absent envelope section simply means "no envelope," which
-    normalize() already treats as a safe, working fallback -- adapter config
-    is trusted input, but there is no reason to make a typo here fatal when
-    "don't unwrap" is always a safe degradation."""
+    return None if no (valid) envelope was declared.
+
+    Absent or unrecognised sections still degrade to "no envelope", which
+    normalize() treats as a safe, working fallback. But this no longer
+    "never raises", and the distinction matters: a section that declares an
+    ndjson RULE it cannot honour is refused with a UsageError rather than
+    quietly running as something else. `_rule_where` and `_rule_equals`
+    below say which mis-declarations those are and what each would silently
+    do instead -- over-match every event, or match none of them.
+
+    Note the blast radius, because it is wider than this function:
+    `adapters.load_adapters` calls this, and `run`, `doctor`, `providers`,
+    `init` and `setup` all call that, so one adapter's typo now fails every
+    command rather than disabling that one adapter. That is the deliberate
+    trade -- a rule that cannot be honoured must not be used anywhere -- but
+    it means `doctor`, the command for diagnosing a broken setup, is itself
+    unavailable until the TOML is fixed. The refusal text has to be enough
+    to fix it without running anything."""
     if not data:
         return None
     kind = data.get("kind")
@@ -157,7 +193,7 @@ def parse_envelope(data: dict[str, Any] | None) -> "Envelope | None":
                 match_value=rule["type"],
                 field=rule["field"],
                 where=_rule_where(rule),
-                equals=rule.get("equals", "") if isinstance(rule.get("equals"), str) else "",
+                equals=_rule_equals(rule),
             )
             for rule in data.get("rules", [])
             if isinstance(rule, dict) and rule.get("type") and rule.get("field")
@@ -167,7 +203,7 @@ def parse_envelope(data: dict[str, Any] | None) -> "Envelope | None":
                 match_value=rule["type"],
                 field=rule["field"],
                 where=_rule_where(rule),
-                equals=rule.get("equals", "") if isinstance(rule.get("equals"), str) else "",
+                equals=_rule_equals(rule),
             )
             for rule in data.get("error_rules", [])
             if isinstance(rule, dict) and rule.get("type") and rule.get("field")

@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from pathlib import Path
 import subprocess
 import sys
 
@@ -326,3 +327,116 @@ def test_composite_without_a_repository_snapshot_reports_validation_not_assessed
     text = report.read_text(encoding="utf-8").lower()
     assert "implementation validation was not assessed" in text
     assert "implementation validation succeeded" not in text
+
+
+def test_the_artifact_is_read_once_and_the_digest_checks_those_bytes(tmp_path, monkeypatch):
+    """The digest must describe the bytes that will actually be dispatched.
+
+    `capture_review_context` re-read the artifact with a bare
+    `artifact.read_bytes()` -- unbounded, not a regular-file check, and with
+    no OSError handling, unlike the `read_bounded_bytes` call one line above
+    it for the sidecar. Being a *second* read also meant a file rewritten in
+    between was verified in one form and sent in another, the TOCTOU
+    `read_bounded_bytes` re-fstats to prevent.
+    """
+    from afriend.commands import reviewcontext as rc
+
+    artifact = tmp_path / "composite.md"
+    artifact.write_bytes(b"anything\n")
+
+    reads: list[str] = []
+    real_read_bytes = Path.read_bytes
+
+    def counting_read_bytes(self):
+        reads.append(str(self))
+        return real_read_bytes(self)
+
+    monkeypatch.setattr(Path, "read_bytes", counting_read_bytes)
+
+    payload, text = rc.read_artifact_bytes_and_text(artifact)
+
+    assert payload == b"anything\n"
+    assert text == "anything\n"
+    assert str(artifact) not in reads, "the bounded reader must not go through read_bytes"
+
+
+def test_a_crlf_artifact_keeps_its_exact_bytes_and_translated_text(tmp_path):
+    """compose() digests exactly what it wrote; every text consumer assumes
+    universal-newline translation. One read has to serve both without
+    letting a CRLF-authored plan fail its own digest."""
+    from afriend.commands import reviewcontext as rc
+
+    artifact = tmp_path / "crlf.md"
+    artifact.write_bytes(b"line one\r\nline two\r\n")
+
+    payload, text = rc.read_artifact_bytes_and_text(artifact)
+
+    assert payload == b"line one\r\nline two\r\n"
+    assert text == "line one\nline two\n"
+
+
+def test_an_unreadable_artifact_is_a_usage_error_not_a_traceback(tmp_path):
+    """cli.main catches AfError only, so an OSError from the second read
+    escaped as a bare traceback."""
+    from afriend.commands import reviewcontext as rc
+    from afriend.errors import UsageError
+
+    with pytest.raises(UsageError):
+        rc.read_artifact_bytes_and_text(tmp_path / "does-not-exist.md")
+
+
+def test_invalid_utf8_is_named_as_such(tmp_path):
+    from afriend.commands import reviewcontext as rc
+    from afriend.errors import UsageError
+
+    artifact = tmp_path / "bad.md"
+    artifact.write_bytes(b"\xff\xfe not utf-8")
+
+    with pytest.raises(UsageError, match="valid UTF-8"):
+        rc.read_artifact_bytes_and_text(artifact)
+
+
+def test_a_symlinked_artifact_is_still_readable(tmp_path):
+    """`read_bounded_bytes` refuses symlinks, and an artifact is allowed to
+    be one.
+
+    `commands/environment.py` documents the rule that a symlinked artifact
+    takes its repository from the invocation path rather than the link
+    target -- which presumes the link is followed and read. Swapping the
+    artifact read to the sidecar's reader broke exactly that, and only an
+    isolation end-to-end test caught it.
+    """
+    from afriend.commands import reviewcontext as rc
+
+    real = tmp_path / "real.md"
+    real.write_bytes(b"# spec\n")
+    link = tmp_path / "link.md"
+    try:
+        link.symlink_to(real)
+    except OSError:
+        pytest.skip("symlinks unsupported")
+
+    payload, text = rc.read_artifact_bytes_and_text(link)
+
+    assert payload == b"# spec\n"
+    assert text == "# spec\n"
+
+
+def test_an_oversized_artifact_names_the_limit(tmp_path, monkeypatch):
+    from afriend.commands import reviewcontext as rc
+    from afriend.errors import UsageError
+
+    monkeypatch.setattr(rc, "MAX_JSON_FILE_BYTES", 16)
+    artifact = tmp_path / "big.md"
+    artifact.write_bytes(b"x" * 64)
+
+    with pytest.raises(UsageError, match="exceeds the 16-byte limit"):
+        rc.read_artifact_bytes_and_text(artifact)
+
+
+def test_a_directory_is_refused_rather_than_read(tmp_path):
+    from afriend.commands import reviewcontext as rc
+    from afriend.errors import UsageError
+
+    with pytest.raises(UsageError, match="regular file"):
+        rc.read_artifact_bytes_and_text(tmp_path)

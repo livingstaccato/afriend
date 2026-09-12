@@ -42,6 +42,31 @@ def apply_capacity(
     return specs[:max_friends], specs[max_friends:]
 
 
+def _note_capacity_drops(
+    dropped: list[FriendSpec], max_friends: int | None, notes: list[str] | None, source: str
+) -> None:
+    """Say which friends `--max-friends` cut, and from where.
+
+    `apply_capacity` has always returned the discarded specs, and both call
+    sites bound them to `_dropped` and threw them away while `notes` was in
+    scope and unused. With a four-entry roster file and `--max-friends 2`,
+    two named friends vanished from the run with nothing in `downgrades`,
+    run.json or report.md to say which or why -- the same defect the
+    readiness note directly above one of those call sites exists to fix: a
+    friend the operator wrote down by hand and did not get is exactly the
+    thing that must be said out loud. The discovery path matters too: a
+    ceiling that quietly halves an automatically discovered roster changes
+    what the qualification policy can be satisfied by.
+    """
+    if not dropped or notes is None:
+        return
+    names = "; ".join(f"{spec.name} ({spec.cli}/{spec.lens})" for spec in dropped)
+    notes.append(
+        f"--max-friends {max_friends} dropped {len(dropped)} {source} friend(s) "
+        f"below the ceiling: {names}"
+    )
+
+
 def mark_host_role(specs: list[FriendSpec], host: str | None) -> list[FriendSpec]:
     """Mark every selected instance of the orchestrating provider advisory."""
     if host is None:
@@ -230,7 +255,8 @@ def resolve(
             # wrote down by hand and did not get is exactly the thing that
             # must be said out loud.
             notes.append("roster entries dropped by readiness filtering: " + "; ".join(rejected))
-        selected, _dropped = apply_capacity(specs, max_friends)
+        selected, dropped = apply_capacity(specs, max_friends)
+        _note_capacity_drops(dropped, max_friends, notes, "roster")
         return mark_host_role(selected, host)
 
     available = [
@@ -317,5 +343,6 @@ def resolve(
                 model_source=source,
             )
         )
-    selected, _dropped = apply_capacity(specs, max_friends)
+    selected, dropped = apply_capacity(specs, max_friends)
+    _note_capacity_drops(dropped, max_friends, notes, "discovered")
     return mark_host_role(selected, host)
