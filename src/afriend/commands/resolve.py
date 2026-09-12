@@ -38,7 +38,7 @@ from ..ledger import (
     record_from_dict,
 )
 from ..outcomes import json_node_count
-from ..report import _sanitize_display
+from ..reportescape import _sanitize_display
 from ..resolutions import (
     UNVERIFIABLE,
     parse_location,

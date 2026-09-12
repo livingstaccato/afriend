@@ -13,7 +13,7 @@ from afriend.commands import crossexam as crossexam_mod, resume as resume_mod
 from afriend.commands.critique import build_prompts
 from afriend.errors import UsageError
 from afriend.ledger import Claim
-from afriend.report import _escape_block, _escape_cell
+from afriend.reportescape import _escape_block, _escape_cell
 from afriend.reviewstate import ReviewState
 from afriend.runstore import RunStore
 

@@ -6,12 +6,8 @@ import pytest
 from report_helpers import claim, meta
 
 from afriend.ledger import Claim
-from afriend.report import (
-    _code_span,
-    _escape_block,
-    _escape_cell,
-    render as render_review,
-)
+from afriend.report import render as render_review
+from afriend.reportescape import _code_span, _escape_block, _escape_cell
 from afriend.reviewstate import ReviewState
 
 CMARK = shutil.which("cmark")

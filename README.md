@@ -10,7 +10,7 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 [![Dependencies](https://img.shields.io/badge/runtime%20deps-none-brightgreen)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-2523-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2526-brightgreen)](tests/)
 
 It automates a workflow you may already do by hand: run a review, paste the
 findings into a different model, ask whether they hold up, carry the argument
@@ -656,8 +656,9 @@ specific assertion locally. Use `make act-ci` for the closest local Linux run.
 Two gates catch drift that is otherwise silent:
 
 - **`plugin-sync`** — `src/afriend/assets/` is canonical; its
-  entrypoints project directly to plugin skills and runtime assets project
-  beneath `skills/afriend/`. Edit assets, then `make plugin-sync-copy`.
+  entrypoints project directly to plugin skills and runtime assets
+  (adapters, harnesses, lenses) project beneath `skills/review/`, the skill
+  that dispatches reviews. Edit assets, then `make plugin-sync-copy`.
   It owns `plugins/afriend/skills/` and nothing else: the plugin manifests
   are hand-maintained.
 - **`version-sync`** — `VERSION` must match the `version` field in every
