@@ -9,7 +9,7 @@
 # directly before an `if` (group or no group), at a group boundary, or at the
 # end of an `if` branch whose `else` is empty or absent inside a group -- as
 # "Cannot find group", "Cannot find if", "Cannot find repeat" or "Syntax
-# Error?". Every shape tested is in .provide/plantuml-1.2026.7-regression-issue.md.
+# Error?".
 # No colour syntax satisfies both, so a gate running the parser nobody develops
 # against passes sources nobody can render -- which is the defect the diagram
 # gate exists to catch.

@@ -14,6 +14,7 @@ __pycache__/
 .ruff_cache/
 
 # Local agent/session scratch
+.provide/
 .superpowers/
 .worktrees/
 scratchpad/
