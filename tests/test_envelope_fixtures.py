@@ -35,9 +35,11 @@ object's own top-level `findings` key). Both still use the real, declared
 constructed to reproduce the regression, not the envelope shape itself.
 """
 
+import json
 from pathlib import Path
 
 from afriend import adapters, envelopes, normalize
+from afriend.verdictschema import VERDICT_CONTRACT
 
 REPO = Path(__file__).resolve().parents[1]
 ADAPTER_DIR = REPO / "src" / "afriend" / "assets" / "adapters"
@@ -48,11 +50,20 @@ def _registry():
     return adapters.load_adapters(ADAPTER_DIR)
 
 
-def _normalize_fixture(cli_name: str, fixture_name: str) -> normalize.NormalizeResult:
+def _normalize_fixture(
+    cli_name: str, fixture_name: str, contract=None
+) -> normalize.NormalizeResult:
+    """Normalize a fixture through the adapter's REAL declared envelope.
+
+    `contract` defaults to claims, which is what a critique round reads; a
+    judging round's fixture passes the verdict contract, exactly as dispatch
+    does for a cross-examination round.
+    """
     adapter = _registry()[cli_name]
     raw = (FIXTURES / fixture_name).read_text(encoding="utf-8")
+    kwargs = {} if contract is None else {"contract": contract}
     return normalize.normalize(
-        raw, envelope=adapter.envelope, structured_output=adapter.structured_output
+        raw, envelope=adapter.envelope, structured_output=adapter.structured_output, **kwargs
     )
 
 
@@ -125,6 +136,43 @@ def test_findings_beside_prose_are_recovered_by_a_declared_rule():
     assert result.succeeded is True
     assert result.payload is not None
     assert result.payload["findings"][0]["claim"] == "missing rate limit on login endpoint"
+
+
+def test_judging_verdicts_behind_prose_are_read_from_structured_output():
+    """A judge's verdicts were in the output and the round still failed.
+
+    Captured from a real crossexam, round 2, on 2026-09-11. agy's `response`
+    was about 12 KB of narration -- it opens "I am waiting for the find task
+    to complete so I can locate the repository" -- with the verdicts object
+    only at the end, after quoted code carrying some twenty `{` characters.
+    `_iter_balanced_objects` is a single pass, and its own docstring says a
+    stray brace earlier in the prose can hide a well-formed object later in
+    the same scan; that is what happened. The round failed with "payload has
+    no 'verdicts' array; output was structured JSON but contained no
+    verdicts; the adapter may need an envelope path", and the run was
+    reported incomplete with one judge fewer than its roster promised.
+
+    Meanwhile `result.structured_output` held the schema-conforming
+    `{"verdicts": [...]}` in full -- in this event and in round 3's, which
+    succeeded only because its `response` happened to be bare JSON. No rule
+    read it. The adapter now declares one.
+
+    Its position matters, and this test is what pins it. `_unwrap_ndjson`
+    reverses what it extracts so the newest EVENT comes first, and that also
+    reverses the rules within one event: declared before `result.response`,
+    the object is emitted after the prose and is lost to the same scan.
+    Only the `result` event is kept here, byte for byte; the 56 `init` and
+    `step_update` events before it do not affect the outcome.
+    """
+    raw = (FIXTURES / "agy_judging_prose_then_verdicts.ndjson").read_text(encoding="utf-8")
+    captured = json.loads(raw)["result"]["structured_output"]["verdicts"]
+
+    result = _normalize_fixture("agy", "agy_judging_prose_then_verdicts.ndjson", VERDICT_CONTRACT)
+
+    assert result.succeeded is True, result.errors
+    assert result.payload is not None
+    assert [v["claim_id"] for v in result.payload["verdicts"]] == [v["claim_id"] for v in captured]
+    assert len(captured) == 8
 
 
 # --- opencode: captured ndjson envelope (the "error" event only) ----------

@@ -137,6 +137,24 @@ field = "result.response"
 type = "result"
 field = "result.findings"
 
+# The schema-conforming answer itself. Under --json-schema agy puts the object
+# that satisfies the schema in `structured_output` -- `{"verdicts": [...]}` in a
+# judging round -- and does so even when `response` is prose. Captured on
+# 2026-09-11: a crossexam judge whose `response` was 12 KB of narration, with
+# the verdicts only at the end behind quoted code full of `{`, failed the round
+# with "payload has no 'verdicts' array" while this field held all eight. See
+# tests/fixtures/agy_judging_prose_then_verdicts.ndjson.
+#
+# ORDER MATTERS, and it runs against intuition: this rule must be declared
+# AFTER `result.response`. `_unwrap_ndjson` reverses what it extracts so the
+# newest event wins, and that also reverses the rules within one event, so the
+# LAST rule declared here is scanned FIRST. Declared above `result.response`,
+# the object is emitted after the prose and lost to the same brace-depth scan.
+# `result.findings` above depends on this too.
+[[envelope.rules]]
+type = "result"
+field = "result.structured_output"
+
 [[envelope.error_rules]]
 type = "result"
 # Captured from a real run: {"event":"result","result":{"status":"ERROR",
