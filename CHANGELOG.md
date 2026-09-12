@@ -1,5 +1,115 @@
 # Changelog
 
+## 0.11.0
+
+Breaking: `run.json` is schema 5, the `afriend` router skill is gone, both
+config files load through one pipeline, and `successful_friend_ids` records
+every success rather than the independent ones only. A halted run written by
+0.10.3 is refused by version rather than migrated.
+
+**A thin roster silently became a narrow review, or a self-review.** The
+review skill told the host to stop and offer choices when a judging roster
+had one qualifying worker, and named none of the flags that perform them:
+`--fresh-host-worker` appeared only in a further-reading reference,
+`--enable-provider` and `--host-provider` nowhere at all. A reader who obeyed
+the instruction still could not execute the option it told them to offer, so
+the cheapest compliant path was to accept whatever `doctor` happened to
+report ready. `doctor` made that worse by reporting `host-excluded` with
+`reason=excluded because it is the detected host provider`, which reads as
+terminal; it is a per-run default, reversible two ways, and the row says so
+now. The rule also sat about a hundred lines below the sections explaining
+how to run, so a top-down reader dispatched before reaching it -- it is now
+in the preflight, above the dispatch block, with a table mapping each
+reported readiness state to the flag that widens it. The skill also states,
+in the second person, that the current harness never qualifies as an
+independent friend under any flag, and that a review ending with the harness
+as its only substantive reviewer is self-review and must be reported as one.
+
+**Report escaping could be switched off by its own input.** `_escape_block`
+escaped `<` with `re.sub(r"(?<!\\)<", ...)`; the lookbehind was there so an
+already-escaped `\<` would not be doubled, but a lookbehind cannot count.
+Two backslashes before a tag suppressed the escape as readily as one, and
+CommonMark renders `\\` as a single literal backslash and then reads
+`<div hidden>` as live HTML -- so any even-length backslash run in friend
+prose reopened the unclosed-hidden-div defect that module's own docstring
+records as having swallowed 3 of 3 findings. Brackets had the same hole at
+one backslash. `&lt;` contains no backslash and cannot be defeated by any run
+of them, which is why `_escape_cell` twenty lines away already used entities.
+The escaping layer now lives in `reportescape.py`: it is the part of the
+report with a security contract rather than a formatting one, and both
+historical bypasses were in it.
+
+**`afriend init` accepted exactly the flags that turn something off.** The
+guided-only guard tested `not in (None, False, (), [])`, which is right for a
+`store_true` and for a collection, and wrong for the two `store_const` pairs
+whose off-switch carries `const=False` over a `None` default. It refused
+`--enable-review-context` and accepted `--disable-review-context`, writing a
+roster and exiting 0 with the request discarded.
+
+**A resolution was verified against a baseline git never produced.** Three
+faults, all in the direction of approving the fix. The gitignore guard was
+named `_git_tracks` and returned `check-ignore`'s "is ignored" answer, the
+inverse of its name and docstring; its one call site read it correctly, which
+left the behaviour right and the contract backwards. Its `except OSError:
+return False` reported "not ignored", which falls through to
+`location-changed` and supports `fixed` -- the opposite of the refusal its
+docstring promises. And `_git_show` returning None conflated "that path is
+not in that tree" with "that tree is not here", so a garbage-collected
+snapshot, or a run directory opened against a different clone, made every
+existing tracked file report a change and approved a fix against no baseline
+at all.
+
+**One verbose friend destroyed a whole paid-for round.** `Ledger.append`
+refusing an oversized record was correct, but it was called from a bare
+per-claim loop with no handler, and the comment forty lines above that loop
+already explains that halting mid-loop strands the claims of every friend
+processed after. The UsageError escaped past `finish_run`, leaving no
+run.json and no report.md, every other friend's answers unreported, and no
+way to resume because restore needs run.json. A friend may print up to 32 MiB
+against an 8 MiB ledger line cap, so this needed verbosity, not tampering.
+One claim is dropped now, with a downgrade naming the friend and the reason.
+
+**Six records asserted what the run never observed.** A recovered judge's
+fallback audit row said `failed` while its verdicts were being counted from
+the ledger. `--max-friends` discarded hand-written roster friends with
+nothing anywhere to say which. `--lens was given` was written into durable
+downgrades for operators who never typed it, because a review profile sets
+the same attribute. A metadata size-bound handler wrapped `RunOutcome.apply`
+and reported its validation failures as a size breach with a remedy that
+cannot help. The review-context digest checked a second, unbounded read of
+the artifact rather than the bytes about to be dispatched. And a non-string
+`equals` in an adapter envelope rule was coerced to the empty string, which
+matches no real event -- so the friend's answer was never recognised and the
+run recorded it as having produced nothing.
+
+**The diagram gate lost its own match to SIGPIPE.** `grep -q` exits the
+instant it matches; under `set -o pipefail` the writer upstream takes SIGPIPE
+and the pipeline reports 141, which an `if` reads as "no match". Both checks
+in `verify_diagrams_render.sh` were written that way, so a render that IS a
+PlantUML error image made the gate print "all 6 diagram sources render
+cleanly" and exit 0. It only bites once the writer outruns the 64KiB pipe
+buffer, and the largest SVG here is 64,010 bytes -- one detailed diagram away
+from silently passing every broken render.
+
+**The test suite read the developer's own afriend configuration.**
+`rosterfile.discover()` reads `$XDG_CONFIG_HOME/afriend/roster.toml` and is
+documented as trusted and picked up automatically; nothing isolated it, so
+anyone who had ever run `afriend init` ran a different suite from everyone
+else. Found when a bare `afriend init`, run while reproducing an unrelated
+finding, created that file mid-session and the suite went from green to eight
+failures across three files with no code change between the runs -- all of
+them naming friends that appear nowhere in this repository. The direction
+that matters is the inverse: the same leak can turn a real failure green.
+
+**Which skill an activation eval selected is now asserted.** `claude plugin
+eval`'s `tool_used` grader accepts only a tool name, so the positive cases
+prove that *an* afriend skill fired, never which one, and a prompt that
+wrongly routed `afriend resume <id>` to claim resolution scored the same as
+the correct selection. `scripts/check_eval_skill_selection.py` reads the kept
+transcripts and checks the qualified name against `expectations.json`, and
+its rejection path is exercised against synthetic traces so it costs no model
+call to verify. An empty directory returns 2 rather than 0 on purpose.
+
 ## 0.10.3
 
 **A friend allowed through without a sandbox was handed a flag that
