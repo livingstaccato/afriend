@@ -268,7 +268,10 @@ def test_every_lens_file_has_frontmatter():
 
 
 def test_afriend_console_script_is_installed_and_runs():
-    af = Path(sys.executable).parent / "afriend"
+    # pip/setuptools generate a native `.exe` launcher on Windows rather
+    # than a bare `afriend` file -- named explicitly since this test's
+    # whole point is exercising the real installed entry point.
+    af = Path(sys.executable).parent / ("afriend.exe" if sys.platform == "win32" else "afriend")
     result = subprocess.run([str(af), "--help"], capture_output=True, text=True)
     assert result.returncode == 0
     assert "afriend" in result.stdout

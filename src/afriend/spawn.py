@@ -43,9 +43,11 @@ so a pump thread is never stuck in a syscall it can't get back out of: it is
 always back at a `stop_event` check within one `_POLL_INTERVAL_S`.
 """
 
+import contextlib
 from dataclasses import dataclass
 from pathlib import Path
 import subprocess
+import sys
 import threading
 import time
 import warnings
@@ -54,7 +56,6 @@ from .claimschema import CLAIM_CONTRACT
 from .contracts import PayloadContract
 from .envelopes import Envelope, answer_is_complete, envelope_error
 from .normalize import NormalizeResult, normalize
-from .procgroup import _terminate_group
 from .procio import (
     _DRAIN_JOIN_S,
     _POLL_INTERVAL_S,
@@ -62,6 +63,13 @@ from .procio import (
     _pump_output,
     _pump_stdin,
 )
+
+_WINDOWS = sys.platform == "win32"
+
+if _WINDOWS:
+    from . import wingroup
+else:
+    from .procgroup import _terminate_group
 
 # Wait windows for group escalation: this long for the group to exit after
 # SIGTERM, then (if anything is still alive) this long for it to actually
@@ -71,6 +79,17 @@ from .procio import (
 # this, and that is a real, accepted limitation, not a bug here.
 GRACE_SECONDS = 10
 KILL_GRACE_SECONDS = 5
+# The exit code this runner deliberately sets when it terminates a friend's
+# Job Object on Windows after its answer already looked complete. POSIX
+# distinguishes "we killed it" from "it failed on its own" by sign --
+# `_terminate_group`'s SIGTERM/SIGKILL produce a negative returncode, which a
+# friend's own exit code never is. Windows has no such convention:
+# `TerminateJobObject`'s exit code is whatever this process chooses to pass,
+# and Python reports exactly that once `process.wait()` is called. This
+# value is picked to be one no real CLI plausibly exits with on its own, so
+# `killed_after_answering` below can match on it the same way the POSIX path
+# matches on a negative sign.
+WINDOWS_KILLED_AFTER_ANSWER_EXIT_CODE = 0x2F1A5EED
 # Per-stream ceiling on what one friend may make this process hold. The
 # timeout bounds how LONG a friend runs; without this, nothing bounds how
 # much memory it costs.
@@ -193,6 +212,7 @@ def run_process(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             start_new_session=True,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if _WINDOWS else 0,
             # None inherits, which is what an unconfined friend gets. A
             # confined one is handed an allowlisted environment instead --
             # see childenv, and dispatch._dispatch for who gets which.
@@ -213,13 +233,32 @@ def run_process(
     except PermissionError:
         return _early_failure(argv, time.monotonic() - started, f"binary not executable: {argv[0]}")
     except OSError as exc:
-        return _early_failure(argv, time.monotonic() - started, f"failed to start: {exc}")
+        # The path is named explicitly rather than trusted to `exc`'s own
+        # string form: verified on Windows, `OSError.filename` is None and
+        # `str(exc)` omits the path entirely for this failure (e.g. WinError
+        # 193, "%1 is not a valid Win32 application") -- unlike POSIX, where
+        # Popen sets `.filename` and it appears in `str(exc)` on its own.
+        return _early_failure(
+            argv, time.monotonic() - started, f"failed to start {argv[0]}: {exc}"
+        )
     # start_new_session=True runs setsid() in the child before exec, which
     # makes it both a new session leader and a new process group leader --
     # its pgid is therefore always its own pid. Capturing that now means
     # later cleanup never has to call os.getpgid() on a pid that may
-    # already have been reaped (and, at least in principle, recycled).
+    # already have been reaped (and, at least in principle, recycled). Has
+    # no effect on Windows (verified: accepted there as a harmless no-op),
+    # which uses a Job Object instead -- see the `_WINDOWS` branch below.
     pgid = process.pid
+    job: int | None = None
+    if _WINDOWS:
+        try:
+            job = wingroup.create_job()
+            wingroup.assign(job, process.pid)
+        except OSError:
+            # Job Object setup failed for a reason nobody chose. Falls back
+            # to `taskkill /T /F` on this one process at cleanup time (see
+            # below) rather than losing group tracking silently.
+            job = None
 
     stdout_chunks: list[str] = []
     stderr_chunks: list[str] = []
@@ -309,7 +348,33 @@ def run_process(
     # or writing files after this round has already been decided. This is
     # also what unblocks the output-pump threads when a descendant was
     # holding a pipe open: killing the group closes its copy of the fd.
-    orphans_suspected = _terminate_group(process, pgid)
+    if _WINDOWS:
+        if job is not None:
+            orphans_suspected = wingroup.terminate(job, WINDOWS_KILLED_AFTER_ANSWER_EXIT_CODE)
+            wingroup.close(job)
+        else:
+            # Job Object setup failed at spawn time; fall back to killing
+            # just this process's own tree via taskkill rather than losing
+            # cleanup entirely. taskkill does not let this process choose the
+            # resulting exit code, so `killed_after_answering` below cannot
+            # recognize this path -- an accepted narrowing of this fallback
+            # of a fallback, not a correctness bug: a nonzero code here is
+            # simply reported as a real failure instead.
+            result = subprocess.run(
+                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                capture_output=True,
+            )
+            orphans_suspected = result.returncode != 0
+        # TerminateJobObject/taskkill change what GetExitCodeProcess reports,
+        # but Python's Popen only queries that when told to: unlike POSIX's
+        # `_reap_after_signal`, nothing above this point calls wait()/poll()
+        # after the kill, so `process.returncode` would otherwise stay None
+        # forever -- verified live: a friend correctly stopped after
+        # answering was reported as "exit None" and treated as a failure.
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            process.wait(timeout=KILL_GRACE_SECONDS)
+    else:
+        orphans_suspected = _terminate_group(process, pgid)
 
     stdout_thread.join(timeout=_DRAIN_JOIN_S)
     stderr_thread.join(timeout=_DRAIN_JOIN_S)
@@ -453,7 +518,24 @@ def run_process(
     # failure. Restricted to negative codes on purpose: a friend that
     # exited nonzero ON ITS OWN in the same instant is still a failure, and
     # that is a real exit status rather than a signal we sent.
-    killed_after_answering = answered and process.returncode is not None and process.returncode < 0
+    #
+    # Windows has no negative-return-code-means-signalled convention, so it
+    # matches on the exact sentinel this module chose and passed to
+    # `TerminateJobObject` itself instead (see WINDOWS_KILLED_AFTER_ANSWER_
+    # EXIT_CODE) -- the same distinction, drawn the only way Windows makes
+    # available: a friend that had already exited on its own in that same
+    # instant keeps ITS code, since termination of an empty job changes
+    # nothing for it to report.
+    if _WINDOWS:
+        killed_after_answering = (
+            answered
+            and process.returncode is not None
+            and process.returncode == WINDOWS_KILLED_AFTER_ANSWER_EXIT_CODE
+        )
+    else:
+        killed_after_answering = (
+            answered and process.returncode is not None and process.returncode < 0
+        )
     if process.returncode != 0 and not killed_after_answering:
         failure_reason = f"exit {process.returncode}"
     elif not result.succeeded:

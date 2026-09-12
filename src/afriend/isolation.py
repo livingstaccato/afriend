@@ -24,6 +24,25 @@ from .secureio import secure_copy, secure_mkdir
 # otherwise execute repository-controlled code on every run.
 NO_HOOKS = ["-c", "core.hooksPath=/dev/null"]
 
+# Snapshot identity depends on the frozen artifact's raw bytes on disk
+# exactly matching the git blob's bytes for that same path (see
+# snapshots.py's SnapshotIdentity.verify, which hashes both and compares).
+# `core.autocrlf=true` -- the standard Git for Windows installer default --
+# breaks that: `git add` converts CRLF to LF while staging, so the blob it
+# writes is not a byte-for-byte copy of the file that was hashed. Found by
+# running this tool's own test suite on Windows: every snapshot-identity
+# test failed with "saved commit artifact does not match the frozen
+# artifact identity" despite the artifact never having been edited between
+# freeze and verify. Forcing it off here, on both the snapshot commit and
+# the worktree checkout a friend actually reads from, makes content flow
+# through byte-for-byte regardless of the operator's ambient git config --
+# on any platform, not just Windows, since nothing stops a POSIX user from
+# setting the same option. `core.safecrlf=false` alongside it suppresses a
+# warning-turned-error some git versions raise for a file whose line
+# endings would otherwise become inconsistent after conversion; irrelevant
+# once conversion itself is off, but harmless to state explicitly.
+NO_CRLF_CONVERSION = ["-c", "core.autocrlf=false", "-c", "core.safecrlf=false"]
+
 # Identity stamped on the throwaway snapshot commit (see snapshot_commit).
 # Deliberately not the operator's own identity: the object is internal, never
 # pushed, and depending on ambient git config made repo scope fail wherever
@@ -123,7 +142,7 @@ def snapshot_commit(repo: Path) -> str:
         head = _resolve_head(repo)
         if head is not None:
             _git(repo, "read-tree", head, env=env)
-        _git(repo, "add", "-A", env=env)  # honors .gitignore
+        _git(repo, *NO_CRLF_CONVERSION, "add", "-A", env=env)  # honors .gitignore
         tree = _git(repo, "write-tree", env=env)
         if head is not None:
             return _git(repo, "commit-tree", tree, "-p", head, "-m", "af-snapshot", env=env)
@@ -133,7 +152,7 @@ def snapshot_commit(repo: Path) -> str:
 def add_worktree(repo: Path, sha: str, dest: Path) -> Path:
     dest = Path(dest)
     secure_mkdir(dest, exist_ok=True, root=dest.parent)
-    _git(Path(repo), *NO_HOOKS, "worktree", "add", "--detach", str(dest), sha)
+    _git(Path(repo), *NO_HOOKS, *NO_CRLF_CONVERSION, "worktree", "add", "--detach", str(dest), sha)
     return dest
 
 

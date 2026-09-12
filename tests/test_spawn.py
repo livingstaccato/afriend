@@ -13,6 +13,34 @@ from afriend import spawn
 
 FAKE = str(Path(__file__).resolve().parent / "fake_friend.py")
 
+_POSIX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="tests a POSIX-specific escape/signal mechanism (os.setsid(), "
+    "SIGTERM-then-SIGKILL escalation) with no Windows equivalent -- Job "
+    "Objects (wingroup.py) structurally prevent the escape rather than "
+    "tolerating it, and TerminateJobObject has no graceful mode to escalate "
+    "from. See tests/test_wingroup.py for the Windows-appropriate coverage.",
+)
+
+
+def _assert_process_dead(pid: int) -> None:
+    """Cross-platform confirmation that `pid` no longer exists.
+
+    POSIX: `os.kill` raises `ProcessLookupError` (ESRCH) for a dead pid.
+    Windows has no ESRCH equivalent -- verified empirically on this runtime:
+    a pid that was never valid raises `OSError` (WinError 87, "the parameter
+    is incorrect"), while a pid that has since exited raises `PermissionError`
+    (WinError 5, "access is denied"; still an `OSError` subclass) -- so any
+    `OSError` there is the sign a live process would not have produced
+    (killing a genuinely alive process on Windows raises nothing at all).
+    """
+    if sys.platform == "win32":
+        with pytest.raises(OSError):
+            os.kill(pid, signal.SIGTERM)
+    else:
+        with pytest.raises(ProcessLookupError):
+            os.kill(pid, signal.SIGTERM)
+
 
 def test_successful_run_is_marked_succeeded():
     result = spawn.run_process([sys.executable, FAKE, "good"], None, 30, Path.cwd())
@@ -62,8 +90,7 @@ def test_timeout_kills_the_whole_process_group(tmp_path):
     result = spawn.run_process([sys.executable, FAKE, "hang", str(pidfile)], None, 2, Path.cwd())
     assert result.timed_out is True
     child_pid = int(pidfile.read_text().strip())
-    with pytest.raises(ProcessLookupError):
-        os.kill(child_pid, signal.SIGTERM)  # already reaped
+    _assert_process_dead(child_pid)  # already reaped
 
 
 def test_timeout_takes_precedence_over_parsing():
@@ -100,12 +127,11 @@ def test_grandchild_is_reaped_through_two_levels(tmp_path):
     assert result.timed_out is True
     child_pid = int(pidfile_child.read_text().strip())
     grandchild_pid = int(pidfile_grandchild.read_text().strip())
-    with pytest.raises(ProcessLookupError):
-        os.kill(child_pid, signal.SIGTERM)
-    with pytest.raises(ProcessLookupError):
-        os.kill(grandchild_pid, signal.SIGTERM)
+    _assert_process_dead(child_pid)
+    _assert_process_dead(grandchild_pid)
 
 
+@_POSIX_ONLY
 def test_sigterm_ignoring_friend_is_still_killed(tmp_path):
     """The friend itself ignores SIGTERM; SIGKILL cannot be ignored, so
     escalation must still finish it off within the grace windows."""
@@ -118,8 +144,7 @@ def test_sigterm_ignoring_friend_is_still_killed(tmp_path):
     )
     assert result.timed_out is True
     pid = int(pidfile.read_text().strip())
-    with pytest.raises(ProcessLookupError):
-        os.kill(pid, signal.SIGTERM)
+    _assert_process_dead(pid)
 
 
 def test_closing_stdout_early_does_not_hang_the_runner():
@@ -160,10 +185,10 @@ def test_exit0_with_leftover_descendant_is_reaped(tmp_path):
         "until it did -- see _await_pidfile in tests/fake_friend.py"
     )
     descendant_pid = int(pidfile.read_text().strip())
-    with pytest.raises(ProcessLookupError):
-        os.kill(descendant_pid, signal.SIGTERM)
+    _assert_process_dead(descendant_pid)
 
 
+@_POSIX_ONLY
 def test_setsid_escapee_is_not_reaped(tmp_path):
     """Honest negative result: a descendant that calls os.setsid() before
     the runner intervenes leaves the friend's process group entirely and
@@ -206,6 +231,12 @@ def test_missing_binary_returns_a_spawn_result_not_an_exception():
     assert result.failure_reason == f"binary not found: {missing}"
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Windows has no execute-bit permission concept -- executability "
+    "there is gated by file extension/PE header, not a chmod-able mode, so "
+    "there is no Windows equivalent of 'not executable but otherwise valid'",
+)
 def test_non_executable_binary_returns_a_spawn_result_not_an_exception(tmp_path):
     not_executable = tmp_path / "not-a-real-cli.sh"
     not_executable.write_text("#!/bin/sh\necho hi\n")
@@ -243,6 +274,7 @@ def test_enoexec_binary_returns_a_spawn_result_not_a_raw_traceback(tmp_path):
     assert str(broken) in result.failure_reason
 
 
+@_POSIX_ONLY
 def test_setsid_escape_does_not_leak_pump_threads():
     """Finding: the earlier implementation's daemon pump threads blocked
     forever in a plain readline() on a pipe an escaped descendant held
@@ -383,8 +415,7 @@ def test_abort_event_reaps_the_whole_process_group(tmp_path):
     )
     assert result.failure_reason == "aborted"
     child_pid = int(pidfile.read_text().strip())
-    with pytest.raises(ProcessLookupError):
-        os.kill(child_pid, signal.SIGTERM)  # already reaped
+    _assert_process_dead(child_pid)  # already reaped
 
 
 def test_abort_event_none_is_unaffected_by_a_set_event_of_the_caller_s_own():

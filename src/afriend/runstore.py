@@ -6,13 +6,13 @@ review the tool's own scratch files as part of the diff under review.
 """
 
 import contextlib
-import fcntl
 import hashlib
 import json
 import os
 from pathlib import Path
 from typing import IO, Any
 
+from . import filelock
 from .errors import UsageError
 from .events import EventWriter
 from .ids import validate_friend_name
@@ -24,14 +24,15 @@ from .secureio import (
     secure_create_bytes,
     secure_init_root,
     secure_mkdir,
-    secure_open_directory,
     secure_open_read,
     secure_open_write,
     secure_read_bytes,
     secure_read_text,
     secure_regular_exists,
     secure_replace,
+    secure_sync_directory,
     secure_unlink,
+    secure_validate_directory,
     secure_write_text,
 )
 from .trust import contain_path
@@ -71,11 +72,9 @@ class RunStore:
             # refusal below exists to stop two DIFFERENT runs sharing a
             # directory, which is the opposite case.
             try:
-                descriptor = secure_open_directory(self.run_dir, root=self.root)
+                secure_validate_directory(self.run_dir, root=self.root)
             except OSError:
                 raise UsageError(f"cannot resume: no such run directory: {self.run_dir}") from None
-            else:
-                os.close(descriptor)
             self.ledger = Ledger(self.run_dir / "claims.jsonl", root=self.root)
             return
         if self.run_dir.exists():
@@ -117,7 +116,7 @@ class RunStore:
         descriptor = secure_open_write(lock_path, root=self.root)
         self._lock_handle = os.fdopen(descriptor, "w", encoding="utf-8")
         try:
-            fcntl.flock(self._lock_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            filelock.lock_exclusive(self._lock_handle.fileno(), blocking=False)
         except OSError as exc:
             self._lock_handle.close()
             self._lock_handle = None
@@ -137,8 +136,7 @@ class RunStore:
     def existing_round_dir(self, round_no: int) -> Path:
         """Return an existing round without creating or chmodding it."""
         path = self.run_dir / f"round-{round_no}"
-        descriptor = secure_open_directory(path, root=self.root)
-        os.close(descriptor)
+        secure_validate_directory(path, root=self.root)
         return path
 
     def friend_prompt_path(self, round_no: int, friend_name: str) -> Path:
@@ -247,11 +245,7 @@ class RunStore:
         secure_write_text(tmp, text, root=self.root)
         secure_replace(tmp, path, root=self.root)
         with contextlib.suppress(OSError):
-            fd = secure_open_directory(self.run_dir, root=self.root)
-            try:
-                os.fsync(fd)
-            finally:
-                os.close(fd)
+            secure_sync_directory(self.run_dir, root=self.root)
         return path
 
     def _stage_text(self, path: Path, text: str) -> Path:
@@ -259,11 +253,7 @@ class RunStore:
 
     def _fsync_run_dir(self) -> None:
         with contextlib.suppress(OSError):
-            fd = secure_open_directory(self.run_dir, root=self.root)
-            try:
-                os.fsync(fd)
-            finally:
-                os.close(fd)
+            secure_sync_directory(self.run_dir, root=self.root)
 
     def write_terminal_artifacts(self, meta: dict[str, Any], report: str) -> None:
         """Commit terminal run.json and report.md as one rollback-safe pair.
@@ -356,11 +346,7 @@ class RunStore:
         secure_unlink(self._owned_path(path), root=self.root, missing_ok=missing_ok)
 
     def fsync_owned_directory(self, path: Path) -> None:
-        descriptor = secure_open_directory(self._owned_path(path), root=self.root)
-        try:
-            os.fsync(descriptor)
-        finally:
-            os.close(descriptor)
+        secure_sync_directory(self._owned_path(path), root=self.root)
 
     def repair_permissions(self) -> None:
         repair_private_tree(self.run_dir)

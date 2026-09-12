@@ -4,7 +4,6 @@ import argparse
 from collections.abc import Iterator
 import contextlib
 from datetime import UTC, datetime, timedelta
-import fcntl
 import json
 import os
 from pathlib import Path
@@ -14,6 +13,7 @@ import stat
 import sys
 from typing import Any
 
+from .. import filelock
 from ..errors import UsageError
 from ..jsonio import MAX_JSON_FILE_BYTES, decode_json_object
 from ..runstore import default_root
@@ -153,12 +153,12 @@ def _lock_is_held(run_dir: Path, *, root: Path) -> bool:
         return False
     try:
         try:
-            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            filelock.lock_exclusive(descriptor, blocking=False)
         except BlockingIOError:
             return True
         finally:
             with contextlib.suppress(OSError):
-                fcntl.flock(descriptor, fcntl.LOCK_UN)
+                filelock.unlock(descriptor)
     finally:
         os.close(descriptor)
     return False
@@ -274,14 +274,14 @@ def _root_prune_lock(root: Path) -> Iterator[bool]:
     descriptor = secure_open_write(root / _ROOT_LOCK_NAME, root=root)
     try:
         try:
-            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            filelock.lock_exclusive(descriptor, blocking=False)
         except BlockingIOError:
             yield False
             return
         yield True
     finally:
         with contextlib.suppress(OSError):
-            fcntl.flock(descriptor, fcntl.LOCK_UN)
+            filelock.unlock(descriptor)
         os.close(descriptor)
 
 
@@ -300,7 +300,7 @@ def _delete(root: Path, record: dict[str, object], *, older_than_days: int) -> b
                 return False
             try:
                 try:
-                    fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    filelock.lock_exclusive(descriptor, blocking=False)
                 except BlockingIOError:
                     return False
                 cutoff = datetime.now(UTC) - timedelta(days=older_than_days)
@@ -328,7 +328,7 @@ def _delete(root: Path, record: dict[str, object], *, older_than_days: int) -> b
                 return False
             finally:
                 with contextlib.suppress(OSError):
-                    fcntl.flock(descriptor, fcntl.LOCK_UN)
+                    filelock.unlock(descriptor)
                 os.close(descriptor)
     except (OSError, UsageError, ValueError, TypeError):
         return False

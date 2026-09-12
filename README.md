@@ -58,7 +58,16 @@ for the full account.
 
 Requires **Python 3.11+** and at least one agent CLI. Judging modes additionally
 require two independent non-host friends. The runner itself is **stdlib-only**
-— zero runtime dependencies.
+— zero runtime dependencies, on every supported platform including Windows.
+
+Linux and macOS get OS-level filesystem confinement for free (`bwrap` /
+`sandbox-exec` — see [How it works](#-how-it-works)). Windows has no
+equivalent mechanism, so a friend that doesn't confine itself (`codex`,
+`agy`) needs an explicit `--allow-unsandboxed-friend` there — the same
+fallback a Linux host without `bwrap` installed already uses. `claude`
+confines its own writes and needs no flag. Process-tree cleanup on Windows
+uses a [Job Object](https://learn.microsoft.com/windows/win32/procthread/job-objects)
+instead of a POSIX process group; see `src/afriend/wingroup.py`.
 
 ```bash
 uv tool install afriend

@@ -199,7 +199,15 @@ def install_abort_handlers(
             pool.shutdown(wait=False, cancel_futures=True)
 
     installed: dict[int, _SignalHandler] = {}
-    for sig in (signal.SIGINT, signal.SIGTERM):
+    # SIGTERM is registered but nothing external on Windows ever sends it --
+    # there is no equivalent of a POSIX `kill -TERM`, so in practice only
+    # SIGINT (Ctrl+C) fires there. SIGBREAK (Ctrl+Break, Windows-only) is
+    # registered alongside it so a console's Break key reaches the same
+    # graceful-abort path Ctrl+C already does.
+    signals = [signal.SIGINT, signal.SIGTERM]
+    if hasattr(signal, "SIGBREAK"):
+        signals.append(signal.SIGBREAK)
+    for sig in signals:
         with contextlib.suppress(ValueError):
             installed[sig] = signal.signal(sig, _handle_abort)
     return installed

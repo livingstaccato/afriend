@@ -753,13 +753,13 @@ def test_a_second_resume_of_the_same_run_is_refused(tmp_path):
 
     The lock is advisory and process-scoped, so the way to observe it is to
     hold it from another process while a resume runs."""
-    import fcntl
+    from afriend import filelock
 
     _halt(tmp_path, "judge_uphold_a", "judge_uphold_b")
     _respond(tmp_path, [])
 
     with (_run_dir(tmp_path) / ".lock").open("w", encoding="utf-8") as held:
-        fcntl.flock(held.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        filelock.lock_exclusive(held.fileno(), blocking=False)
         result = _resume(tmp_path)
 
     assert result.returncode == 2, (result.returncode, result.stderr)

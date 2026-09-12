@@ -194,7 +194,12 @@ def test_enoexec_friend_does_not_prevent_a_second_friend_from_being_reported(tmp
     artifact.write_text("# spec\n")
 
     broken_dir = Path(tempfile.mkdtemp(prefix="af-broken-bin-"))
-    broken = broken_dir / "codex"
+    # Windows' shutil.which() resolves a bare "codex" query through PATHEXT
+    # (.EXE, .CMD, ...) rather than matching an extensionless file directly
+    # -- verified live: without the extension, "codex" was never found at
+    # all here, so the friend was reported unavailable rather than the
+    # ENOEXEC-at-dispatch-time failure this test targets.
+    broken = broken_dir / ("codex.exe" if sys.platform == "win32" else "codex")
     broken.write_bytes(b"")  # empty file: no shebang, no recognizable format
     broken.chmod(0o755)
 

@@ -24,6 +24,19 @@ claim resolution; it requires neither disposition nor evidence.
 - `src/afriend/` — the runtime package (stdlib-only, no runtime
   dependencies). `cli.py` is a thin entry point; the work lives in
   `cliargs.py`, `prompt.py`, `dispatch.py`, and `commands/`.
+  Platform-specific process/filesystem primitives live behind a shared
+  interface: `procgroup.py` (POSIX process groups) and `wingroup.py`
+  (Windows Job Objects, via raw `ctypes` calls into `kernel32.dll` rather
+  than `pywin32` — no new dependency); `filelock.py` wraps `fcntl.flock`
+  (POSIX) vs. `msvcrt.locking` (Windows) behind one API; `secureio.py`
+  branches internally between a POSIX `dir_fd`-chained walk and a
+  Windows name-based walk with a **documented weaker** TOCTOU guarantee
+  (Windows has no `dir_fd`/`fchmod` at all). `procio.py`'s pump threads
+  are non-blocking + `selectors`-polled on POSIX and plain blocking reads
+  on Windows (no `select()` on pipes there), relying on Job Object
+  termination to unblock a stuck read/write the way group termination
+  does on POSIX. `afriend runs prune` remains POSIX-only for now — its
+  deletion machinery uses `dir_fd` directly, not through `secureio.py`.
 - `src/afriend/assets/` — canonical package data: runtime
   `adapters/`, `harnesses/`, `lenses/`, plus five `entrypoints/` skills.
 - `plugins/afriend/skills/` — the composite projection: focused

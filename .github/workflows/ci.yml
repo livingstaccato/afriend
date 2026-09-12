@@ -109,3 +109,35 @@ jobs:
       # installing bwrap above is that this path is actually exercised.
       - name: assert containment tests ran
         run: ci/assert_sandbox_tested.sh
+
+  windows:
+    # Separate from `quality` rather than added to its matrix: most of that
+    # job's steps (plantuml, wheel-asset verification, bwrap containment) are
+    # either Linux-sandbox-specific or already proven once on Linux, and
+    # don't need a second, platform-irrelevant run here. This job exists so
+    # Windows support -- landed as a large, mostly-mechanical port of every
+    # POSIX-only primitive (process groups, secure file I/O, pipe pumping) to
+    # its Windows equivalent -- cannot silently regress again.
+    runs-on: windows-latest
+    env:
+      # Every artifact this tool writes (reports, prompts) is explicit
+      # UTF-8, but a bare `Path.read_text()`/`.write_text()` -- used freely
+      # throughout the test suite itself, not just production code --
+      # defaults to the Windows locale codepage instead, not UTF-8. Found
+      # live: report.md's `·` separator round-tripped as U+FFFD through a
+      # test's unadorned `.read_text()`. Forcing Python's UTF-8 mode here
+      # makes that default UTF-8 everywhere for this job, rather than
+      # auditing every read/write call site in the test suite for an
+      # explicit encoding.
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          python-version: "3.11"
+
+      - run: uv sync --all-extras
+
+      - name: pytest
+        run: uv run pytest -n 4

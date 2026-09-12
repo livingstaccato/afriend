@@ -1,10 +1,20 @@
 """Inventory and guarded pruning of retained afriend run directories."""
 
-import fcntl
 import json
 from pathlib import Path
+import sys
 
 import pytest
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="afriend runs prune is POSIX-only for now -- its deletion "
+    "machinery uses dir_fd operations directly (commands/runs.py), which "
+    "Windows does not support; see AGENTS.md's platform notes",
+)
+
+if sys.platform != "win32":
+    import fcntl
 
 from afriend import cli, cliargs
 from afriend.commands import runs
