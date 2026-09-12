@@ -13,6 +13,8 @@ import sys
 
 from e2e_helpers import AF, _env, run_af
 
+from afriend.commands.runmeta import CURRENT_SCHEMA_VERSION
+
 
 def _artifact(tmp_path):
     path = tmp_path / "spec.md"
@@ -110,7 +112,7 @@ def test_a_halted_run_is_still_readable(tmp_path):
     _halt(tmp_path, "judge_uphold_a", "judge_uphold_b")
     meta = _run_json(tmp_path)
     assert meta["invocation"]["mode"] == "report"
-    assert meta["schema_version"] == 4
+    assert meta["schema_version"] == CURRENT_SCHEMA_VERSION
     assert meta["lifecycle_state"] == "waiting-for-orchestrator"
     assert "finished_at" not in meta
     assert "exit_code" not in meta

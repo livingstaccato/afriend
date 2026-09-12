@@ -78,7 +78,7 @@
   ],
   "roster_source": null,
   "rounds_run": 2,
-  "schema_version": 4,
+  "schema_version": 5,
   "snapshot": {
     "artifact_bound_to_snapshot": false,
     "artifact_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",

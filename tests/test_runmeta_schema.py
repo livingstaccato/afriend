@@ -22,8 +22,29 @@ from afriend.errors import UsageError
 from afriend.ledger import Ledger
 from afriend.snapshots import SnapshotIdentity
 
+# Derived from the constant, not written out: the list previously named 5 as
+# a rejected version because 5 was "one past current". Bumping the schema to
+# 5 turned that case into an assertion that the CURRENT version is refused,
+# which the parametrized test then failed -- the literal silently changed
+# meaning under the constant it was written against.
+_REFUSED_VERSIONS = list(
+    dict.fromkeys(
+        [
+            True,
+            False,
+            str(CURRENT_SCHEMA_VERSION),
+            0,
+            -1,
+            CURRENT_SCHEMA_VERSION - 2,
+            CURRENT_SCHEMA_VERSION - 1,
+            CURRENT_SCHEMA_VERSION + 1,
+            None,
+        ]
+    )
+)
 
-@pytest.mark.parametrize("version", [True, False, "4", 0, -1, 1, 2, 3, 5, None])
+
+@pytest.mark.parametrize("version", _REFUSED_VERSIONS)
 def test_any_version_but_the_current_one_is_refused(version):
     """One schema. Older versions are refused rather than upgraded on read.
 
@@ -540,3 +561,40 @@ def test_wide_metadata_is_rejected_without_mutating_input():
         validated_meta(raw)
 
     assert raw == {"wide": values}
+
+
+def test_the_current_fixtures_carry_the_current_schema_version():
+    """The fixtures named `run_meta_current_*` must actually be current.
+
+    They are the only committed examples of a readable run.json, so a stale
+    version in them means every test that loads one is exercising a shape
+    the code refuses -- or, worse, one it happens to still accept while
+    meaning something different by it.
+    """
+    fixtures = Path(__file__).resolve().parent / "fixtures"
+    found = sorted(fixtures.glob("run_meta_current_*.json"))
+    assert found, "expected committed current-schema fixtures"
+    for path in found:
+        meta = json.loads(path.read_text(encoding="utf-8"))
+        assert meta["schema_version"] == CURRENT_SCHEMA_VERSION, path.name
+        # And the fixture must survive the real validator, not just match
+        # the integer.
+        assert validated_meta(meta)["schema_version"] == CURRENT_SCHEMA_VERSION
+
+
+def test_a_previous_schema_version_is_refused_by_version_not_by_content():
+    """The failure a version bump buys.
+
+    `successful_friend_ids` changed meaning without the version moving, so a
+    0.10.3 run.json still validated and then failed resume with "saved
+    successful_friend_ids disagrees with the friend audit rows" -- a
+    content complaint about a version difference, pointing the operator at
+    the wrong thing entirely. Refusing on the version says what actually
+    happened.
+    """
+    fixtures = Path(__file__).resolve().parent / "fixtures"
+    meta = json.loads((fixtures / "run_meta_current_halted.json").read_text(encoding="utf-8"))
+    meta["schema_version"] = CURRENT_SCHEMA_VERSION - 1
+
+    with pytest.raises(UsageError, match="not readable by this version"):
+        validated_meta(meta)

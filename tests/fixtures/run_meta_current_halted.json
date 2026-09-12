@@ -83,7 +83,7 @@
     }
   ],
   "roster_source": null,
-  "schema_version": 4,
+  "schema_version": 5,
   "snapshot": {
     "artifact_bound_to_snapshot": true,
     "artifact_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
