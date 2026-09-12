@@ -83,6 +83,54 @@ not kept" means. A checker that reports success when it found nothing to check
 is the defect it exists to close -- and so is one that reports success having
 checked a fraction of what it was given.
 
+## Codex
+
+`claude plugin eval` runs Claude Code only. Codex ships the same skills
+through `plugins/afriend/.codex-plugin` and chooses between them from the same
+frontmatter, so the same cases are replayed through `codex exec --json`:
+
+```bash
+scripts/run_codex_skill_eval.py --dry-run            # print the plan, call nothing
+scripts/run_codex_skill_eval.py --runs 2             # all 18 cases, twice each
+scripts/run_codex_skill_eval.py --tag narrow --runs 1
+```
+
+Each run is a real Codex call on your subscription, against the afriend plugin
+installed in `CODEX_HOME` (`afriend-local`), not this checkout: reinstall the
+plugin before measuring a frontmatter change.
+
+Codex has no Skill tool event. It selects a skill by reading its `SKILL.md`
+from the plugin cache, so the first afriend `skills/<name>/SKILL.md` a run
+reads is its selection, and a `no-activation` case must read none. Positive
+cases use the same `expectations.json`.
+
+The prompts ask for real work -- `afriend resume run-123` -- so the run is
+guarded rather than trusted:
+
+- `-s read-only` and `--ephemeral`.
+- `HOME` is an empty directory per run. Codex runs commands through your login
+  shell, whose profile restores `~/.local/bin`; stripping PATH alone let a run
+  execute the installed `afriend`. A pre-check refuses to start, before any
+  model call, while a guarded login shell can still find `afriend`, `agy`,
+  `claude` or `opencode`.
+- Every MCP server in `CODEX_HOME/config.toml` is disabled with `-c`, because
+  MCP tools run outside the shell sandbox. Servers a bundled plugin provides
+  (the ChatGPT app's computer-use REPL) ignore that and still start, so any
+  event item outside `agent_message`, `reasoning`, `command_execution` and
+  `todo_list` makes the run untrusted.
+- A command that invokes a model CLI is a breach unless the shell reported it
+  not found. A model that tries `afriend status` and gets "command not found"
+  is recorded as blocked; the runner does not pretend the attempt did not
+  happen.
+
+Exit codes follow the Claude checker, except that an untrusted run -- a
+breach, an unexpected item, a run that did not complete -- exits 2 even when
+another run chose wrongly, because a run that escaped its guard says nothing
+reliable about selection. Results and each run's event stream are kept under
+`--out` (default: a new temp directory). `tests/test_codex_skill_eval.py`
+checks all of this against two real guarded runs and a fake `codex`, with no
+model call.
+
 `evals/evals.json` at the repository root is a different thing: a fixture the
 pytest suite checks for internal consistency. It never runs a model. These
 cases were derived from its activation-boundary prompts.
