@@ -87,60 +87,61 @@ checked a fraction of what it was given.
 
 `claude plugin eval` runs Claude Code only. Codex ships the same skills
 through `plugins/afriend/.codex-plugin` and chooses between them from the same
-frontmatter, so the same cases are replayed through `codex exec --json`:
+frontmatter, so the same cases are replayed through `codex exec --json`, in a
+container:
 
 ```bash
-scripts/run_codex_skill_eval.py --dry-run            # print the plan, call nothing
-scripts/run_codex_skill_eval.py --runs 2             # all 18 cases, twice each
-scripts/run_codex_skill_eval.py --tag narrow --runs 1
+scripts/run_codex_skill_eval.py build              # once per Codex version
+scripts/run_codex_skill_eval.py login              # once: the eval's own Codex login
+scripts/run_codex_skill_eval.py run --dry-run      # print the plan, call nothing
+scripts/run_codex_skill_eval.py run --runs 2       # all 18 cases, twice each
+scripts/run_codex_skill_eval.py run --tag narrow --runs 1
 ```
 
-Each run is a real Codex call on your subscription, against the afriend plugin
-installed in `CODEX_HOME` (`afriend-local`), not this checkout: reinstall the
-plugin before measuring a frontmatter change.
+Each run is a real Codex call on the account `login` signed in. That login is
+separate from yours on the host and lives in the Docker volume
+`afriend-codex-eval-home`, so the eval never reads or refreshes your
+credential. The plugin under test is this checkout's --
+`.agents/plugins/marketplace.json` and `plugins/afriend`, streamed in as a tar
+and registered on every run -- so a frontmatter change is measured without
+reinstalling anything.
 
 Codex has no Skill tool event. It selects a skill by reading its `SKILL.md`
 from the plugin cache, so the first afriend `skills/<name>/SKILL.md` a run
 reads is its selection, and a `no-activation` case must read none. Positive
 cases use the same `expectations.json`.
 
-**Do not run it yet.** On its first full run (2026-09-12), a `configure` case
-read the user's name from `CODEX_HOME`'s path, found the installed `afriend` in
-`~/.local/bin`, and ran it by absolute path: `profiles list`, `context show`,
-`providers list`, a guided-setup preview, and a `doctor` that the read-only
-sandbox stopped before it probed anything. Nothing was written. Hiding the CLIs
-from PATH and HOME cannot stop an absolute path, and Codex 0.154 no longer
-accepts the approval policy that would have refused it. The runner caught the
-breach and marked the run untrusted, but catching it is not preventing it.
-Containment needs Codex running where no model CLI is installed at all, and
-that change is not in yet; until it is, the guard below detects and does not
-contain.
+### Why a container
 
-The prompts ask for real work -- `afriend resume run-123` -- so each run is
-checked rather than trusted:
+The prompts ask for real work -- `afriend resume run-123` -- and Codex acts on
+them. The first full run (2026-09-12) ran on the host and hid the model CLIs by
+moving HOME and stripping PATH. A `configure` case read the user's name from
+`CODEX_HOME`'s path, found `afriend` in `~/.local/bin`, and ran it by absolute
+path: `profiles list`, `context show`, `providers list`, a guided-setup
+preview, and a `doctor` that the read-only sandbox stopped before it probed
+anything. Nothing was written, but a hidden binary is still a binary, and Codex
+0.154 no longer accepts the approval policy that would have refused it.
 
-- `-s read-only` and `--ephemeral`.
-- `HOME` is an empty directory per run. Codex runs commands through your login
-  shell, whose profile restores `~/.local/bin`; stripping PATH alone let a run
-  execute the installed `afriend`. A pre-check refuses to start, before any
-  model call, while a guarded login shell can still find `afriend`, `agy`,
-  `claude` or `opencode`.
-- Every MCP server in `CODEX_HOME/config.toml` is disabled with `-c`, because
-  MCP tools run outside the shell sandbox. Servers a bundled plugin provides
-  (the ChatGPT app's computer-use REPL) ignore that and still start, so any
-  event item outside `agent_message`, `reasoning`, `command_execution` and
-  `todo_list` makes the run untrusted.
-- A command that invokes a model CLI is a breach unless the shell reported it
-  not found. A model that tries `afriend status` and gets "command not found"
-  is recorded as blocked; the runner does not pretend the attempt did not
-  happen.
+`evals/codex/Dockerfile` builds an image holding Codex and nothing else that
+can call a model, pinned by digest and by Codex version. Each run starts a
+container with a read-only root filesystem, every capability dropped,
+`no-new-privileges`, a PID limit, tmpfs for home and `/tmp`, and one mount: the
+login volume. No host directory is mounted. Codex's own sandbox needs user
+namespaces a container does not grant, so Codex runs with that sandbox off and
+the container is the boundary.
 
-Exit codes follow the Claude checker, except that an untrusted run -- a
-breach, an unexpected item, a run that did not complete -- exits 2 even when
-another run chose wrongly, because a run that escaped its guard says nothing
-reliable about selection. Results and each run's event stream are kept under
+Detection stays as a second line. A run refuses to start if `afriend`, `agy`,
+`claude` or `opencode` is on the container's PATH. Any event item outside
+`agent_message`, `reasoning`, `command_execution` and `todo_list`, or a model
+CLI the shell actually ran, makes the run untrusted; one the shell reported not
+found is recorded as blocked.
+
+Exit codes follow the Claude checker, except that an untrusted run exits 2 even
+when another run chose wrongly: a run that escaped its boundary says nothing
+reliable about selection. `run` refuses before any model call while the image
+or the login is missing. Results and each run's event stream are kept under
 `--out` (default: a new temp directory). `tests/test_codex_skill_eval.py`
-checks all of this against two real guarded runs and a fake `codex`, with no
+checks all of this against two real Codex runs and a fake `docker`, with no
 model call.
 
 `evals/evals.json` at the repository root is a different thing: a fixture the

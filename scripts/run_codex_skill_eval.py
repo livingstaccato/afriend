@@ -3,57 +3,51 @@
 
 `claude plugin eval` measures skill selection for Claude Code only. Codex ships
 the same four skills through its own plugin (`plugins/afriend/.codex-plugin`)
-and chooses between them from the same `description:` frontmatter, and nothing
-measured whether it chooses correctly. This sends each prompt in
-plugins/afriend/evals/ through `codex exec --json` and reads the event stream.
+and chooses between them from the same `description:` frontmatter; this
+measures whether it chooses correctly.
 
 Codex emits no Skill tool event. A selection shows up as a shell command that
 reads `.../plugins/cache/afriend-local/afriend/<version>/skills/<name>/SKILL.md`,
 so the first afriend skill file a run reads is the skill it selected, and a
 `no-activation` case must read none.
 
-Every run makes a real model call on your Codex subscription:
+Codex runs in a container built from evals/codex/Dockerfile:
 
-    scripts/run_codex_skill_eval.py --dry-run          # print the plan, call nothing
-    scripts/run_codex_skill_eval.py --runs 2           # the whole suite, twice per case
-    scripts/run_codex_skill_eval.py --tag narrow --runs 1
+    scripts/run_codex_skill_eval.py build           # once per Codex version
+    scripts/run_codex_skill_eval.py login           # once: the eval's own Codex login
+    scripts/run_codex_skill_eval.py run --dry-run   # print the plan, call nothing
+    scripts/run_codex_skill_eval.py run --runs 2
 
-Do not run this yet. On its first full run a `configure` case found the
-installed `afriend` through CODEX_HOME's path and ran it by absolute path;
-nothing below can stop that. It detects such a run and marks it untrusted,
-which is not containment. Containment needs Codex running where no model CLI
-is installed.
+Why a container. The prompts ask for real work -- `afriend resume run-123` --
+and on the first full run, on the host, a `configure` case found the installed
+`afriend` through CODEX_HOME's path and ran it by absolute path. Hiding the CLIs
+from PATH and HOME cannot stop that. In the container there is nothing to find:
+no afriend, agy, claude or opencode, no host directory mounted, a read-only root
+filesystem, no capabilities, and a Codex login of its own kept in a Docker
+volume, so the eval never reads or refreshes the host's credential. The plugin
+under test is this checkout's, streamed in as a tar rather than mounted.
 
-The guard, what each part catches, and why:
+Codex's own sandbox cannot start in a container (bwrap needs user namespaces),
+so it runs with that sandbox off and the container as the boundary. Each run
+still refuses to start if a model CLI is on the container's PATH, and its event
+stream is checked: an item outside an allowlist of types, or a model CLI the
+shell actually ran, makes the run untrusted.
 
-- `-s read-only` and `--ephemeral`: the run writes nothing and keeps no session.
-- `HOME` is a fresh empty directory per run. Codex runs every command through
-  the user's login shell, and a login shell's profile puts `~/.local/bin` back
-  on PATH, so stripping PATH alone still let a prompt run the installed
-  `afriend`. With HOME moved no profile is read; `CODEX_HOME` keeps auth and the
-  plugin cache where they are. Before any model call, a login shell under the
-  guard must fail to find `afriend`, `agy`, `claude` and `opencode`.
-- Every MCP server declared in `CODEX_HOME/config.toml` is disabled with `-c`,
-  because MCP tools run outside the shell sandbox. A server that a bundled
-  plugin provides cannot be switched off that way, so every item in the event
-  stream is also checked against an allowlist of types.
-- A command that invokes a model CLI is a guard breach unless the shell reported
-  it was not found.
-
-Exit codes: 0 every selected case completed every run inside the guard and
-selected the expected skill; 1 a run selected the wrong skill; 2 the result
-cannot be trusted -- the guard pre-check failed, a run breached the guard,
-emitted an item outside the allowlist, or did not complete, or the suite and
-expectations.json disagree. A breach outranks a wrong selection: a run that
-escaped its guard says nothing reliable about what it selected.
+Exit codes: 0 every selected case completed every run and selected the
+expected skill; 1 a run selected the wrong skill; 2 the result cannot be
+trusted -- no image, no login, a model CLI in the image, a run that breached,
+emitted an item outside the allowlist, or did not complete, or a suite that
+disagrees with expectations.json. An untrusted run outranks a wrong selection:
+it says nothing reliable about what was selected.
 """
 
 from __future__ import annotations
 
 import argparse
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 import contextlib
 from dataclasses import asdict, dataclass, field
+import io
 import json
 import os
 from pathlib import Path
@@ -62,25 +56,39 @@ import shlex
 import signal
 import subprocess
 import sys
+import tarfile
 import tempfile
-import tomllib
+from types import FrameType
+import uuid
 
 REPO = Path(__file__).resolve().parents[1]
 EVALS = REPO / "plugins" / "afriend" / "evals"
 EXPECTATIONS = EVALS / "expectations.json"
-DEFAULT_CODEX_HOME = Path.home() / ".codex"
+IMAGE_DIR = REPO / "evals" / "codex"
+CODEX_VERSION = "0.154.0"
+IMAGE = f"afriend-codex-eval:{CODEX_VERSION}"
+VOLUME = "afriend-codex-eval-home"
+CONTAINER_PREFIX = "afriend-codex-eval-"
+CONTAINER_UID = 10001
+CONTAINER_HOME = "/home/evaluser"
+CONTAINER_CODEX_HOME = f"{CONTAINER_HOME}/.codex"
+PIDS_LIMIT = 512
+PROMPT_ENV = "EVAL_PROMPT"
+MARKETPLACE = "afriend-local"
+PLUGIN = f"afriend@{MARKETPLACE}"
+# The repository marketplace and the plugin it names: everything Codex needs to
+# install this checkout's plugin, and nothing else from the host.
+SHIPPED = (".agents/plugins/marketplace.json", "plugins/afriend")
+NOT_SHIPPED = frozenset({"results", "__pycache__"})
 DEFAULT_RUNS = 2
 RUN_TIMEOUT_S = 300
-PRECHECK_TIMEOUT_S = 30
-# Enough for Codex and the system tools, and deliberately not ~/.local/bin,
-# where `afriend` and the other model CLIs are installed.
-SAFE_PATH = "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-FALLBACK_SHELL = "/bin/sh"
+PREFLIGHT_TIMEOUT_S = 60
+OUT_PREFIX = "codex-skill-eval-"
+# The container script's exit status when a model CLI is on its PATH.
+MODEL_CLI_PRESENT = 97
 NEGATIVE_TAG = "no-activation"
-MODEL_CLIS = frozenset({"afriend", "agy", "claude", "opencode", "codex"})
-# `codex` has to stay reachable to run the suite at all, so the pre-check
-# cannot demand it is hidden; a run that invokes it is still caught as a breach.
-HIDDEN_BY_GUARD = ("afriend", "agy", "claude", "opencode")
+HIDDEN = ("afriend", "agy", "claude", "opencode")
+MODEL_CLIS = frozenset({*HIDDEN, "codex"})
 PERMITTED_ITEMS = frozenset({"agent_message", "reasoning", "command_execution", "todo_list"})
 AFRIEND_SKILL = re.compile(
     r"/plugins/cache/afriend-local/afriend/[^/\s'\"]+/skills/([a-z][a-z-]*)/SKILL\.md"
@@ -88,7 +96,46 @@ AFRIEND_SKILL = re.compile(
 SEPARATORS = frozenset({";", "&", "&&", "|", "||", "|&", "(", ")", ";;"})
 PREFIX_COMMANDS = frozenset({"command", "env", "exec", "nohup", "sudo", "time", "xargs"})
 ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
-SERVER_NAME = re.compile(r"[A-Za-z0-9_-]+")
+
+CONTAINER = (
+    "--read-only",
+    "--cap-drop",
+    "ALL",
+    "--security-opt",
+    "no-new-privileges",
+    "--pids-limit",
+    str(PIDS_LIMIT),
+    "--tmpfs",
+    "/tmp",
+    "--tmpfs",
+    f"{CONTAINER_HOME}:uid={CONTAINER_UID},gid={CONTAINER_UID}",
+    "-v",
+    f"{VOLUME}:{CONTAINER_CODEX_HOME}",
+    "-e",
+    f"HOME={CONTAINER_HOME}",
+    "-e",
+    f"CODEX_HOME={CONTAINER_CODEX_HOME}",
+)
+
+# Registration is removed before it is added, so a second run against the same
+# login volume does not stop on "already added". The prompt arrives in the
+# environment, never in the script, so no prompt can be read as shell.
+CONTAINER_SCRIPT = f"""set -eu
+for name in {" ".join(HIDDEN)}; do
+  if command -v "$name" >/dev/null 2>&1; then
+    echo "a model CLI is installed in the image: $name" >&2
+    exit {MODEL_CLI_PRESENT}
+  fi
+done
+mkdir -p "$HOME/src" "$HOME/work"
+tar -x -C "$HOME/src"
+codex plugin remove {PLUGIN} >/dev/null 2>&1 || true
+codex plugin marketplace remove {MARKETPLACE} >/dev/null 2>&1 || true
+codex plugin marketplace add "$HOME/src" >&2
+codex plugin add {PLUGIN} >&2
+exec codex exec --json --ephemeral --skip-git-repo-check \\
+  --dangerously-bypass-approvals-and-sandbox -C "$HOME/work" "${PROMPT_ENV}" </dev/null
+"""
 
 
 class Unreadable(Exception):
@@ -177,8 +224,8 @@ def select(cases: Sequence[Case], names: Sequence[str], tags: Sequence[str]) -> 
 def invoked_programs(command: str) -> list[str]:
     """The program each simple command in a shell command line runs, by basename.
 
-    Codex reports `/bin/zsh -lc '<script>'`; the script is what is parsed. A
-    word is a program when it starts a command -- first, or after a separator --
+    Codex reports `<shell> -lc '<script>'`; the script is what is parsed. A word
+    is a program when it starts a command -- first, or after a separator --
     past any `VAR=value` assignments and prefixes such as `env`. So the
     `afriend` inside `cat .../afriend-local/afriend/.../SKILL.md` is a path, not
     an invocation, while `/home/u/.local/bin/afriend status` is one.
@@ -242,9 +289,12 @@ def analyse(events: Sequence[Mapping[str, object]]) -> RunOutcome:
         outcome.skills_read.extend(AFRIEND_SKILL.findall(command))
         output = str(item.get("aggregated_output", ""))
         for program in invoked_programs(command):
-            if program in MODEL_CLIS:
-                target = outcome.blocked if _not_found(output, program) else outcome.breaches
-                target.append(command)
+            if program not in MODEL_CLIS:
+                continue
+            if _not_found(output, program):
+                outcome.blocked.append(command)
+            else:
+                outcome.breaches.append(f"ran {command}")
     if outcome.skills_read:
         outcome.selected = f"afriend:{outcome.skills_read[0]}"
     return outcome
@@ -253,7 +303,7 @@ def analyse(events: Sequence[Mapping[str, object]]) -> RunOutcome:
 def judge(case: Case, outcome: RunOutcome) -> tuple[str, str | None]:
     """`("ok", None)`, `("wrong", reason)` or `("untrusted", reason)`."""
     if outcome.breaches:
-        return "untrusted", f"guard breach, ran: {'; '.join(outcome.breaches)}"
+        return "untrusted", f"guard breach: {'; '.join(outcome.breaches)}"
     if outcome.unpermitted:
         return "untrusted", f"items outside the allowlist: {', '.join(outcome.unpermitted)}"
     if outcome.errors or not outcome.completed:
@@ -265,75 +315,9 @@ def judge(case: Case, outcome: RunOutcome) -> tuple[str, str | None]:
     return "ok", None
 
 
-def guard_env(home: Path, codex_home: Path, base: Mapping[str, str]) -> dict[str, str]:
-    # ZDOTDIR would point zsh back at the real profile the moved HOME hides.
-    env = {key: value for key, value in base.items() if key != "ZDOTDIR"}
-    env.update(HOME=str(home), CODEX_HOME=str(codex_home), PATH=SAFE_PATH)
-    return env
-
-
-def reachable_under_guard(env: Mapping[str, str]) -> list[str]:
-    """The model CLIs a login shell under this environment can still find."""
-    shell = env.get("SHELL") or FALLBACK_SHELL
-    probe = " ".join(
-        f"command -v {name} >/dev/null 2>&1 && echo {name};" for name in HIDDEN_BY_GUARD
-    )
-    proc = subprocess.run(
-        [shell, "-lc", probe],
-        env=dict(env),
-        stdin=subprocess.DEVNULL,
-        capture_output=True,
-        text=True,
-        timeout=PRECHECK_TIMEOUT_S,
-        check=False,
-    )
-    return proc.stdout.split()
-
-
-def mcp_overrides(codex_home: Path) -> list[str]:
-    config = codex_home / "config.toml"
-    if not config.is_file():
-        return []
-    try:
-        servers = tomllib.loads(config.read_text(encoding="utf-8")).get("mcp_servers", {})
-    except tomllib.TOMLDecodeError as exc:
-        raise Unreadable(f"{config} is not valid TOML: {exc}") from exc
-    overrides: list[str] = []
-    for name in sorted(servers):
-        if not SERVER_NAME.fullmatch(name):
-            raise Unreadable(
-                f"MCP server `{name}` in {config} cannot be addressed with `-c`, so it "
-                "cannot be disabled for the run"
-            )
-        overrides += ["-c", f"mcp_servers.{name}.enabled=false"]
-    return overrides
-
-
-def codex_argv(
-    prompt: str, workdir: Path, last_message: Path, overrides: Sequence[str]
-) -> list[str]:
-    if prompt.startswith("-"):
-        raise Unreadable(f"prompt {prompt!r} would be parsed as a Codex option")
-    return [
-        "codex",
-        *overrides,
-        "exec",
-        "--json",
-        "--ephemeral",
-        "--skip-git-repo-check",
-        "-s",
-        "read-only",
-        "-C",
-        str(workdir),
-        "-o",
-        str(last_message),
-        prompt,
-    ]
-
-
 def load_events(path: Path) -> list[dict[str, object]]:
     events: list[dict[str, object]] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
         try:
             value = json.loads(line)
         except json.JSONDecodeError:
@@ -343,119 +327,187 @@ def load_events(path: Path) -> list[dict[str, object]]:
     return events
 
 
-def _end_group(pid: int, sig: signal.Signals) -> None:
-    # MCP servers and other children can outlive Codex; its session is theirs too.
-    with contextlib.suppress(ProcessLookupError, PermissionError):
-        os.killpg(pid, sig)
+def _ship(member: tarfile.TarInfo) -> tarfile.TarInfo | None:
+    if NOT_SHIPPED & set(Path(member.name).parts):
+        return None
+    member.uid = member.gid = CONTAINER_UID
+    member.uname = member.gname = ""
+    return member
 
 
-def run_once(
-    case: Case,
-    run_dir: Path,
-    codex_home: Path,
-    overrides: Sequence[str],
-    base_env: Mapping[str, str],
-) -> RunOutcome:
-    home, work = run_dir / "home", run_dir / "work"
-    home.mkdir(parents=True)
-    work.mkdir()
+def plugin_archive(repo: Path = REPO) -> bytes:
+    """This checkout's marketplace and plugin, as the tar the container unpacks."""
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w") as archive:
+        for relative in SHIPPED:
+            if not (repo / relative).exists():
+                raise Unreadable(f"{relative} is missing from {repo}")
+            archive.add(repo / relative, arcname=relative, filter=_ship)
+    return buffer.getvalue()
+
+
+def build_argv() -> list[str]:
+    return [
+        "docker",
+        "build",
+        "--build-arg",
+        f"CODEX_VERSION={CODEX_VERSION}",
+        "-t",
+        IMAGE,
+        str(IMAGE_DIR),
+    ]
+
+
+def login_argv(tty: bool) -> list[str]:
+    # Docker refuses `-t` when stdin is not a terminal, which is how an editor's
+    # shell escape (`! command`) runs it.
+    interactive = "-it" if tty else "-i"
+    return [
+        "docker",
+        "run",
+        "--rm",
+        interactive,
+        *CONTAINER,
+        IMAGE,
+        "codex",
+        "login",
+        "--device-auth",
+    ]
+
+
+def login_status_argv() -> list[str]:
+    return ["docker", "run", "--rm", *CONTAINER, IMAGE, "codex", "login", "status"]
+
+
+def run_argv(container: str) -> list[str]:
+    # `-e NAME` with no value: docker copies it from its own environment, which
+    # is where the prompt goes.
+    return [
+        "docker",
+        "run",
+        "--rm",
+        "-i",
+        "--name",
+        container,
+        *CONTAINER,
+        "-e",
+        PROMPT_ENV,
+        IMAGE,
+        "sh",
+        "-c",
+        CONTAINER_SCRIPT,
+    ]
+
+
+def preflight(env: Mapping[str, str]) -> None:
+    """Refuse before any model call unless the image exists and its login works."""
+    image = subprocess.run(
+        ["docker", "image", "inspect", IMAGE], env=dict(env), capture_output=True, check=False
+    )
+    if image.returncode != 0:
+        raise Unreadable(f"there is no {IMAGE} image; run `{Path(__file__).name} build` first")
+    status = subprocess.run(
+        login_status_argv(),
+        env=dict(env),
+        capture_output=True,
+        text=True,
+        timeout=PREFLIGHT_TIMEOUT_S,
+        check=False,
+    )
+    if status.returncode != 0:
+        raise Unreadable(
+            f"the eval's Codex login in volume {VOLUME} is missing or expired; run "
+            f"`{Path(__file__).name} login`"
+        )
+
+
+def run_once(case: Case, run_dir: Path, archive: bytes, env: Mapping[str, str]) -> RunOutcome:
+    run_dir.mkdir(parents=True)
     events = run_dir / "events.jsonl"
-    argv = codex_argv(case.prompt, work, run_dir / "last-message.txt", overrides)
+    container = f"{CONTAINER_PREFIX}{uuid.uuid4().hex[:12]}"
     timed_out = False
-    with events.open("w", encoding="utf-8") as out, (run_dir / "stderr.txt").open("w") as err:
+    with events.open("wb") as out, (run_dir / "stderr.txt").open("wb") as err:
+        proc = subprocess.Popen(
+            run_argv(container),
+            env={**env, PROMPT_ENV: case.prompt},
+            stdin=subprocess.PIPE,
+            stdout=out,
+            stderr=err,
+        )
         try:
-            proc = subprocess.Popen(
-                argv,
-                env=guard_env(home, codex_home, base_env),
-                stdin=subprocess.DEVNULL,
-                stdout=out,
-                stderr=err,
-                start_new_session=True,
-            )
-        except FileNotFoundError as exc:
-            raise Unreadable(f"`codex` is not on the guarded PATH ({SAFE_PATH})") from exc
-        try:
-            code = proc.wait(timeout=RUN_TIMEOUT_S)
+            proc.communicate(input=archive, timeout=RUN_TIMEOUT_S)
         except subprocess.TimeoutExpired:
             timed_out = True
-            _end_group(proc.pid, signal.SIGKILL)
-            code = proc.wait()
-        _end_group(proc.pid, signal.SIGTERM)
+        finally:
+            # A killed `docker run` client can leave its container running.
+            if proc.poll() is None:
+                subprocess.run(
+                    ["docker", "kill", container], env=dict(env), capture_output=True, check=False
+                )
+                proc.wait()
     outcome = analyse(load_events(events))
     if timed_out:
         outcome.errors.append(f"timed out after {RUN_TIMEOUT_S}s")
-    elif code != 0:
-        outcome.errors.append(f"codex exited {code}")
+    elif proc.returncode == MODEL_CLI_PRESENT:
+        outcome.breaches.append("a model CLI is installed in the image (see stderr.txt)")
+    elif proc.returncode != 0:
+        outcome.errors.append(f"the container exited {proc.returncode} (see stderr.txt)")
     return outcome
 
 
-def main(argv: Sequence[str], base_env: Mapping[str, str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Replay the afriend activation suite through Codex."
-    )
-    parser.add_argument("--runs", type=int, default=DEFAULT_RUNS)
-    parser.add_argument("--case", action="append", default=[], help="repeatable")
-    parser.add_argument("--tag", action="append", default=[], help="repeatable")
-    parser.add_argument("--codex-home", type=Path, default=DEFAULT_CODEX_HOME)
-    parser.add_argument("--out", type=Path, help="results directory (default: a new temp dir)")
-    parser.add_argument("--dry-run", action="store_true", help="print the plan; call nothing")
-    args = parser.parse_args(argv)
-    env = dict(os.environ if base_env is None else base_env)
+def _terminate(signum: int, _frame: FrameType | None) -> None:
+    raise SystemExit(128 + signum)
 
-    if args.runs < 1:
-        print("error: --runs must be at least 1.", file=sys.stderr)
-        return 2
+
+@contextlib.contextmanager
+def _exit_on_sigterm() -> Iterator[None]:
+    # SIGTERM would otherwise skip every `finally`: the summary and the kill of
+    # the container still running.
+    previous = signal.signal(signal.SIGTERM, _terminate)
     try:
-        cases = select(load_cases(), args.case, args.tag)
-        overrides = mcp_overrides(args.codex_home)
-        if args.dry_run:
-            for case in cases:
-                command = codex_argv(case.prompt, Path("<work>"), Path("<last>"), overrides)
-                print(f"{case.name} -> {case.expected or 'no afriend skill'}")
-                print(f"  {shlex.join(command)}")
-            return 0
-    except Unreadable as exc:
-        print(f"error: {exc}.", file=sys.stderr)
-        return 2
+        yield
+    finally:
+        signal.signal(signal.SIGTERM, previous)
 
-    out = args.out or Path(tempfile.mkdtemp(prefix="codex-skill-eval-"))
+
+def _run(args: argparse.Namespace, env: Mapping[str, str]) -> int:
+    if args.runs < 1:
+        raise Unreadable("--runs must be at least 1")
+    cases = select(load_cases(), args.case, args.tag)
+    if args.dry_run:
+        print(shlex.join(run_argv(f"{CONTAINER_PREFIX}<id>")))
+        for case in cases:
+            print(f"{case.name} -> {case.expected or 'no afriend skill'}: {case.prompt}")
+        return 0
+    archive = plugin_archive()
+    preflight(env)
+
+    out = args.out or Path(tempfile.mkdtemp(prefix=OUT_PREFIX))
     out.mkdir(parents=True, exist_ok=True)
-    probe_home = out / "precheck-home"
-    probe_home.mkdir(exist_ok=True)
-    reachable = reachable_under_guard(guard_env(probe_home, args.codex_home, env))
-    if reachable:
-        print(
-            f"error: a login shell under the guard still finds {', '.join(reachable)}, so a "
-            "prompt could run it. Nothing was called.",
-            file=sys.stderr,
-        )
-        return 2
-
     records: list[dict[str, object]] = []
     wrong: list[str] = []
     untrusted: list[str] = []
     try:
-        for case in cases:
-            for index in range(1, args.runs + 1):
-                run_dir = out / case.name / f"run-{index}"
-                outcome = run_once(case, run_dir, args.codex_home, overrides, env)
-                status, reason = judge(case, outcome)
-                label = f"{case.name} run {index} of {args.runs}"
-                print(f"{label}: {status}" + (f" -- {reason}" if reason else ""), file=sys.stderr)
-                records.append(
-                    {"case": case.name, "run": index, "expected": case.expected}
-                    | {"status": status, "reason": reason}
-                    | asdict(outcome)
-                )
-                if status == "wrong":
-                    wrong.append(f"{label}: {reason}")
-                elif status == "untrusted":
-                    untrusted.append(f"{label}: {reason}")
-    except Unreadable as exc:
-        print(f"error: {exc}.", file=sys.stderr)
-        return 2
+        with _exit_on_sigterm():
+            for case in cases:
+                for index in range(1, args.runs + 1):
+                    outcome = run_once(case, out / case.name / f"run-{index}", archive, env)
+                    status, reason = judge(case, outcome)
+                    label = f"{case.name} run {index} of {args.runs}"
+                    print(
+                        f"{label}: {status}" + (f" -- {reason}" if reason else ""), file=sys.stderr
+                    )
+                    records.append(
+                        {"case": case.name, "run": index, "expected": case.expected}
+                        | {"status": status, "reason": reason}
+                        | asdict(outcome)
+                    )
+                    if status == "wrong":
+                        wrong.append(f"{label}: {reason}")
+                    elif status == "untrusted":
+                        untrusted.append(f"{label}: {reason}")
     finally:
-        summary = {"runs": args.runs, "mcp_overrides": overrides, "results": records}
+        summary = {"image": IMAGE, "runs": args.runs, "results": records}
         (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
         print(f"results: {out}", file=sys.stderr)
 
@@ -473,6 +525,37 @@ def main(argv: Sequence[str], base_env: Mapping[str, str] | None = None) -> int:
         f"{len(records)} run(s)."
     )
     return 0
+
+
+def main(argv: Sequence[str], base_env: Mapping[str, str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Replay the afriend activation suite through Codex, in a container."
+    )
+    commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser("build", help=f"build {IMAGE} from {IMAGE_DIR.relative_to(REPO)}")
+    commands.add_parser("login", help=f"log the eval's own Codex account into {VOLUME}, once")
+    run = commands.add_parser("run", help="replay the suite")
+    run.add_argument("--runs", type=int, default=DEFAULT_RUNS)
+    run.add_argument("--case", action="append", default=[], help="repeatable")
+    run.add_argument("--tag", action="append", default=[], help="repeatable")
+    run.add_argument("--out", type=Path, help="results directory (default: a new temp dir)")
+    run.add_argument("--dry-run", action="store_true", help="print the plan; call nothing")
+    args = parser.parse_args(argv)
+    env = dict(os.environ if base_env is None else base_env)
+    try:
+        if args.command == "build":
+            return subprocess.run(build_argv(), env=env, check=False).returncode
+        if args.command == "login":
+            return subprocess.run(login_argv(sys.stdin.isatty()), env=env, check=False).returncode
+        return _run(args, env)
+    except FileNotFoundError as exc:
+        print(
+            f"error: {exc.filename or 'docker'} is not installed or not on PATH.", file=sys.stderr
+        )
+        return 2
+    except Unreadable as exc:
+        print(f"error: {exc}.", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

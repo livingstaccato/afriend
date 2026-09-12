@@ -2,22 +2,24 @@
 
 `claude plugin eval` measures which afriend skill Claude Code selects; nothing
 measured Codex, which ships the same skills through its own plugin.
-`scripts/run_codex_skill_eval.py` replays the suite through `codex exec --json`.
-These exercise how it reads a run, and the guard around one, against real
-Codex event streams and a fake `codex`, so no test makes a model call.
+`scripts/run_codex_skill_eval.py` replays the suite through `codex exec --json`
+inside a container that holds no other model CLI. These exercise how it reads
+a run, the container it builds, and the refusals around both, against real
+Codex event streams and a fake `docker`, so no test makes a model call.
 
-`tests/fixtures/codex_skill_eval_real/` holds two real guarded runs of
-`afriend resume run-123` (codex-cli 0.154.0), with paths redacted and long
-command output truncated. In both, the model tried `afriend status` and the
-guard's login shell reported it not found; the second also ran with every
-configured MCP server disabled.
+`tests/fixtures/codex_skill_eval_real/` holds two real runs of `afriend resume
+run-123` (codex-cli 0.154.0, on the host under the guard this replaced), with
+paths redacted and long command output truncated. In both, the model tried
+`afriend status` and the shell reported it not found.
 """
 
 import importlib.util
+import io
 import json
 from pathlib import Path
 import stat
 import sys
+import tarfile
 
 import pytest
 
@@ -73,11 +75,10 @@ def test_a_real_run_that_tried_afriend_is_read_as_blocked_not_breached():
     assert M.judge(_case(), outcome) == ("ok", None)
 
 
-def test_a_real_run_with_mcp_disabled_emits_only_permitted_items():
+def test_a_real_run_emits_only_permitted_items():
     outcome = M.analyse(M.load_events(REAL / "mcp-disabled-run.jsonl"))
 
     assert outcome.unpermitted == []
-    assert outcome.selected == "afriend:review"
     assert M.judge(_case(), outcome) == ("ok", None)
 
 
@@ -85,15 +86,15 @@ def test_a_model_cli_the_shell_actually_ran_is_a_breach_even_with_the_right_skil
     outcome = M.analyse(
         [
             _cmd(SKILL.format("review")),
-            _cmd("/bin/zsh -lc 'afriend status run-123 --json'", '{"state": "x"}', 2, "c2"),
+            _cmd("/bin/sh -lc '/home/u/.local/bin/afriend doctor'", "ready", 0, "c2"),
             DONE,
         ]
     )
 
-    assert outcome.breaches == ["/bin/zsh -lc 'afriend status run-123 --json'"]
+    assert outcome.breaches == ["ran /bin/sh -lc '/home/u/.local/bin/afriend doctor'"]
     status, reason = M.judge(_case(), outcome)
     assert status == "untrusted"
-    assert "guard breach" in reason
+    assert reason.startswith("guard breach: ran ")
 
 
 @pytest.mark.parametrize(
@@ -142,7 +143,9 @@ def test_the_first_afriend_skill_read_is_the_selection():
 
 
 def test_a_skill_from_another_plugin_is_not_a_selection():
-    other = "/bin/zsh -lc 'cat <codex-home>/plugins/cache/openai-curated/superpowers/1/skills/brainstorming/SKILL.md'"
+    other = (
+        "/bin/sh -lc 'cat /h/.codex/plugins/cache/openai-curated/superpowers/1/skills/x/SKILL.md'"
+    )
     outcome = M.analyse([_cmd(other), DONE])
 
     assert outcome.selected is None
@@ -201,120 +204,217 @@ def test_an_expectation_naming_no_case_is_refused(tmp_path):
         M.load_cases(evals, {"pos-a": "afriend:review", "pos-gone": "afriend:status"})
 
 
-def test_every_declared_mcp_server_is_disabled(tmp_path):
-    tmp_path.joinpath("config.toml").write_text(
-        '[mcp_servers.alpha]\ncommand = "a"\n\n[mcp_servers.beta-2]\ncommand = "b"\n'
-    )
+def test_the_container_is_hardened_and_mounts_nothing_from_the_host():
+    argv = M.run_argv("afriend-codex-eval-x")
 
-    assert M.mcp_overrides(tmp_path) == [
-        "-c",
-        "mcp_servers.alpha.enabled=false",
-        "-c",
-        "mcp_servers.beta-2.enabled=false",
-    ]
-    assert M.mcp_overrides(tmp_path / "absent") == []
-
-
-def test_an_mcp_server_that_cannot_be_addressed_is_refused(tmp_path):
-    tmp_path.joinpath("config.toml").write_text('[mcp_servers."a.b"]\ncommand = "a"\n')
-
-    with pytest.raises(M.Unreadable, match="cannot be disabled"):
-        M.mcp_overrides(tmp_path)
+    assert argv[:4] == ["docker", "run", "--rm", "-i"]
+    assert "--read-only" in argv
+    assert argv[argv.index("--cap-drop") + 1] == "ALL"
+    assert argv[argv.index("--security-opt") + 1] == "no-new-privileges"
+    assert "--privileged" not in argv and "--mount" not in argv
+    volumes = [argv[i + 1] for i, arg in enumerate(argv) if arg == "-v"]
+    assert volumes == [f"{M.VOLUME}:{M.CONTAINER_CODEX_HOME}"]
+    # The prompt is copied from docker's environment, never written into argv.
+    assert argv[argv.index(M.IMAGE) - 1] == M.PROMPT_ENV
+    assert argv[-3:-1] == ["sh", "-c"]
 
 
-def test_the_guard_moves_home_and_strips_path(tmp_path):
-    base = {"PATH": "/u/.local/bin:/usr/bin", "ZDOTDIR": "/u", "TERM": "xterm"}
-    env = M.guard_env(tmp_path / "home", tmp_path / "codex", base)
+def test_the_container_script_refuses_a_model_cli_and_reads_the_prompt_from_env():
+    script = M.CONTAINER_SCRIPT
 
-    assert env["HOME"] == str(tmp_path / "home")
-    assert env["CODEX_HOME"] == str(tmp_path / "codex")
-    assert env["PATH"] == M.SAFE_PATH
-    assert "ZDOTDIR" not in env
-    assert env["TERM"] == "xterm"
-
-
-def test_the_codex_command_is_read_only_ephemeral_and_json(tmp_path):
-    argv = M.codex_argv("afriend README.md", tmp_path, tmp_path / "last", ["-c", "k=v"])
-
-    assert argv[:4] == ["codex", "-c", "k=v", "exec"]
-    assert {"--json", "--ephemeral"} <= set(argv)
-    assert argv[argv.index("-s") + 1] == "read-only"
-    assert argv[-1] == "afriend README.md"
-    with pytest.raises(M.Unreadable, match="Codex option"):
-        M.codex_argv("--help", tmp_path, tmp_path / "last", [])
+    assert "for name in afriend agy claude opencode; do" in script
+    assert f"exit {M.MODEL_CLI_PRESENT}" in script
+    assert script.index(f"exit {M.MODEL_CLI_PRESENT}") < script.index("codex exec")
+    assert '"$EVAL_PROMPT" </dev/null' in script
+    assert "--dangerously-bypass-approvals-and-sandbox" in script
 
 
-def _fake_codex(tmp_path, monkeypatch, events, also=()):
+def test_the_login_shares_the_containers_hardening_and_volume():
+    assert M.login_argv(tty=True)[-3:] == ["codex", "login", "--device-auth"]
+    assert set(M.CONTAINER) <= set(M.login_argv(tty=True))
+    assert set(M.CONTAINER) <= set(M.login_status_argv())
+
+
+def test_the_login_asks_for_a_terminal_only_when_it_has_one():
+    # Docker refuses `-t` when stdin is not a terminal, as under `! command`.
+    assert M.login_argv(tty=True)[:4] == ["docker", "run", "--rm", "-it"]
+    without = M.login_argv(tty=False)
+    assert without[:4] == ["docker", "run", "--rm", "-i"]
+    assert "-it" not in without and "-t" not in without
+
+
+def test_login_without_a_terminal_starts_docker_without_one(tmp_path):
+    env, log = _docker(tmp_path)
+
+    assert M.main(["login"], base_env=env) == 0
+    [call] = _calls(log)
+    assert call["argv"][:3] == ["run", "--rm", "-i"]
+    assert call["argv"][-3:] == ["codex", "login", "--device-auth"]
+
+
+def test_the_plugin_ships_as_an_archive_of_this_checkout():
+    with tarfile.open(fileobj=io.BytesIO(M.plugin_archive())) as archive:
+        members = archive.getmembers()
+    names = {member.name for member in members}
+
+    assert ".agents/plugins/marketplace.json" in names
+    assert "plugins/afriend/.codex-plugin/plugin.json" in names
+    assert "plugins/afriend/skills/review/SKILL.md" in names
+    assert not any({"results", "__pycache__"} & set(Path(name).parts) for name in names)
+    assert all(not name.startswith("/") and ".." not in Path(name).parts for name in names)
+    assert {member.uid for member in members} == {M.CONTAINER_UID}
+
+
+def test_the_image_installs_the_codex_version_the_script_pins():
+    dockerfile = (M.IMAGE_DIR / "Dockerfile").read_text()
+
+    assert "\nFROM node@sha256:" in dockerfile
+    assert "\nARG CODEX_VERSION\n" in dockerfile
+    assert '"@openai/codex@${CODEX_VERSION}"' in dockerfile
+    assert "\nUSER evaluser\n" in dockerfile
+    # Codex verifies TLS against the system bundle, which the slim base omits;
+    # Node carries its own, so a successful `npm install` proves nothing.
+    install = "apt-get install -y --no-install-recommends ca-certificates"
+    assert install in dockerfile
+    assert dockerfile.index(install) < dockerfile.index("\nUSER evaluser\n")
+    assert f"CODEX_VERSION={M.CODEX_VERSION}" in M.build_argv()
+    assert M.CODEX_VERSION in M.IMAGE
+
+
+FAKE_DOCKER = """#!{python}
+import io, json, os, sys, tarfile
+args = sys.argv[1:]
+record = {{"argv": args}}
+if args[:2] == ["image", "inspect"]:
+    code = int(os.environ.get("FAKE_IMAGE_EXIT", "0"))
+elif args[:1] == ["run"] and args[-3:] == ["codex", "login", "status"]:
+    code = int(os.environ.get("FAKE_LOGIN_EXIT", "0"))
+elif args[:1] == ["run"] and args[-3:] == ["codex", "login", "--device-auth"]:
+    code = 0
+elif args[:1] == ["run"]:
+    data = sys.stdin.buffer.read()
+    record["prompt"] = os.environ.get("EVAL_PROMPT")
+    record["members"] = tarfile.open(fileobj=io.BytesIO(data)).getnames()
+    code = int(os.environ.get("FAKE_RUN_EXIT", "0"))
+    if code == 0:
+        sys.stdout.write(open(os.environ["FAKE_EVENTS"]).read())
+else:
+    code = 0
+with open(os.environ["FAKE_DOCKER_LOG"], "a") as log:
+    log.write(json.dumps(record) + "\\n")
+sys.exit(code)
+"""
+
+
+def _docker(tmp_path, events="blocked-forbidden-run.jsonl", **overrides):
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    calls = tmp_path / "calls.jsonl"
-    codex = bin_dir / "codex"
-    codex.write_text(
-        f"#!{sys.executable}\n"
-        "import json, os, pathlib, sys\n"
-        "args = sys.argv[1:]\n"
-        "record = {'argv': args, 'HOME': os.environ['HOME'], 'home_files': os.listdir(os.environ['HOME'])}\n"
-        "record['CODEX_HOME'] = os.environ['CODEX_HOME']\n"
-        f"with open({str(calls)!r}, 'a') as log:\n"
-        "    log.write(json.dumps(record) + '\\n')\n"
-        "pathlib.Path(args[args.index('-o') + 1]).write_text('done')\n"
-        f"sys.stdout.write(pathlib.Path({str(events)!r}).read_text())\n"
-    )
-    for tool in (codex, *(bin_dir / name for name in also)):
-        if not tool.exists():
-            tool.write_text("#!/bin/sh\nexit 0\n")
-        tool.chmod(tool.stat().st_mode | stat.S_IXUSR)
-    monkeypatch.setattr(M, "SAFE_PATH", f"{bin_dir}:/usr/bin:/bin")
-    codex_home = tmp_path / "codex-home"
-    codex_home.mkdir()
-    codex_home.joinpath("config.toml").write_text('[mcp_servers.alpha]\ncommand = "a"\n')
-    return calls, codex_home
+    docker = bin_dir / "docker"
+    docker.write_text(FAKE_DOCKER.format(python=sys.executable))
+    docker.chmod(docker.stat().st_mode | stat.S_IXUSR)
+    log = tmp_path / "docker.jsonl"
+    env = {
+        "PATH": f"{bin_dir}:/usr/bin:/bin",
+        "FAKE_DOCKER_LOG": str(log),
+        "FAKE_EVENTS": str(REAL / events),
+        **overrides,
+    }
+    return env, log
 
 
-def _main(tmp_path, codex_home, *extra):
-    argv = ["--runs", "1", "--codex-home", str(codex_home), "--out", str(tmp_path / "out")]
-    return M.main([*argv, *extra], base_env={"SHELL": "/bin/sh"})
+def _calls(log):
+    return [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
 
 
-def test_a_guarded_run_through_codex_passes_and_records_what_it_blocked(tmp_path, monkeypatch):
-    calls, codex_home = _fake_codex(tmp_path, monkeypatch, REAL / "blocked-forbidden-run.jsonl")
+def _run(tmp_path, env, *extra):
+    argv = ["run", "--runs", "1", "--out", str(tmp_path / "out"), *extra]
+    return M.main(argv, base_env=env)
 
-    assert _main(tmp_path, codex_home, "--case", RESUME) == 0
 
-    [call] = [json.loads(line) for line in calls.read_text().splitlines()]
-    assert call["argv"][:3] == ["-c", "mcp_servers.alpha.enabled=false", "exec"]
-    assert call["CODEX_HOME"] == str(codex_home)
-    assert call["HOME"] == str(tmp_path / "out" / RESUME / "run-1" / "home")
-    assert call["home_files"] == []
+def test_a_run_through_the_container_passes_and_records_what_it_blocked(tmp_path):
+    env, log = _docker(tmp_path)
+
+    assert _run(tmp_path, env, "--case", RESUME) == 0
+
+    image, login, run = _calls(log)
+    assert image["argv"] == ["image", "inspect", M.IMAGE]
+    assert login["argv"][-3:] == ["codex", "login", "status"]
+    assert run["prompt"] == "afriend resume run-123"
+    assert "plugins/afriend/skills/review/SKILL.md" in run["members"]
     [record] = json.loads((tmp_path / "out" / "summary.json").read_text())["results"]
     assert record["status"] == "ok"
     assert record["blocked"] == ["/bin/zsh -lc 'afriend status run-123 --json'"]
 
 
-def test_a_wrong_selection_exits_1(tmp_path, monkeypatch):
-    _, codex_home = _fake_codex(tmp_path, monkeypatch, REAL / "blocked-forbidden-run.jsonl")
+def test_a_wrong_selection_exits_1(tmp_path):
+    env, _ = _docker(tmp_path)
 
-    assert _main(tmp_path, codex_home, "--case", "pos-afriend-status") == 1
-
-
-def test_the_guard_refuses_to_start_while_a_model_cli_is_reachable(tmp_path, monkeypatch):
-    calls, codex_home = _fake_codex(
-        tmp_path, monkeypatch, REAL / "blocked-forbidden-run.jsonl", also=("agy",)
-    )
-
-    assert _main(tmp_path, codex_home, "--case", RESUME) == 2
-    assert not calls.exists()
+    assert _run(tmp_path, env, "--case", "pos-afriend-status") == 1
 
 
-def test_a_dry_run_calls_nothing(tmp_path, monkeypatch, capsys):
-    calls, codex_home = _fake_codex(tmp_path, monkeypatch, REAL / "blocked-forbidden-run.jsonl")
+@pytest.mark.parametrize(
+    ("override", "message"),
+    [
+        ({"FAKE_IMAGE_EXIT": "1"}, "build` first"),
+        ({"FAKE_LOGIN_EXIT": "1"}, "run_codex_skill_eval.py login`"),
+    ],
+)
+def test_no_image_or_no_login_refuses_before_any_run(tmp_path, capsys, override, message):
+    env, log = _docker(tmp_path, **override)
 
-    assert _main(tmp_path, codex_home, "--dry-run", "--tag", "no-activation") == 0
-    assert not calls.exists()
+    assert _run(tmp_path, env, "--case", RESUME) == 2
+    assert not [call for call in _calls(log) if "prompt" in call]
+    assert message in capsys.readouterr().err
+
+
+def test_a_model_cli_in_the_image_makes_the_run_untrusted(tmp_path):
+    env, _ = _docker(tmp_path, FAKE_RUN_EXIT=str(M.MODEL_CLI_PRESENT))
+
+    assert _run(tmp_path, env, "--case", RESUME) == 2
+    [record] = json.loads((tmp_path / "out" / "summary.json").read_text())["results"]
+    assert "installed in the image" in record["reason"]
+
+
+def test_a_dry_run_calls_nothing(tmp_path, capsys):
+    env, log = _docker(tmp_path)
+
+    assert _run(tmp_path, env, "--dry-run", "--tag", "no-activation") == 0
+    assert _calls(log) == []
     assert capsys.readouterr().out.count("-> no afriend skill") == 5
 
 
-def test_an_unknown_case_is_refused(tmp_path, monkeypatch):
-    _, codex_home = _fake_codex(tmp_path, monkeypatch, REAL / "blocked-forbidden-run.jsonl")
+def test_an_unknown_case_is_refused(tmp_path):
+    env, _ = _docker(tmp_path)
 
-    assert _main(tmp_path, codex_home, "--dry-run", "--case", "pos-nope") == 2
+    assert _run(tmp_path, env, "--dry-run", "--case", "pos-nope") == 2
+
+
+def test_missing_docker_is_reported_not_raised(tmp_path, capsys):
+    env = {"PATH": str(tmp_path / "empty")}
+
+    assert _run(tmp_path, env, "--case", RESUME) == 2
+    assert "not installed or not on PATH" in capsys.readouterr().err
+
+
+def test_results_and_bytecode_never_ship(tmp_path):
+    for relative in (
+        ".agents/plugins/marketplace.json",
+        "plugins/afriend/skills/review/SKILL.md",
+        "plugins/afriend/evals/results/2026/aggregate-result.json",
+        "plugins/afriend/__pycache__/x.pyc",
+    ):
+        tmp_path.joinpath(relative).parent.mkdir(parents=True, exist_ok=True)
+        tmp_path.joinpath(relative).write_text("x")
+
+    with tarfile.open(fileobj=io.BytesIO(M.plugin_archive(tmp_path))) as archive:
+        names = archive.getnames()
+
+    assert "plugins/afriend/skills/review/SKILL.md" in names
+    assert not [name for name in names if "results" in name or "__pycache__" in name]
+
+
+def test_a_checkout_missing_the_marketplace_is_refused(tmp_path):
+    tmp_path.joinpath("plugins/afriend").mkdir(parents=True)
+
+    with pytest.raises(M.Unreadable, match="json is missing from"):
+        M.plugin_archive(tmp_path)
