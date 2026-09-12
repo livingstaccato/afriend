@@ -9,6 +9,9 @@ on:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    # A run takes about four minutes. Fail a hang well inside GitHub's
+    # six-hour default; pytest's faulthandler_timeout names the stuck test.
+    timeout-minutes: 20
     strategy:
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
@@ -119,6 +122,9 @@ jobs:
     # POSIX-only primitive (process groups, secure file I/O, pipe pumping) to
     # its Windows equivalent -- cannot silently regress again.
     runs-on: windows-latest
+    # Windows is slower than Linux, and its pytest step has sat for over half
+    # an hour past its last progress line. Fail that in thirty minutes.
+    timeout-minutes: 30
     env:
       # Every artifact this tool writes (reports, prompts) is explicit
       # UTF-8, but a bare `Path.read_text()`/`.write_text()` -- used freely
@@ -131,13 +137,17 @@ jobs:
       # explicit encoding.
       PYTHONUTF8: "1"
     steps:
+      # Checkout source
       - uses: actions/checkout@v7
 
+      # Install uv and the oldest supported Python
       - uses: astral-sh/setup-uv@v10.0.1
         with:
           python-version: "3.11"
 
+      # Install dependencies
       - run: uv sync --all-extras
 
+      # Tests
       - name: pytest
         run: uv run pytest -n 4

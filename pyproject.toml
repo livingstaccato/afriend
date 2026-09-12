@@ -157,6 +157,9 @@ markers = [
     "posix_only(reason): skipped on Windows, for the reason given",
     "windows_only(reason): skipped everywhere but Windows, for the reason given",
 ]
+# Print every thread's stack when one test runs this long, so a hang in CI
+# names its test before the job timeout kills it. Twice the slowest test.
+faulthandler_timeout = 60
 norecursedirs = [".git", "build", "dist", "*.egg-info", ".venv"]
 
 [dependency-groups]
