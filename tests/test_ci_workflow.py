@@ -40,3 +40,11 @@ def test_a_hung_test_dumps_every_thread_before_the_job_is_killed():
     seconds = options["tool"]["pytest"]["ini_options"]["faulthandler_timeout"]
     shortest_job = min(_job_timeout_minutes(job) or 0 for job in _jobs().values())
     assert 0 < seconds < shortest_job * 60
+
+
+def test_the_windows_job_names_each_test_as_it_finishes():
+    """A killed job never prints pytest's failure summary, and quiet progress
+    dots name nothing: the only record of which tests failed is a line per
+    test, written as each one finishes."""
+    windows = _jobs()["windows"]
+    assert re.search(r"^\s+run: uv run pytest -n 4 -v$", windows, re.MULTILINE)

@@ -148,6 +148,7 @@ jobs:
       # Install dependencies
       - run: uv sync --all-extras
 
-      # Tests
+      # Tests, one line per test as it finishes: a killed job never prints
+      # pytest's failure summary, so this is the only record of what failed.
       - name: pytest
-        run: uv run pytest -n 4
+        run: uv run pytest -n 4 -v
