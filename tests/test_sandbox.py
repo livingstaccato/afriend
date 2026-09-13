@@ -79,12 +79,18 @@ def test_the_profile_allows_the_root_directory_literal(policy):
     assert '(literal "/")' in sandbox.darwin_profile(policy)
 
 
+@pytest.mark.posix_only(
+    reason="checks a bwrap or seatbelt profile; neither mechanism exists on Windows"
+)
 def test_the_workdir_is_the_only_writable_place(policy):
     profile = sandbox.darwin_profile(policy)
     write_line = next(ln for ln in profile.splitlines() if "file-write*" in ln and "subpath" in ln)
     assert str(policy.workdir) in write_line
 
 
+@pytest.mark.posix_only(
+    reason="checks a bwrap or seatbelt profile; neither mechanism exists on Windows"
+)
 def test_a_readonly_workdir_is_readable_but_not_listed_as_writable(tmp_path):
     workdir = tmp_path / "iso"
     policy = sandbox.SandboxPolicy(workdir=workdir, workdir_writable=False)
@@ -108,6 +114,9 @@ def test_network_is_allowed(policy):
     assert "(allow network*)" in sandbox.darwin_profile(policy)
 
 
+@pytest.mark.posix_only(
+    reason="checks a bwrap or seatbelt profile; neither mechanism exists on Windows"
+)
 def test_declared_read_paths_reach_the_profile(tmp_path):
     creds = tmp_path / "cfg"
     policy = sandbox.SandboxPolicy(workdir=tmp_path / "iso", read_paths=(creds,))
@@ -142,6 +151,9 @@ def test_bwrap_binds_system_paths_read_only(policy, tmp_path):
     assert "/usr" in argv
 
 
+@pytest.mark.posix_only(
+    reason="checks a bwrap or seatbelt profile; neither mechanism exists on Windows"
+)
 def test_a_merged_usr_layout_gets_symlinks_not_binds(tmp_path, policy):
     """How this first failed in CI. On Ubuntu /bin is a symlink into /usr,
     and binding it as a directory produces a namespace where /bin/true does
@@ -181,6 +193,9 @@ def test_a_missing_system_path_is_skipped_entirely(tmp_path, policy):
         ("../run/resolvconf/resolv.conf", "run/resolvconf/resolv.conf"),
         ("../run/NetworkManager/resolv.conf", "run/NetworkManager/resolv.conf"),
     ],
+)
+@pytest.mark.posix_only(
+    reason="checks a bwrap or seatbelt profile; neither mechanism exists on Windows"
 )
 def test_a_resolver_symlink_binds_the_host_source_at_its_namespace_target(
     tmp_path, policy, link, target

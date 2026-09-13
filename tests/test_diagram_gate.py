@@ -33,6 +33,7 @@ def _error_svg(size: int) -> str:
 
 
 @pytest.mark.parametrize("size", [1_000, OVERSIZED])
+@pytest.mark.posix_only(reason="runs a POSIX shell script, which Windows cannot execute")
 def test_the_error_image_check_survives_its_own_pipeline(tmp_path, size):
     """A `grep -q` that matches exits at once; under `set -o pipefail` the
     writer upstream then takes SIGPIPE and the pipeline reports 141, which

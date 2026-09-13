@@ -22,6 +22,7 @@ def test_compatibility_distributions_are_exact_metadata_only_aliases() -> None:
 
 @pytest.mark.external
 @pytest.mark.slow
+@pytest.mark.posix_only(reason="runs a POSIX shell script, which Windows cannot execute")
 def test_release_verifier_builds_and_smokes_all_three_distributions() -> None:
     result = subprocess.run(
         ["bash", "ci/verify_release_distributions.sh"],

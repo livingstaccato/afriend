@@ -365,6 +365,9 @@ def test_a_clean_merge_retry_reports_no_earlier_attempt(tmp_path):
     assert not any("already applied by an earlier" in d for d in resumed.downgrades)
 
 
+@pytest.mark.posix_only(
+    reason="asserts POSIX permission bits; Windows has none, so every mode reads back as 0o777"
+)
 def test_a_valid_resume_tightens_a_loose_run_directory(tmp_path):
     store = _store(tmp_path, "run-permission-repair")
     round_dir = store.round_dir(2)

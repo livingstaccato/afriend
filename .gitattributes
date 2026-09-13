@@ -1,0 +1,4 @@
+# Check text out with LF on every platform. Workspace assets carry a recorded
+# sha256 of their exact bytes, and Git for Windows otherwise converts them to
+# CRLF on checkout, so every run there refused its own harness file.
+* text=auto eol=lf

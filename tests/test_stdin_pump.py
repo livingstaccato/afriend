@@ -30,6 +30,9 @@ class _FakeProcess:
 
 
 @pytest.mark.slow
+@pytest.mark.posix_only(
+    reason="the Windows pumps block in os.read/os.write until Job Object termination closes the pipe, and never poll stop_event (see procio's module docstring)"
+)
 def test_a_reader_that_never_reads_does_not_pin_the_pump_forever():
     read_fd, write_fd = os.pipe()
     process = _FakeProcess(write_fd)

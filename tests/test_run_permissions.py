@@ -18,6 +18,9 @@ def _mode(path: Path) -> int:
 
 @pytest.mark.parametrize("mode", [0o755, 0o770])
 @pytest.mark.parametrize("resume", [False, True])
+@pytest.mark.posix_only(
+    reason="asserts POSIX permission bits; Windows has none, so every mode reads back as 0o777"
+)
 def test_existing_caller_owned_root_keeps_its_mode(tmp_path, mode, resume):
     root = tmp_path / "caller-owned"
     root.mkdir(mode=mode)
@@ -32,6 +35,9 @@ def test_existing_caller_owned_root_keeps_its_mode(tmp_path, mode, resume):
     assert _mode(root) == mode
 
 
+@pytest.mark.posix_only(
+    reason="asserts POSIX permission bits; Windows has none, so every mode reads back as 0o777"
+)
 def test_missing_root_and_run_owned_descendants_are_private(tmp_path):
     root = tmp_path / "missing" / "runs"
 
@@ -57,6 +63,9 @@ def test_darwin_tmp_alias_preserves_existing_root_mode():
         assert _mode(root) == 0o755
 
 
+@pytest.mark.posix_only(
+    reason="asserts POSIX permission bits; Windows has none, so every mode reads back as 0o777"
+)
 def test_umask_022_run_tree_keeps_directories_private_and_files_secret(tmp_path):
     artifact = tmp_path / "spec.md"
     artifact.write_text("# private design\n", encoding="utf-8")
@@ -91,6 +100,9 @@ def test_umask_022_run_tree_keeps_directories_private_and_files_secret(tmp_path)
         assert _mode(path) == expected, f"{path.relative_to(run_dir)} had {_mode(path):o}"
 
 
+@pytest.mark.posix_only(
+    reason="asserts POSIX permission bits; Windows has none, so every mode reads back as 0o777"
+)
 def test_resume_refuses_a_symlinked_run_root_without_touching_its_target(tmp_path):
     outside = tmp_path / "outside"
     outside.mkdir(mode=0o755)
