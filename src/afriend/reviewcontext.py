@@ -586,9 +586,7 @@ def _display(value: str | Path) -> str:
 
 
 def _render_composite(
-    manifest: ContextManifest,
-    contents: Mapping[str, bytes],
-    changes: tuple[_CapturedChange, ...],
+    manifest: ContextManifest, contents: Mapping[str, bytes], changes: tuple[_CapturedChange, ...]
 ) -> str:
     lines = [
         COMPOSER_MARKER,
@@ -638,12 +636,7 @@ def _render_composite(
             else f"{_display(member.label)} ({member.start}..{member.end})"
         )
         lines.extend(
-            [
-                "",
-                f"### Change {index}: {title}",
-                "",
-                _fenced(captured.patch, "diff").rstrip("\n"),
-            ]
+            ["", f"### Change {index}: {title}", "", _fenced(captured.patch, "diff").rstrip("\n")]
         )
     return "\n".join(lines) + "\n"
 
