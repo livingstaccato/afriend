@@ -45,6 +45,7 @@ def test_a_hung_test_dumps_every_thread_before_the_job_is_killed():
 def test_the_windows_job_names_each_test_as_it_finishes():
     """A killed job never prints pytest's failure summary, and quiet progress
     dots name nothing: the only record of which tests failed is a line per
-    test, written as each one finishes."""
+    test, written as each one finishes. pyproject's addopts already pass -q,
+    which a single -v only cancels -- the first attempt still printed dots."""
     windows = _jobs()["windows"]
-    assert re.search(r"^\s+run: uv run pytest -n 4 -v$", windows, re.MULTILINE)
+    assert re.search(r"^\s+run: uv run pytest -n 4 -vv$", windows, re.MULTILINE)

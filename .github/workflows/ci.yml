@@ -150,5 +150,6 @@ jobs:
 
       # Tests, one line per test as it finishes: a killed job never prints
       # pytest's failure summary, so this is the only record of what failed.
+      # -vv, because pyproject's addopts pass -q and a single -v only cancels it.
       - name: pytest
-        run: uv run pytest -n 4 -v
+        run: uv run pytest -n 4 -vv
