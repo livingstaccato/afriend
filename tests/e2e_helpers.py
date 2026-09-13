@@ -119,6 +119,10 @@ def _env(extra=None):
         for name in ("USERPROFILE", "HOMEDRIVE", "HOMEPATH", "SYSTEMROOT", "WINDIR", "PATHEXT"):
             if name in os.environ:
                 env[name] = os.environ[name]
+        # UTF-8 output, as this suite decodes it: the Windows default is the
+        # ANSI code page, so a message with a "§" came back undecodable
+        # and the reader thread left stderr as None.
+        env["PYTHONUTF8"] = "1"
     if extra:
         env.update(extra)
     return env

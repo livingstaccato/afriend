@@ -103,8 +103,12 @@ def _sha256(payload: bytes) -> str:
 
 def capture_review_context(
     artifact: Path, artifact_text: str, artifact_bytes: bytes | None = None
-) -> tuple[dict[str, str], bytes] | None:
-    """Capture the exact composer receipt adjacent to a marked artifact."""
+) -> tuple[dict[str, str], bytes, bytes] | None:
+    """Capture the exact composer receipt adjacent to a marked artifact.
+
+    Returns the receipt metadata, the manifest bytes, and the artifact bytes the
+    manifest was verified against -- the bytes to freeze, CRLF and all.
+    """
     if artifact_text.split("\n", 1)[0] != COMPOSER_MARKER:
         return None
     sidecar = artifact.with_suffix(artifact.suffix + ".json")
@@ -140,12 +144,13 @@ def capture_review_context(
             "manifest_path": REVIEW_CONTEXT_MANIFEST_PATH,
         },
         payload,
+        payload_bytes,
     )
 
 
 def capture_artifact_input(
     artifact: Path,
-) -> tuple[str, tuple[dict[str, str], bytes] | None]:
+) -> tuple[str, tuple[dict[str, str], bytes, bytes] | None]:
     """Decode an artifact and capture any marked composer receipt before setup."""
     artifact_bytes, artifact_text = read_artifact_bytes_and_text(artifact)
     return artifact_text, capture_review_context(artifact, artifact_text, artifact_bytes)
