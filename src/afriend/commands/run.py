@@ -75,10 +75,9 @@ def cmd_run(args: argparse.Namespace) -> int:
     args, artifact = validate_run_args(args)
     resume_dir = getattr(args, "_resume_dir", None)
     resume_meta = getattr(args, "_resume_meta", None) if resume_dir is not None else None
-    captured_review_context: tuple[dict[str, str], bytes] | None = None
-    captured_artifact_text: str | None = None
+    captured_review_context: tuple[dict[str, str], bytes, bytes] | None = None
     if resume_dir is None:
-        captured_artifact_text, captured_review_context = capture_artifact_input(artifact)
+        _text, captured_review_context = capture_artifact_input(artifact)
     # Deliberately NOT resolved here: resolving would follow a symlinked
     # artifact to its target's own name, so a review of `link_spec.md ->
     # real_spec.md` would report and store the artifact as "real_spec.md"
@@ -136,14 +135,11 @@ def cmd_run(args: argparse.Namespace) -> int:
             store = RunStore(Path(args.out) if args.out else default_root(), run_id)
             review_context = None
             if captured_review_context is not None:
-                review_context, manifest_payload = captured_review_context
+                review_context, manifest_payload, artifact_payload = captured_review_context
                 store.create_owned_bytes(
                     store.run_dir / _REVIEW_CONTEXT_MANIFEST_PATH, manifest_payload
                 )
-                assert captured_artifact_text is not None
-                frozen, digest = store.artifact_copy_bytes(
-                    artifact, captured_artifact_text.encode("utf-8")
-                )
+                frozen, digest = store.artifact_copy_bytes(artifact, artifact_payload)
             else:
                 frozen, digest = store.artifact_copy(artifact)
         # One writer per run directory (see RunStore.lock). Taken as early

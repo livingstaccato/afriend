@@ -121,6 +121,34 @@ def test_ordinary_markdown_run_has_no_review_context(tmp_path):
     assert not (run_dir / "review-context.json").exists()
 
 
+def test_a_composite_with_crlf_input_is_frozen_byte_for_byte(tmp_path):
+    """The run validated the composite's bytes against its manifest, then froze
+    the newline-translated text instead -- so a composite holding any CRLF
+    froze without its carriage returns and every resume refused its own copy.
+    Windows found it: text written there carries CRLF into the composite."""
+    repo, base, head = _repository_with_history(tmp_path)
+    plan = tmp_path / "plan.md"
+    plan.write_bytes(b"# Plan\r\nMake the value correct.\r\n")
+    composite = tmp_path / "composite.md"
+    compose(repo=repo, out=composite, plan=plan, ranges=(f"{base}..{head}",))
+    assert b"\r\n" in composite.read_bytes()
+
+    result = run_af(
+        tmp_path,
+        composite,
+        "--repo",
+        str(repo),
+        "--friend",
+        "fake:good:repo",
+        "--merge",
+        "orchestrator",
+    )
+
+    assert result.returncode == 10, result.stderr
+    run_dir = next((tmp_path / "runs").iterdir())
+    assert (run_dir / "artifact" / composite.name).read_bytes() == composite.read_bytes()
+
+
 def test_run_freezes_a_valid_composer_manifest_without_changing_explicit_repo_scope(tmp_path):
     repo, base, head = _repository_with_history(tmp_path)
     plan = tmp_path / "plan.md"
