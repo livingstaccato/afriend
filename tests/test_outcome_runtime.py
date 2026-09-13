@@ -3,6 +3,7 @@
 import argparse
 from datetime import UTC, datetime
 import json
+import shutil
 import sys
 
 from e2e_helpers import FAKE
@@ -349,6 +350,40 @@ def test_post_create_initialization_failure_removes_unexplained_partial_run(monk
     with pytest.raises(RuntimeError, match="init failed"):
         run_command.cmd_run(_args(tmp_path, artifact))
     assert not list((tmp_path / "runs").glob("run-*"))
+
+
+def test_a_partial_run_releases_its_lock_before_it_is_removed(monkeypatch, tmp_path):
+    """Windows cannot delete a file that is still open, and the run lock is
+    held open for the life of the run: removing the directory first left the
+    whole partial run behind, silently, under rmtree's ignore_errors."""
+    artifact = tmp_path / "spec.md"
+    artifact.write_text("# spec\n", encoding="utf-8")
+    _fake_environment(monkeypatch)
+    monkeypatch.setattr(
+        run_command,
+        "select_snapshot",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("init failed")),
+    )
+    stores = []
+    real_lock = run_command.RunStore.lock
+
+    def recording_lock(store):
+        stores.append(store)
+        real_lock(store)
+
+    monkeypatch.setattr(run_command.RunStore, "lock", recording_lock)
+    held_at_removal = []
+    real_rmtree = shutil.rmtree
+
+    def recording_rmtree(path, *args, **kwargs):
+        held_at_removal.extend(store._lock_handle is not None for store in stores)
+        real_rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "rmtree", recording_rmtree)
+
+    with pytest.raises(RuntimeError, match="init failed"):
+        run_command.cmd_run(_args(tmp_path, artifact))
+    assert held_at_removal == [False]
 
 
 def test_terminal_render_failure_preserves_the_prior_artifact_pair(monkeypatch, tmp_path):

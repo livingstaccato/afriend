@@ -8,7 +8,6 @@ import argparse
 import concurrent.futures
 from datetime import UTC, datetime
 from pathlib import Path
-import shutil
 import signal
 import time
 from typing import Any
@@ -763,7 +762,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             and not store.owned_regular_exists(store.run_dir / "run.json")
             and not store.holds_durable_work()
         ):
-            shutil.rmtree(store.run_dir, ignore_errors=True)
+            store.remove_partial_run()
         raise
     finally:
         # Stops the heartbeat thread. In the same `finally` as the signal

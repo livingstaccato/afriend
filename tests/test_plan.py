@@ -225,4 +225,7 @@ def test_plan_refuses_a_symlinked_plan_artifact(tmp_path, capsys):
     assert cli.main(["plan", run.name, "--out", str(root)]) == 2
 
     assert target.read_text(encoding="utf-8") == "outside"
-    assert "already exists" in capsys.readouterr().err
+    # POSIX refuses the exclusive create; Windows' name-based walk refuses the
+    # reparse point first. Either way nothing is written through the link.
+    err = capsys.readouterr().err
+    assert "already exists" in err or "symlink or reparse point" in err

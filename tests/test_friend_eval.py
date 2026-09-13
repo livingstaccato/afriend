@@ -238,6 +238,24 @@ def test_a_judge_that_answers_without_json_is_refused(tmp_path, capsys):
     assert "holds no JSON object" in capsys.readouterr().err
 
 
+def test_a_windows_judge_command_reaches_the_os_unsplit(monkeypatch):
+    """POSIX shell splitting eats the backslashes in a Windows path, so
+    D:\\a\\python.exe arrived as D:apython.exe. Windows parses a command
+    line itself; the string is handed over as written."""
+    command = r"C:\Program Files\Python\python.exe C:\judge\judge.py"
+    received = []
+
+    def fake_run(argv, **_kwargs):
+        received.append(argv)
+        return subprocess.CompletedProcess(argv, 0, '{"claims": {}}', "")
+
+    monkeypatch.setattr(M.sys, "platform", "win32")
+    monkeypatch.setattr(M.subprocess, "run", fake_run)
+
+    assert M.run_judge(command, "prompt") == {"claims": {}}
+    assert received == [command]
+
+
 def test_the_judge_prompt_names_every_claim_and_finding():
     _, claims = M.load_run(THREE)
     prompt = M.judge_prompt(claims, FINDINGS)

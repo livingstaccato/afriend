@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 
 from e2e_helpers import _safe_path_dir, run_af
+import pytest
 
 from afriend.adapters import load_adapters
 from afriend.paths import ADAPTER_DIR
@@ -116,6 +117,9 @@ print(json.dumps({{
     binary.chmod(0o755)
 
 
+@pytest.mark.posix_only(
+    reason="starts a #!/bin/sh script as the executable, which Windows cannot run"
+)
 def test_agy_is_blocked_by_default_then_scoped_grant_stages_and_audits_agent(tmp_path):
     artifact = tmp_path / "spec.md"
     artifact.write_text("# spec\n", encoding="utf-8")

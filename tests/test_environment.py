@@ -53,7 +53,8 @@ def test_resolve_run_repo_requires_an_explicit_git_worktree_root(tmp_path, kind)
     with pytest.raises(UsageError, match="Git worktree root") as raised:
         resolve_run_repo(artifact, str(supplied))
 
-    assert str(supplied) in str(raised.value)
+    # Quoted with repr, which doubles every backslash in a Windows path.
+    assert repr(str(supplied)) in str(raised.value)
 
 
 def test_resolve_run_repo_preserves_the_explicit_root_and_selection_marker(tmp_path):

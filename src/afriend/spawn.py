@@ -240,6 +240,12 @@ def run_process(
     except PermissionError:
         return _early_failure(argv, time.monotonic() - started, f"binary not executable: {argv[0]}")
     except OSError as exc:
+        if cwd is not None and not Path(cwd).is_dir():
+            # Windows reports a missing working directory as a generic OSError
+            # (WinError 267), not the FileNotFoundError handled above.
+            return _early_failure(
+                argv, time.monotonic() - started, f"working directory not found: {cwd}"
+            )
         # The path is named explicitly rather than trusted to `exc`'s own
         # string form: verified on Windows, `OSError.filename` is None and
         # `str(exc)` omits the path entirely for this failure (e.g. WinError

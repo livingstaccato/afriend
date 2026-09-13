@@ -189,6 +189,8 @@ def test_config_path_honors_explicit_environment_mapping(tmp_path, monkeypatch):
 
 def test_config_path_expands_tilde_in_xdg_config_home(monkeypatch, tmp_path):
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    # expanduser reads USERPROFILE on Windows, HOME everywhere else.
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
     assert providerconfig.config_path({"XDG_CONFIG_HOME": "~/custom-config"}) == (
         tmp_path / "home" / "custom-config" / "afriend" / "config.json"
     )
