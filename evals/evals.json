@@ -32,7 +32,7 @@
       "files": [
         "README.md"
       ],
-      "expected_output": "Selects the afriend router and uses the stable review command rather than inventing an alias."
+      "expected_output": "Selects the review skill and uses the stable review command rather than inventing an alias."
     },
     {
       "id": 14,

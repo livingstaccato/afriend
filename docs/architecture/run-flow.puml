@@ -145,9 +145,9 @@ partition "Dispatch — parallel, one thread per friend" {
     :withdraw readonly where the sandbox WAS\nthe write protection; record the downgrade; <<downgrade>>
   endif
   :capability = the declared, enforced\ncontrols — never re-derived from scope;
-  :spawn in its own process group\ndeadline = ""--timeout"" + 60s grace;
+  :spawn in its own process group (POSIX)\nor Job Object (Windows)\ndeadline = ""--timeout"" + 60s grace;
   if (timed out / aborted?) then (yes)
-    :SIGTERM the group, then SIGKILL; <<failed>>
+    :POSIX: SIGTERM the group, then SIGKILL\nWindows: terminate the Job Object; <<failed>>
   else (no)
     :unwrap the CLI's JSON envelope,\nstrip ANSI, extract JSON, validate;
     if (usable payload?) then (yes)

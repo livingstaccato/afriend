@@ -366,7 +366,8 @@ for the host to review, not a resolution, code edit, or verification record.
 ![module architecture](https://raw.githubusercontent.com/livingstaccato/afriend/main/docs/architecture/components.png)
 
 Every friend gets its **own** prompt built from its **own** lens, runs in its
-**own** isolated directory, in its **own** process group:
+**own** isolated directory, in its **own** process group (a Job Object on
+Windows):
 
 | Stage | What happens |
 |---|---|
@@ -375,7 +376,7 @@ Every friend gets its **own** prompt built from its **own** lens, runs in its
 | 🔒 **Isolate** | Each friend's effective scope selects its isolation directory: repo scope gets a private `git worktree` from one shared snapshot, while doc scope gets an artifact-only directory. Adapter read-only controls and, where required, OS confinement (`sandbox-exec` / `bwrap`) are then applied separately — or the friend is refused. Codex uses the outer OS policy as its read-only control because macOS cannot nest its command sandbox inside that policy |
 | 🛂 **Deny remote authority** | External tools are denied by default. An adapter that cannot neutralize provider-managed tools, plugins, apps, MCP servers, or built-in browser/computer/web-search tools is `policy-blocked` unless `--allow-external-tools=PROVIDER` explicitly opts that provider in for this run |
 | 🧰 **Stage harnesses** | Adapter-owned workspace assets are copied into each isolated run workspace. Antigravity receives the controlled `afriend-reviewer` agent selected with `--agent`, `--disable-slash-commands`, and `--sandbox`. It runs under OS confinement: none of those flags were found to restrict it |
-| ⚡ **Dispatch** | Parallel, one thread per friend, each in its own process group with a kill deadline of `--timeout + 60s` |
+| ⚡ **Dispatch** | Parallel, one thread per friend, each in its own process group (a Job Object on Windows) with a kill deadline of `--timeout + 60s` |
 | 🧩 **Normalize** | Unwrap the CLI's own JSON envelope, strip ANSI, recover the payload, validate against the claim schema |
 | 🔗 **Merge** | Exact-merge identical claims into aliases — accumulating origins so corroboration survives |
 | 📄 **Report** | Rank findings, render `report.md`, write the append-only ledger |

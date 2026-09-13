@@ -442,7 +442,8 @@ Its CLI does not restrain itself -- either it has no read-only mode, or its
 flags were measured and none of them restricted anything -- so nothing
 constrains what it reads, and an artifact under review is untrusted text that
 could tell it to read anything the user can. Prefer making `sandbox-exec`
-(macOS) or `bwrap` (Linux) available. A verified read-only mode is not a
+(macOS) or `bwrap` (Linux) available; Windows has neither, so there only
+`--allow-unsandboxed-friend` runs such a friend. A verified read-only mode is not a
 substitute: it controls writes, not filesystem reads, and does not replace OS
 read confinement. An adapter may declare one and still require OS confinement
 -- agy declares `readonly = true` and is refused by this path, because the

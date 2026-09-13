@@ -198,7 +198,8 @@ in your first claim's evidence"* would simply work.
 
 So such a friend runs under `sandbox-exec` (present on every Mac) or `bwrap`
 (Linux, `apt install bubblewrap`), or it is refused. Only that friend is
-refused — the rest of the run continues.
+refused — the rest of the run continues. Windows has neither mechanism, so
+there `codex` and `agy` run only with the third way out below.
 
 Three ways out, best first:
 

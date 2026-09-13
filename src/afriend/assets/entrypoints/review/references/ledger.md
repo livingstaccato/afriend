@@ -12,7 +12,9 @@ records a unanimous amendment produces; `afriend resolve` writes
 The runner has one ledger writer per locked run. `Ledger.append` writes one
 complete UTF-8 JSON record, synchronizes the file, and, on first creation,
 synchronizes the parent directory before returning. This is a POSIX local-
-filesystem guarantee. A malformed record is never skipped automatically;
+filesystem guarantee. Windows has no handle to synchronize a directory
+through, so there the record is synchronized and its creation relies on
+NTFS journaling. A malformed record is never skipped automatically;
 the error names its file and line so an operator can preserve the run and
 repair it explicitly without silently dropping a verdict or resolution.
 

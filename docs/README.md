@@ -14,7 +14,7 @@ quickstart, see the [top-level README](../README.md); come here for detail.
 | [configure](../src/afriend/assets/entrypoints/configure/SKILL.md) | Guided setup, explicit provider defaults, model selection provenance, safe named profiles, and review-context policy |
 | [resolve](../src/afriend/assets/entrypoints/resolve/SKILL.md) | Read-only claim discovery and named-run resolutions with supplied evidence |
 | [modes](../src/afriend/assets/entrypoints/review/references/modes.md) | All four modes — `report`, `crossexam`, `gate`, `loop` — plus claim states, ceilings, and exit codes |
-| [installation and plugin troubleshooting](installation-troubleshooting.md) | Separate CLI and Claude plugin setup, plus recovery from a missing marketplace file |
+| [installation and plugin troubleshooting](installation-troubleshooting.md) | Separate CLI and Claude plugin setup, recovery from a missing marketplace file, and what differs on Windows |
 
 `afriend resume <run-id>` routes through `review` to `afriend run --resume
 <run-id>`; it is not a claim-resolution disposition and needs no evidence.

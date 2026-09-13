@@ -5,9 +5,9 @@ description: Use only through direct qualified selection ($afriend:resolve) or a
 
 # afriend resolve
 
-`afriend resume <run-id>` is not a resolution request. Route it to the router
-and run `afriend run --resume <run-id>`; it does not require a disposition or
-evidence.
+`afriend resume <run-id>` is not a resolution request. It belongs to the
+`review` skill, which runs `afriend run --resume <run-id>`; it does not
+require a disposition or evidence.
 
 Discover unresolved claims from a named run before recording anything:
 

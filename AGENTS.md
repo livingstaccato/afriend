@@ -8,8 +8,8 @@ reviewers.
 ## Using the tool
 
 Use `$afriend:review` for an explicit product review;
-the five selectable skills are `afriend`, `review`, `status`, `configure`,
-and `resolve`. Conversational `afriend review` and `afriend status` route to
+the four selectable skills are `review`, `status`, `configure`, and
+`resolve`. Conversational `afriend review` and `afriend status` route to
 focused skills and are not executable aliases: use `afriend run <artifact>`
 for a review, `afriend status <run-id-or-path>` for a run, and `afriend doctor`
 for readiness. Use `afriend init --guided` for a no-write setup preview and
@@ -48,10 +48,15 @@ claim resolution; it requires neither disposition nor evidence.
   POSIX-only for now — its deletion machinery uses `dir_fd` directly, not
   through `secureio.py`.
 - `src/afriend/assets/` — canonical package data: runtime
-  `adapters/`, `harnesses/`, `lenses/`, plus five `entrypoints/` skills.
+  `adapters/`, `harnesses/`, `lenses/`, plus four `entrypoints/` skills.
 - `plugins/afriend/skills/` — the composite projection: focused
-  skills map directly; router references and runtime data live below
+  skills map directly; shared references and runtime data live below
   `skills/review/`. Never edit it directly; edit `assets/` and re-sync.
+- `aliases/` — two metadata-only PyPI distributions that install nothing
+  but an exact `afriend` pin: `adversarial-friends`, the former name, and
+  `afriends`, a typo reservation. `make version-sync` keeps their versions
+  in step with `VERSION`, and the release workflow publishes them after
+  `afriend`.
 - `docs/` — prose docs and architecture diagrams. Excluded from `ruff format`
   so embedded code fences in historical specs/plans are left alone.
 

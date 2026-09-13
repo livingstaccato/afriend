@@ -61,7 +61,7 @@ package "Execute" {
   rectangle "workspaceassets.py\n<size:11>digest-pinned harness staging</size>" as WSA
   rectangle "sandbox.py + childenv.py\n<size:11>OS policy, resolver binds + env allowlist</size>" as SANDBOX
   rectangle "dispatch.py\n<size:11>argv → process</size>" as DISP
-  rectangle "spawn.py\n<size:11>process groups, reaping</size>" as SPAWN
+  rectangle "spawn.py + procgroup.py / wingroup.py\n<size:11>process group (POSIX) or Job Object (Windows), reaping</size>" as SPAWN
   rectangle "http_transport.py\n<size:11>bounded endpoint process</size>" as HTTPX
   rectangle "progress.py\n<size:11>startup roster + stderr status</size>" as PROGRESS
 }
@@ -76,7 +76,7 @@ package "Interpret & record" {
   rectangle "runstore.py\n<size:11>run dir layout</size>" as STORE
 }
 
-database "assets/\nadapters · harnesses · lenses\nentrypoints/ (five skills)" as ASSETS #F6E7C8
+database "assets/\nadapters · harnesses · lenses\nentrypoints/ (four skills)" as ASSETS #F6E7C8
 cloud "exec friend CLIs\nclaude · codex · Antigravity (agy) · opencode" as FRIENDS #D9E8D5
 cloud "Ollama HTTP endpoint" as HTTP #D9E8D5
 
