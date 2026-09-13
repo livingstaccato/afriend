@@ -64,14 +64,20 @@ def test_git_stderr_still_names_the_failure_without_a_selector(tmp_path, monkeyp
 
 
 def _record_open_flags(monkeypatch) -> list[int]:
-    """Give os a fake O_BINARY and record whether each open asked for it."""
-    monkeypatch.setattr(os, "O_BINARY", _FAKE_O_BINARY, raising=False)
+    """Record whether each open asked for O_BINARY, faking the flag where the
+    platform has none. Windows keeps its real flag: stripping it there is
+    exactly the text-mode read this guards against."""
+    binary = getattr(os, "O_BINARY", None)
+    strip = 0
+    if binary is None:
+        binary = strip = _FAKE_O_BINARY
+        monkeypatch.setattr(os, "O_BINARY", binary, raising=False)
     real_open = os.open
     seen: list[int] = []
 
     def recording_open(path, flags, *args, **kwargs):
-        seen.append(flags & _FAKE_O_BINARY)
-        return real_open(path, flags & ~_FAKE_O_BINARY, *args, **kwargs)
+        seen.append(flags & binary)
+        return real_open(path, flags & ~strip, *args, **kwargs)
 
     monkeypatch.setattr(os, "open", recording_open)
     return seen
@@ -85,7 +91,7 @@ def test_an_artifact_is_read_in_binary_mode(tmp_path, monkeypatch):
     payload, _text = rc.read_artifact_bytes_and_text(artifact)
 
     assert payload == b"line one\r\nline two\r\n"
-    assert seen == [_FAKE_O_BINARY]
+    assert seen == [os.O_BINARY]
 
 
 def test_bounded_json_is_read_in_binary_mode(tmp_path, monkeypatch):
@@ -94,7 +100,7 @@ def test_bounded_json_is_read_in_binary_mode(tmp_path, monkeypatch):
     seen = _record_open_flags(monkeypatch)
 
     assert jsonio.read_bounded_bytes(target, label="sidecar") == b'{"a": 1}\r\n'
-    assert seen == [_FAKE_O_BINARY]
+    assert seen == [os.O_BINARY]
 
 
 def test_a_directory_artifact_is_refused_even_where_opening_it_is_denied(tmp_path, monkeypatch):

@@ -64,6 +64,19 @@ def _safe_path_dir() -> Path:
     real_git = shutil.which("git")
     if real_git is None:
         pytest.skip("git not available on this machine")
+    if sys.platform == "win32":
+        # A link named `git` is not found through PATHEXT, and a link to Git for
+        # Windows' launcher cannot find the installation it belongs to. Its own
+        # directory is safe to use as long as no agent CLI lives there too.
+        from afriend.adapters import load_adapters
+        from afriend.paths import ADAPTER_DIR
+
+        git_dir = Path(real_git).parent
+        binaries = {adapter.binary for adapter in load_adapters(ADAPTER_DIR).values()}
+        agents = sorted(b for b in binaries if b and shutil.which(b, path=str(git_dir)))
+        if agents:
+            pytest.skip(f"agent CLIs share git's directory: {agents}")
+        return git_dir
     d = Path(tempfile.mkdtemp(prefix="af-safe-path-"))
     (d / "git").symlink_to(real_git)
     return d
