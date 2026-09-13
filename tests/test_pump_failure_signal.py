@@ -16,6 +16,8 @@ timeout rather than the real cause.
 import os
 import threading
 
+import pytest
+
 from afriend import procio
 
 
@@ -63,6 +65,10 @@ def test_a_clean_eof_is_not_reported_as_a_failure():
     assert "".join(chunks) == '{"no_findings": true}'
 
 
+@pytest.mark.posix_only(
+    reason="fails the POSIX pump's selector setup; the Windows pump has no selector, so the "
+    "patch never fires and it blocks reading this test's still-open pipe"
+)
 def test_setup_failure_still_closes_the_stream(monkeypatch):
     """The pipe must be closed even when the pump cannot start, or the friend
     blocks on an undrained pipe and the run reports a timeout instead."""
