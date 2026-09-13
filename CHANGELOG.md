@@ -60,6 +60,21 @@ does on POSIX.
 
 CI gained a `windows-latest` job running the full suite.
 
+**agy's verdicts were in its output and a crossexam round failed anyway.** A
+judge's verdicts sat at the end of about 12 KB of narration in agy's
+`response`, behind quoted code whose stray `{` characters hid them from the
+single-pass object scan, so the round failed with "payload has no 'verdicts'
+array" and the run settled its claims with one judge fewer than the roster
+promised. `result.structured_output` held the schema-conforming verdicts in
+full the whole time; the adapter now reads that field ahead of the prose.
+
+**A composed review context with CRLF line endings could not be resumed.**
+`afriend run` checked a composite's exact bytes against its manifest, then
+froze the newline-translated text, so a composite holding a CRLF lost its
+carriage returns and every resume refused the frozen copy as unbound. The
+bytes that were verified are now the bytes that are frozen. Windows exposed
+it, but a CRLF plan reproduces it on any platform.
+
 ## 0.11.1
 
 **`afriend resume <run-id>` went to the read-only skill.** Resuming a halted
