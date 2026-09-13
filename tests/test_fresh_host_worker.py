@@ -29,7 +29,7 @@ def _verified_deny_probe(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _every_cli_is_installed(monkeypatch):
-    monkeypatch.setattr(friends_module.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(friends_module.execresolve, "safe_which", lambda name: f"/usr/bin/{name}")
 
 
 def _artifact(tmp_path):

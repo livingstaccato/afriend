@@ -12,6 +12,7 @@ import subprocess
 
 from . import isolation
 from .errors import UsageError
+from .execresolve import git_executable
 from .snapshotvalidation import (
     COMMIT_RE,
     HASH_RE,
@@ -47,7 +48,9 @@ def _unavailable(detail: str) -> UsageError:
 
 def _git(repo: Path, *args: str) -> str:
     try:
-        result = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True)
+        result = subprocess.run(
+            [git_executable(), "-C", str(repo), *args], capture_output=True, text=True
+        )
     except OSError as exc:
         raise _unavailable(str(exc)) from exc
     if result.returncode != 0:
@@ -125,7 +128,14 @@ def _verify_source_target(artifact: Path, expected: Path) -> None:
 def _commit_blob(repo: Path, commit: str, relative: Path) -> bytes:
     try:
         result = subprocess.run(
-            ["git", "-C", str(repo), "cat-file", "blob", f"{commit}:{relative.as_posix()}"],
+            [
+                git_executable(),
+                "-C",
+                str(repo),
+                "cat-file",
+                "blob",
+                f"{commit}:{relative.as_posix()}",
+            ],
             capture_output=True,
         )
     except OSError as exc:
@@ -143,7 +153,7 @@ def _commit_blob(repo: Path, commit: str, relative: Path) -> bytes:
 def _resume_commit_blob(repo: Path, commit: str, source_path: str) -> bytes:
     try:
         result = subprocess.run(
-            ["git", "-C", str(repo), "cat-file", "blob", f"{commit}:{source_path}"],
+            [git_executable(), "-C", str(repo), "cat-file", "blob", f"{commit}:{source_path}"],
             capture_output=True,
         )
     except OSError as exc:

@@ -31,7 +31,7 @@ def test_doctor_reports_normal_run_host_inclusion_default(
     for host_marker in readiness_module.HOST_ENV_MARKERS:
         monkeypatch.delenv(host_marker, raising=False)
     monkeypatch.setenv(marker, "test-session")
-    monkeypatch.setattr(doctor_module.shutil, "which", lambda binary: f"/bin/{binary}")
+    monkeypatch.setattr(doctor_module.execresolve, "safe_which", lambda binary: f"/bin/{binary}")
     monkeypatch.setattr(
         readiness_module,
         "probe_deny_argv",
@@ -58,7 +58,7 @@ def test_doctor_projects_excluded_uncontrolled_host_without_enforcement(monkeypa
     for host_marker in readiness_module.HOST_ENV_MARKERS:
         monkeypatch.delenv(host_marker, raising=False)
     monkeypatch.setenv("OPENCODE_SERVER_PASSWORD", "test-session")
-    monkeypatch.setattr(doctor_module.shutil, "which", lambda _binary: "/bin/opencode")
+    monkeypatch.setattr(doctor_module.execresolve, "safe_which", lambda _binary: "/bin/opencode")
     monkeypatch.setattr(
         doctor_module,
         "enforce",

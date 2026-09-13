@@ -13,7 +13,7 @@ import sys
 import tempfile
 from typing import Any
 
-from .. import http_transport, providerconfig
+from .. import execresolve, http_transport, providerconfig
 from ..adapters import Adapter, Capability, FriendSpec, build_argv, load_adapters
 from ..authority import AuthorityPolicy, enforce
 from ..claimschema import schema_path
@@ -188,7 +188,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     readiness = assess_all(
         registry,
         policy,
-        which=shutil.which,
+        which=execresolve.safe_which,
         include_self=include_self,
         authority_policy=authority_policy,
     )

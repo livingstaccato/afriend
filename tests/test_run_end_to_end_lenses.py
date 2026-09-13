@@ -241,8 +241,8 @@ def test_unexpected_exception_in_one_friends_dispatch_does_not_end_the_run(monke
     monkeypatch.setenv("AF_FAKE_FRIEND", f"{sys.executable} {FAKE}")
     monkeypatch.setenv("PATH", str(_safe_path_dir()))
     monkeypatch.setattr(
-        friends_module.shutil,
-        "which",
+        friends_module.execresolve,
+        "safe_which",
         lambda binary: f"/bin/{binary}" if binary == "codex" else None,
     )
     artifact = tmp_path / "spec.md"

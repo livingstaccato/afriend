@@ -89,8 +89,8 @@ def test_max_friends_applies_to_ready_explicit_friends_not_unavailable_prefix(
     registry = adapters.load_adapters(ADAPTER_DIR)
     checks: list[str] = []
     monkeypatch.setattr(
-        friends_module.shutil,
-        "which",
+        friends_module.execresolve,
+        "safe_which",
         lambda binary: checks.append(binary) or ("/bin/claude" if binary == "claude" else None),
     )
     args = cli.build_parser().parse_args(
@@ -121,8 +121,8 @@ def test_explicit_capacity_preserves_ready_order_and_probes_each_provider_once(
     registry = adapters.load_adapters(ADAPTER_DIR)
     checks: list[str] = []
     monkeypatch.setattr(
-        friends_module.shutil,
-        "which",
+        friends_module.execresolve,
+        "safe_which",
         lambda binary: checks.append(binary) or f"/bin/{binary}",
     )
     args = cli.build_parser().parse_args(

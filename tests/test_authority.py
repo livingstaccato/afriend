@@ -219,7 +219,7 @@ def test_denial_refuses_unvalidated_argv_that_can_reverse_authority(
     """Denial flags cannot be audited as effective if later argv may undo them."""
     from afriend import dispatch
 
-    monkeypatch.setattr(dispatch.shutil, "which", lambda _binary: None)
+    monkeypatch.setattr(dispatch.execresolve, "safe_which", lambda _binary: None)
     monkeypatch.setattr(
         dispatch,
         "run_process",
@@ -262,7 +262,7 @@ def test_allow_policy_keeps_extra_argv_and_reports_explicit_authority(
             orphans_suspected=False,
         )
 
-    monkeypatch.setattr(dispatch.shutil, "which", lambda _binary: None)
+    monkeypatch.setattr(dispatch.execresolve, "safe_which", lambda _binary: None)
     monkeypatch.setattr(dispatch, "run_process", run_process)
     prompt, schema = files
     _spec_out, capability, _outcome, provider_policy = _dispatch(
@@ -297,7 +297,7 @@ def test_dispatch_carries_each_provider_local_policy(monkeypatch, tmp_path, regi
             orphans_suspected=False,
         )
 
-    monkeypatch.setattr(dispatch.shutil, "which", lambda _binary: None)
+    monkeypatch.setattr(dispatch.execresolve, "safe_which", lambda _binary: None)
     monkeypatch.setattr(dispatch, "run_process", run_process)
     prompt, schema = files
     authority = AuthorityPolicy.from_grants(["agy"], registry)

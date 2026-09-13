@@ -108,7 +108,7 @@ def test_doctor_preserves_http_discovery_opt_out(monkeypatch, capsys, tmp_path):
     probes: list[str] = []
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     monkeypatch.setenv("AF_NO_HTTP_DISCOVERY", "1")
-    monkeypatch.setattr(doctor_module.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(doctor_module.execresolve, "safe_which", lambda _name: None)
     monkeypatch.setattr(
         doctor_module.http_transport,
         "probe",
@@ -160,8 +160,8 @@ def test_doctor_reports_disabled_uncontrolled_provider_without_enforcing_or_buil
         ),
     )
     monkeypatch.setattr(
-        doctor_module.shutil,
-        "which",
+        doctor_module.execresolve,
+        "safe_which",
         lambda _binary: (_ for _ in ()).throw(
             AssertionError("disabled provider reached executable probe")
         ),
@@ -219,7 +219,7 @@ def test_explicit_friend_bypasses_disabled_and_host_excluded_provider(monkeypatc
         lambda *_args, **_kwargs: ProviderPolicy({"codex": ProviderSetting(enabled=False)}),
     )
     monkeypatch.setenv("CODEX_SESSION_ID", "session")
-    monkeypatch.setattr(friends_module.shutil, "which", lambda binary: f"/bin/{binary}")
+    monkeypatch.setattr(friends_module.execresolve, "safe_which", lambda binary: f"/bin/{binary}")
     args = build_parser().parse_args(["run", str(_artifact(tmp_path)), "--friend", "codex:ops"])
     resolved = friends_module.resolve_friends(args, registry, None, [])
     assert [spec.cli for spec in resolved.specs] == ["codex"]
@@ -246,8 +246,8 @@ def test_per_run_enable_overrides_persistently_disabled_provider(monkeypatch, tm
         ),
     )
     monkeypatch.setattr(
-        friends_module.shutil,
-        "which",
+        friends_module.execresolve,
+        "safe_which",
         lambda name: f"/bin/{name}" if name == "codex" else None,
     )
     monkeypatch.setenv("AF_NO_HTTP_DISCOVERY", "1")
@@ -286,8 +286,8 @@ def test_per_run_disable_overrides_persistently_enabled_provider(monkeypatch, tm
         ),
     )
     monkeypatch.setattr(
-        friends_module.shutil,
-        "which",
+        friends_module.execresolve,
+        "safe_which",
         lambda name: f"/bin/{name}" if name == "codex" else None,
     )
     monkeypatch.setenv("AF_NO_HTTP_DISCOVERY", "1")
@@ -363,8 +363,8 @@ def test_model_and_effort_override_everything(monkeypatch, tmp_path):
         ),
     )
     monkeypatch.setattr(
-        friends_module.shutil,
-        "which",
+        friends_module.execresolve,
+        "safe_which",
         lambda name: "/bin/codex" if name == "codex" else None,
     )
     monkeypatch.setenv("AF_NO_HTTP_DISCOVERY", "1")
@@ -421,7 +421,7 @@ def test_global_model_makes_reachable_http_provider_discoverable(monkeypatch, tm
             {name: ProviderSetting(enabled=name == "ollama") for name in registry}
         ),
     )
-    monkeypatch.setattr(friends_module.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(friends_module.execresolve, "safe_which", lambda _name: None)
     monkeypatch.setattr(readiness_module.http_transport, "probe", lambda _endpoint: True)
     monkeypatch.delenv("AF_NO_HTTP_DISCOVERY", raising=False)
     args = build_parser().parse_args(["run", str(_artifact(tmp_path)), "--model", "qwen3:0.6b"])
@@ -497,8 +497,8 @@ def test_max_friends_caps_and_says_so(monkeypatch, tmp_path):
         ),
     )
     monkeypatch.setattr(
-        friends_module.shutil,
-        "which",
+        friends_module.execresolve,
+        "safe_which",
         lambda name: f"/bin/{name}" if name in selected else None,
     )
     monkeypatch.setenv("AF_NO_HTTP_DISCOVERY", "1")

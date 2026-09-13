@@ -18,11 +18,10 @@ from contextlib import contextmanager, suppress
 import json
 import os
 from pathlib import Path
-import shutil
 import sys
 import tempfile
 
-from .. import providerconfig, reviewprofiles, sandbox, sessionconfig
+from .. import execresolve, providerconfig, reviewprofiles, sandbox, sessionconfig
 from ..adapters import Adapter, load_adapters
 from ..authority import AuthorityPolicy
 from ..errors import NoFriendsError, UsageError
@@ -132,7 +131,7 @@ def _render_roster(
     readiness = assess_all(
         registry,
         policy,
-        which=shutil.which,
+        which=execresolve.safe_which,
         include_self=include_self,
         authority_policy=authority_policy,
     )
@@ -534,7 +533,7 @@ def _guided_provider_rows(
     rows: list[dict[str, object]] = []
     for name, adapter in sorted(registry.items()):
         setting = policy.setting(name)
-        discovered = bool(adapter.binary and shutil.which(adapter.binary))
+        discovered = bool(adapter.binary and execresolve.safe_which(adapter.binary))
         if not setting.enabled:
             readiness = "disabled"
         elif adapter.transport == "http":

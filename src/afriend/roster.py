@@ -8,9 +8,9 @@ exactly what you want.
 
 from collections.abc import Callable, Mapping
 from dataclasses import replace
-import shutil
 from typing import Any
 
+from . import execresolve
 from .adapters import Adapter, FriendSpec, ModelSource
 from .authority import AuthorityPolicy, enforce as enforce_authority
 from .errors import NoFriendsError, UsageError
@@ -104,7 +104,7 @@ def _selected_model(
 # joining every run.
 def discover_clis(
     registry: dict[str, Adapter],
-    which: Callable[[str], str | None] = shutil.which,
+    which: Callable[[str], str | None] = execresolve.safe_which,
     probe: Callable[[str], bool] | None = None,
     env: Mapping[str, str] | None = None,
 ) -> list[str]:
@@ -130,7 +130,7 @@ def resolve(
     registry: dict[str, Adapter],
     lenses: list[str],
     env: Mapping[str, str],
-    which: Callable[[str], str | None] = shutil.which,
+    which: Callable[[str], str | None] = execresolve.safe_which,
     include_self: bool | None = None,
     overrides: list[dict[str, Any]] | None = None,
     timeout: int = DEFAULT_TIMEOUT,

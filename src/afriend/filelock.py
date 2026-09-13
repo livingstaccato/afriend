@@ -42,7 +42,18 @@ if sys.platform == "win32":
             try:
                 msvcrt.locking(fd, msvcrt.LK_NBLCK, _LOCK_NBYTES)
                 return
-            except OSError as exc:
+            except PermissionError as exc:
+                # Lock contention only: msvcrt.locking() raises
+                # PermissionError for a currently-held region (verified
+                # empirically), never any other OSError. A code review
+                # found this used to catch bare OSError here, so a
+                # PERMANENT failure -- an unsupported filesystem, a bad
+                # descriptor, ERROR_INVALID_FUNCTION on a redirected/network
+                # profile -- retried forever in blocking mode (a silent,
+                # undiagnosable hang where fcntl.flock would have raised
+                # immediately) or was misreported as ordinary contention in
+                # non-blocking mode. Any OSError that is not this one
+                # subclass now propagates unchanged instead.
                 if not blocking:
                     raise BlockingIOError(exc.errno, exc.strerror) from exc
                 time.sleep(_POLL_INTERVAL_S)

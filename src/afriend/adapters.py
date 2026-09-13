@@ -8,10 +8,10 @@ speculation — see the spec's "verified invocation traps" section.
 from dataclasses import dataclass, field
 import json
 from pathlib import Path
-import shutil
 import tomllib
 from typing import Any, Literal
 
+from . import execresolve
 from .adapterschema import (
     _string_list,
     _string_table,
@@ -571,7 +571,13 @@ def build_argv(
     # from Popen even though `which` resolves it. Falls back to the bare name
     # when `which` finds nothing, so the existing "binary not found" message
     # from spawn.run_process still names the declared binary.
-    resolved_binary = shutil.which(adapter.binary) if adapter.binary else None
+    #
+    # `execresolve.safe_which`, not `shutil.which` directly: plain
+    # `shutil.which` on Windows searches the current directory before PATH,
+    # so a hostile repository checkout could ship its own same-named
+    # executable at its root and have it run as the friend instead of the
+    # real one -- before any confinement decision is made.
+    resolved_binary = execresolve.safe_which(adapter.binary) if adapter.binary else None
     argv = [resolved_binary or adapter.binary, *adapter.base_argv]
     authority = enforce(adapter, external_tool_policy)
 

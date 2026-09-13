@@ -18,9 +18,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 import os
 from pathlib import Path
-import shutil
 
-from .. import providerconfig, rosterfile
+from .. import execresolve, providerconfig, rosterfile
 from ..adapters import Adapter, FriendSpec, ModelSource, validate_roster_uniqueness
 from ..authority import DENY_ALL, AuthorityPolicy, enforce
 from ..cliargs import _specs_from_flags
@@ -102,7 +101,7 @@ def validate_resume_capabilities(
     registry: dict[str, Adapter],
     authority_policy: AuthorityPolicy,
     *,
-    which: Callable[[str], str | None] = shutil.which,
+    which: Callable[[str], str | None] = execresolve.safe_which,
     capability_probe: Callable[[Adapter, str], DenyProbeResult] | None = None,
 ) -> None:
     """Revalidate mutable executable authority for a frozen resume roster.
@@ -358,7 +357,7 @@ def resolve_friends(
                 registry,
                 available_lenses(),
                 os.environ,
-                shutil.which,
+                execresolve.safe_which,
                 include_self=args.include_self,
                 overrides=rosterfile.load(roster_path),
                 timeout=args.timeout,
@@ -373,7 +372,7 @@ def resolve_friends(
                 registry,
                 lenses,
                 os.environ,
-                shutil.which,
+                execresolve.safe_which,
                 include_self=args.include_self,
                 timeout=args.timeout,
                 provider_policy=provider_policy,
@@ -394,7 +393,7 @@ def resolve_friends(
             {name: registry[name] for name in explicit_names},
             provider_policy,
             env=os.environ,
-            which=shutil.which,
+            which=execresolve.safe_which,
             include_self=True,
             authority_policy=authority_policy,
             selection_policy=False,

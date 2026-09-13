@@ -31,12 +31,22 @@ claim resolution; it requires neither disposition nor evidence.
   (POSIX) vs. `msvcrt.locking` (Windows) behind one API; `secureio.py`
   branches internally between a POSIX `dir_fd`-chained walk and a
   Windows name-based walk with a **documented weaker** TOCTOU guarantee
-  (Windows has no `dir_fd`/`fchmod` at all). `procio.py`'s pump threads
-  are non-blocking + `selectors`-polled on POSIX and plain blocking reads
-  on Windows (no `select()` on pipes there), relying on Job Object
-  termination to unblock a stuck read/write the way group termination
-  does on POSIX. `afriend runs prune` remains POSIX-only for now — its
-  deletion machinery uses `dir_fd` directly, not through `secureio.py`.
+  (Windows has no `dir_fd`/`fchmod` at all) and, still open, **no
+  Windows-native privacy control at all** — run-owned artifacts get POSIX's
+  0700/0600 but only whatever ACL a Windows run directory's parent happens
+  to inherit; a first attempt at an owner-only ACL via `icacls` surfaced
+  real permission errors on resume and was backed out rather than shipped
+  half-verified (see `docs/installation-troubleshooting.md`'s Windows
+  notes). `procio.py`'s pump threads are non-blocking + `selectors`-polled
+  on POSIX and plain blocking reads on Windows (no `select()` on pipes
+  there), relying on Job Object termination to unblock a stuck read/write
+  the way group termination does on POSIX. `execresolve.py` resolves `git`,
+  `taskkill`, and every adapter binary through a CWD-safe wrapper around
+  `shutil.which` — plain `shutil.which`/bare-name `subprocess` calls search
+  the current directory before `PATH` on Windows, which a hostile
+  repository checkout could otherwise exploit. `afriend runs prune` remains
+  POSIX-only for now — its deletion machinery uses `dir_fd` directly, not
+  through `secureio.py`.
 - `src/afriend/assets/` — canonical package data: runtime
   `adapters/`, `harnesses/`, `lenses/`, plus five `entrypoints/` skills.
 - `plugins/afriend/skills/` — the composite projection: focused

@@ -1,17 +1,17 @@
 """Canonical provider readiness assessment for discovery and diagnostics."""
 
 from collections.abc import Callable, Mapping
+import contextlib
 from dataclasses import dataclass
 from enum import StrEnum
 import os
 from pathlib import Path
-import shutil
 import signal
 import subprocess
 import sys
 import threading
 
-from . import http_transport, sandbox
+from . import execresolve, http_transport, sandbox
 from .adapters import Adapter
 from .authority import AuthorityPolicy, ExternalToolPolicy, enforce as enforce_authority
 from .errors import UsageError
@@ -31,6 +31,12 @@ HOST_ENV_MARKERS: dict[str, str] = {
 NO_HTTP_DISCOVERY_ENV = "AF_NO_HTTP_DISCOVERY"
 DENY_PROBE_TIMEOUT_S = 2.0
 DENY_PROBE_OUTPUT_BYTES = 64 * 1024
+# Windows-only: bound for both the taskkill_tree fallback and the final
+# process.wait() after a probe timeout. Its own small fixed budget, not
+# `timeout_s` (the probe's already-elapsed bound) -- reusing that would let
+# the probe's stated total silently double whenever the kill path needed a
+# wait of its own.
+_PROBE_KILL_TIMEOUT_S = 3.0
 
 
 @dataclass(frozen=True)
@@ -107,31 +113,64 @@ def probe_deny_argv(
     for pump in pumps:
         pump.start()
     timed_out = False
+    survivor_suspected = False
     try:
         process.wait(timeout=timeout_s)
     except subprocess.TimeoutExpired:
         timed_out = True
         if sys.platform == "win32":
-            # No process-group kill on Windows for a bare capability probe --
-            # it is never OS-confined and never a friend dispatch, so it does
-            # not warrant a Job Object; killing just this one process is
-            # enough for a bounded, declarative --help/--version invocation.
-            process.kill()
+            # Not a full Job Object -- it is never OS-confined and never a
+            # friend dispatch, so that containment is not warranted here.
+            # But process.kill() alone reaches only this one process, and
+            # `executable` is routinely shutil.which()'s resolved PATHEXT
+            # shim (a .cmd/.bat), which spawns the real CLI as a child --
+            # exactly the case this port's binary-resolution fix exists for.
+            # taskkill_tree reaches that child too; process.kill() stays as
+            # a belt-and-braces fallback in case taskkill itself cannot run
+            # (a code review found it previously ran unguarded here, unlike
+            # its POSIX sibling below, so a PermissionError from an already-
+            # gone process could escape assess_all as a raw traceback
+            # instead of a plain "policy-blocked" row). Given its own small
+            # fixed budget rather than `timeout_s`: this probe's own bound
+            # already elapsed to get here, and its stated total should not
+            # silently double just because the kill path needed its own wait.
+            from . import wingroup
+
+            survivor_suspected = wingroup.taskkill_tree(process.pid, timeout=_PROBE_KILL_TIMEOUT_S)
+            with contextlib.suppress(OSError):
+                process.kill()
         else:
             try:
                 os.killpg(process.pid, signal.SIGKILL)
             except (ProcessLookupError, PermissionError):
                 process.kill()
-        process.wait()
+        if sys.platform == "win32":
+            # Bounded, unlike the plain `process.wait()` this used to share
+            # with the POSIX branch: TerminateProcess/taskkill on Windows
+            # only initiates termination, and a review found this wait had
+            # no timeout at all -- an EDR refusing TerminateProcess on an
+            # already-taskkill'd shim would otherwise hang assess_all (and
+            # therefore `afriend run`'s whole readiness pass) indefinitely.
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                process.wait(timeout=_PROBE_KILL_TIMEOUT_S)
+            if process.returncode is None:
+                survivor_suspected = True
+        else:
+            # A SIGKILL'd group member cannot decline to die, so this one
+            # stays a plain, unbounded wait -- unlike the Windows branch
+            # above, there is no rundown-outlives-the-timeout case here to
+            # guard against.
+            process.wait()
     finally:
         stop.set()
         for pump in pumps:
             pump.join(3.0)
     output = "".join(stdout_chunks + stderr_chunks)
     if timed_out:
-        result = DenyProbeResult(
-            False, f"deny-argv capability probe timed out after {timeout_s:g}s"
-        )
+        detail = f"deny-argv capability probe timed out after {timeout_s:g}s"
+        if survivor_suspected:
+            detail += "; the process tree may have survived cleanup"
+        result = DenyProbeResult(False, detail)
     elif overflow.is_set():
         result = DenyProbeResult(False, "deny-argv capability probe output exceeded 65536 bytes")
     elif process.returncode != 0:
@@ -219,7 +258,7 @@ def assess_all(
     provider_policy: ProviderPolicy,
     *,
     env: Mapping[str, str] | None = None,
-    which: Callable[[str], str | None] = shutil.which,
+    which: Callable[[str], str | None] = execresolve.safe_which,
     probe: Callable[[str], bool] | None = None,
     include_self: bool = False,
     host_provider: str | None = None,

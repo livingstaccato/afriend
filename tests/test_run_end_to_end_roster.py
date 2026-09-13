@@ -45,8 +45,8 @@ def _selection_fixture(monkeypatch, *, enabled, executables=(), models=None):
         ),
     )
     monkeypatch.setattr(
-        friends_module.shutil,
-        "which",
+        friends_module.execresolve,
+        "safe_which",
         lambda name: f"/bin/{name}" if name in executables else None,
     )
     return registry, friends_module
@@ -198,8 +198,8 @@ def test_roster_files_filter_disabled_providers_before_dispatch(monkeypatch, tmp
         ]
     executable_probes: list[str] = []
     monkeypatch.setattr(
-        friends_module.shutil,
-        "which",
+        friends_module.execresolve,
+        "safe_which",
         lambda name: executable_probes.append(name) or f"/bin/{name}",
     )
     args = build_parser().parse_args(argv)
@@ -262,8 +262,8 @@ def test_explicit_exclude_self_overrides_explicit_codex_friend(monkeypatch, tmp_
     )
     probes: list[str] = []
     monkeypatch.setattr(
-        friends_module.shutil,
-        "which",
+        friends_module.execresolve,
+        "safe_which",
         lambda name: probes.append(name) or f"/bin/{name}",
     )
     monkeypatch.setenv("CODEX_SESSION_ID", "session")
@@ -505,8 +505,8 @@ def test_init_includes_detected_codex_host_provider_by_normal_default(monkeypatc
         ),
     )
     monkeypatch.setattr(
-        init_module.shutil,
-        "which",
+        init_module.execresolve,
+        "safe_which",
         lambda name: "/bin/codex" if name == "codex" else None,
     )
     for marker in readiness_module.HOST_ENV_MARKERS:
@@ -536,8 +536,8 @@ def test_init_excludes_detected_non_codex_host_provider_by_normal_default(monkey
         ),
     )
     monkeypatch.setattr(
-        init_module.shutil,
-        "which",
+        init_module.execresolve,
+        "safe_which",
         lambda name: "/bin/claude" if name == "claude" else None,
     )
     for marker in readiness_module.HOST_ENV_MARKERS:
@@ -569,8 +569,8 @@ def test_init_projects_only_eligible_canonical_readiness_states(monkeypatch, tmp
     }
     monkeypatch.setattr(init_module, "assess_all", lambda *_args, **_kwargs: rows, raising=False)
     monkeypatch.setattr(
-        init_module.shutil,
-        "which",
+        init_module.execresolve,
+        "safe_which",
         lambda name: f"/bin/{name}" if name in rows else None,
     )
     target = tmp_path / "roster.toml"

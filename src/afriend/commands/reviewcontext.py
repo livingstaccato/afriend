@@ -6,7 +6,7 @@ import hashlib
 import os
 from pathlib import Path
 import stat
-from typing import Any
+from typing import Any, NamedTuple
 
 from ..errors import UsageError
 from ..jsonio import MAX_JSON_FILE_BYTES, decode_json_object, read_bounded_bytes
@@ -14,6 +14,19 @@ from ..reviewcontext import COMPOSER_MARKER, ContextManifest
 from ..runstore import RunStore
 
 REVIEW_CONTEXT_MANIFEST_PATH = "review-context.json"
+
+
+class CapturedReviewContext(NamedTuple):
+    """The receipt metadata plus the two same-typed byte payloads it binds.
+
+    A bare tuple here would let a future caller swap manifest_bytes and
+    artifact_bytes at the call site with nothing -- no type, no name -- to
+    catch it; a NamedTuple makes the mismatch visible instead.
+    """
+
+    meta: dict[str, str]
+    manifest_bytes: bytes
+    artifact_bytes: bytes
 
 
 def read_artifact_text(path: Path) -> str:
@@ -103,7 +116,7 @@ def _sha256(payload: bytes) -> str:
 
 def capture_review_context(
     artifact: Path, artifact_text: str, artifact_bytes: bytes | None = None
-) -> tuple[dict[str, str], bytes, bytes] | None:
+) -> CapturedReviewContext | None:
     """Capture the exact composer receipt adjacent to a marked artifact.
 
     Returns the receipt metadata, the manifest bytes, and the artifact bytes the
@@ -137,20 +150,20 @@ def capture_review_context(
         raise UsageError(
             "review context manifest output_sha256 does not match the artifact it accompanies"
         )
-    return (
-        {
+    return CapturedReviewContext(
+        meta={
             "intent": manifest.intent.value,
             "manifest_digest": _sha256(payload),
             "manifest_path": REVIEW_CONTEXT_MANIFEST_PATH,
         },
-        payload,
-        payload_bytes,
+        manifest_bytes=payload,
+        artifact_bytes=payload_bytes,
     )
 
 
 def capture_artifact_input(
     artifact: Path,
-) -> tuple[str, tuple[dict[str, str], bytes, bytes] | None]:
+) -> tuple[str, CapturedReviewContext | None]:
     """Decode an artifact and capture any marked composer receipt before setup."""
     artifact_bytes, artifact_text = read_artifact_bytes_and_text(artifact)
     return artifact_text, capture_review_context(artifact, artifact_text, artifact_bytes)

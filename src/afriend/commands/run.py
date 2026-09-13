@@ -55,6 +55,7 @@ from .haltstate import loop_position, write_halt
 from .resume import resume_iteration
 from .reviewcontext import (
     REVIEW_CONTEXT_MANIFEST_PATH as _REVIEW_CONTEXT_MANIFEST_PATH,
+    CapturedReviewContext,
     capture_artifact_input,
     doc_scope_note as _review_context_doc_scope_note,
     read_artifact_text as _read_artifact_text,
@@ -75,7 +76,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     args, artifact = validate_run_args(args)
     resume_dir = getattr(args, "_resume_dir", None)
     resume_meta = getattr(args, "_resume_meta", None) if resume_dir is not None else None
-    captured_review_context: tuple[dict[str, str], bytes, bytes] | None = None
+    captured_review_context: CapturedReviewContext | None = None
     if resume_dir is None:
         _text, captured_review_context = capture_artifact_input(artifact)
     # Deliberately NOT resolved here: resolving would follow a symlinked
@@ -135,7 +136,9 @@ def cmd_run(args: argparse.Namespace) -> int:
             store = RunStore(Path(args.out) if args.out else default_root(), run_id)
             review_context = None
             if captured_review_context is not None:
-                review_context, manifest_payload, artifact_payload = captured_review_context
+                review_context = captured_review_context.meta
+                manifest_payload = captured_review_context.manifest_bytes
+                artifact_payload = captured_review_context.artifact_bytes
                 store.create_owned_bytes(
                     store.run_dir / _REVIEW_CONTEXT_MANIFEST_PATH, manifest_payload
                 )

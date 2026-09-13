@@ -40,7 +40,7 @@ def _resolve(monkeypatch, tmp_path, *options, models=None, registry=None):
         lambda *_args: readiness.DenyProbeResult(True, "verified test shim"),
     )
     monkeypatch.setattr(
-        friends.shutil, "which", lambda name: "/bin/codex" if name == "codex" else None
+        friends.execresolve, "safe_which", lambda name: "/bin/codex" if name == "codex" else None
     )
     monkeypatch.setenv("AF_NO_HTTP_DISCOVERY", "1")
     args = build_parser().parse_args(["run", str(_artifact(tmp_path)), "--include-self", *options])
@@ -58,7 +58,7 @@ def _resolve_static_ollama(monkeypatch, tmp_path, *options):
         ),
     )
     monkeypatch.setattr(readiness.http_transport, "probe", lambda _endpoint: True)
-    monkeypatch.setattr(friends.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(friends.execresolve, "safe_which", lambda _name: None)
     monkeypatch.delenv("AF_NO_HTTP_DISCOVERY", raising=False)
     args = build_parser().parse_args(["run", str(_artifact(tmp_path)), *options])
     return friends.resolve_friends(args, registry, None, [])

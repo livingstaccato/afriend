@@ -21,6 +21,7 @@ import threading
 from typing import cast
 
 from .errors import UsageError
+from .execresolve import git_executable
 from .jsonio import read_bounded_bytes
 
 _DIGEST_RE = re.compile(r"sha256:[0-9a-f]{64}")
@@ -279,7 +280,9 @@ def _git_bytes(
     """Run a fixed Git argv vector while retaining at most ``limit`` output bytes."""
     try:
         process = subprocess.Popen(
-            ["git", "-C", str(repo), *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            [git_executable(), "-C", str(repo), *args],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
     except OSError as exc:
         raise UsageError(f"cannot compose review context: cannot run git: {exc}") from exc

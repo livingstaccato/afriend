@@ -72,7 +72,11 @@ _WINDOWS = sys.platform == "win32"
 if sys.platform == "win32":
     from . import wingroup
 
-    _CREATIONFLAGS = subprocess.CREATE_NEW_PROCESS_GROUP
+    # CREATE_SUSPENDED: the process runs no code of its own until
+    # wingroup.resume() is called, which happens only after wingroup.assign()
+    # has been attempted -- closing the pre-assignment escape window
+    # documented in wingroup.py's module docstring and assign()'s own.
+    _CREATIONFLAGS = subprocess.CREATE_NEW_PROCESS_GROUP | wingroup.CREATE_SUSPENDED
 else:
     from .procgroup import _terminate_group
 
@@ -147,13 +151,24 @@ class SpawnResult:
     os_confined: bool = False
 
 
-def _early_failure(argv: list[str], duration: float, reason: str) -> SpawnResult:
+def _early_failure(
+    argv: list[str], duration: float, reason: str, *, orphans_suspected: bool = False
+) -> SpawnResult:
     """Build a SpawnResult for a friend that never actually started (the
     binary is missing or not executable). run_process's signature promises
     a SpawnResult, not an exception: Task 12 calls this inside a thread
     pool, where an escaping FileNotFoundError/PermissionError from Popen()
     would take down the whole dispatch instead of marking one friend
-    failed."""
+    failed.
+
+    `orphans_suspected` defaults to False for the ordinary case this
+    function was written for: Popen() itself never returned a process, so
+    there is nothing that could have been left running. A caller that DID
+    spawn something -- Windows' resume-failure path, which cleans up a
+    process it may or may not have actually killed -- must pass the real
+    outcome through rather than accepting this default, or a leak that
+    cleanup could not confirm gets reported as a clean sweep.
+    """
     return SpawnResult(
         argv,
         None,
@@ -163,7 +178,7 @@ def _early_failure(argv: list[str], duration: float, reason: str) -> SpawnResult
         False,
         NormalizeResult(None, [reason], False),
         reason,
-        False,
+        orphans_suspected,
     )
 
 
@@ -262,14 +277,68 @@ def run_process(
     pgid = process.pid
     job: int | None = None
     if sys.platform == "win32":
+        # The whole Popen-to-resume window is one try/except BaseException,
+        # not just OSError: a second code review found that catching only
+        # OSError (the first review's own fix) still let anything else --
+        # MemoryError allocating the ctypes structures, a KeyboardInterrupt
+        # delivered on the main thread, a future refactor raising something
+        # unrelated -- escape with `process` created but never resumed. It
+        # has run no code of its own, so it consumes no CPU and does not
+        # look like a runaway; it simply sits suspended, holding three pipe
+        # handles and (if assignment succeeded) a Job Object membership,
+        # until the machine is rebooted. This handler cleans up for any
+        # exception and only degrades to an ordinary SpawnResult for the
+        # specific, anticipated OSError case; anything else re-raises,
+        # matching this function's existing exception-safety contract (see
+        # the module docstring) rather than mislabeling a genuinely
+        # unexpected failure as a mundane "resume failed".
         try:
-            job = wingroup.create_job()
-            wingroup.assign(job, process.pid)
-        except OSError:
-            # Job Object setup failed for a reason nobody chose. Falls back
-            # to `taskkill /T /F` on this one process at cleanup time (see
-            # below) rather than losing group tracking silently.
-            job = None
+            try:
+                job = wingroup.create_job()
+                wingroup.assign(job, process.pid)
+            except OSError:
+                # Job Object setup failed for a reason nobody chose. Falls
+                # back to `wingroup.taskkill_tree` on this one process at
+                # cleanup time (see below) rather than losing group
+                # tracking silently.
+                if job is not None:
+                    wingroup.close(job)
+                job = None
+            # Resume only after assignment has been attempted, successfully
+            # or not: `process` was created with CREATE_SUSPENDED and has
+            # run no code of its own yet, so nothing it might spawn can
+            # exist -- see wingroup.py's module docstring. Unconditional: a
+            # friend whose Job Object setup failed must still run, or it
+            # would simply hang forever, suspended, instead of degrading to
+            # the taskkill-based fallback below.
+            wingroup.resume(process.pid)
+        except BaseException as exc:
+            # A leaked-orphan signal, not a discarded one: an earlier fix
+            # for this same window called terminate()/taskkill_tree() for
+            # effect only and always reported orphans_suspected=False,
+            # which a code review caught -- a process this cleanup could not
+            # actually kill was reported as a clean sweep, the one thing
+            # this signal exists to never do.
+            leaked = (
+                wingroup.terminate(job, grace_seconds=KILL_GRACE_SECONDS)
+                if job is not None
+                else wingroup.taskkill_tree(process.pid, timeout=KILL_GRACE_SECONDS)
+            )
+            if job is not None:
+                wingroup.close(job)
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                process.wait(timeout=KILL_GRACE_SECONDS)
+            for stream in (process.stdin, process.stdout, process.stderr):
+                if stream is not None:
+                    stream.close()
+            if not isinstance(exc, OSError):
+                raise
+            return _early_failure(
+                argv,
+                time.monotonic() - started,
+                f"failed to resume suspended process: {exc}",
+                orphans_suspected=leaked,
+            )
 
     stdout_chunks: list[str] = []
     stderr_chunks: list[str] = []
@@ -279,7 +348,7 @@ def run_process(
     stderr_failed = threading.Event()
     stop_event = threading.Event()
     stdin_thread = threading.Thread(
-        target=_pump_stdin, args=(process, stdin_text, stop_event), daemon=True
+        target=_pump_stdin, args=(process, stdin_text, stop_event), daemon=True, name="stdin"
     )
     stdout_thread = threading.Thread(
         target=_pump_output,
@@ -292,6 +361,7 @@ def run_process(
             stdout_failed,
         ),
         daemon=True,
+        name="stdout",
     )
     stderr_thread = threading.Thread(
         target=_pump_output,
@@ -304,131 +374,164 @@ def run_process(
             stderr_failed,
         ),
         daemon=True,
+        name="stderr",
     )
-    stdin_thread.start()
-    stdout_thread.start()
-    stderr_thread.start()
 
-    # Hoisted out of the loop. An envelope that cannot answer "has it
-    # finished?" must not reach the guard below: `_buffer_looks_finished` is
-    # TRUE on almost every NDJSON poll, since each line ends with `}`, so the
-    # whole buffer would be joined ~20 times a second to answer a question
-    # the envelope kind had already settled.
-    #
-    # An ndjson envelope qualifies only once it declares the event that ends
-    # its stream. Then the check is real and cheap: only the last line is
-    # parsed.
-    early_envelope = (
-        envelope
-        if envelope is not None
-        and (
-            envelope.kind == "json_path" or (envelope.kind == "ndjson" and envelope.terminal_event)
+    # Everything from here through the wait loop is wrapped in try/finally:
+    # a pump thread failing to start (RuntimeError: can't start new thread)
+    # or an exception raised while inspecting a malformed envelope inside
+    # the poll loop must still reach the group/job sweep below. Before this
+    # was a bare sequence of statements, either escaped run_process with the
+    # friend's whole process tree (and, on Windows, its Job Object handle)
+    # never terminated or closed -- KILL_ON_JOB_CLOSE cannot fire on a
+    # handle nothing ever closes.
+    orphans_suspected = False
+    killed_by_runner = False
+    started_threads: list[threading.Thread] = []
+    try:
+        stdin_thread.start()
+        started_threads.append(stdin_thread)
+        stdout_thread.start()
+        started_threads.append(stdout_thread)
+        stderr_thread.start()
+        started_threads.append(stderr_thread)
+
+        # Hoisted out of the loop. An envelope that cannot answer "has it
+        # finished?" must not reach the guard below: `_buffer_looks_finished`
+        # is TRUE on almost every NDJSON poll, since each line ends with
+        # `}`, so the whole buffer would be joined ~20 times a second to
+        # answer a question the envelope kind had already settled.
+        #
+        # An ndjson envelope qualifies only once it declares the event that
+        # ends its stream. Then the check is real and cheap: only the last
+        # line is parsed.
+        early_envelope = (
+            envelope
+            if envelope is not None
+            and (
+                envelope.kind == "json_path"
+                or (envelope.kind == "ndjson" and envelope.terminal_event)
+            )
+            else None
         )
-        else None
-    )
 
-    deadline = started + timeout_s
-    timed_out = False
-    aborted = False
-    answered = False
-    while process.poll() is None:
-        if time.monotonic() >= deadline:
-            timed_out = True
-            break
-        if abort_event is not None and abort_event.is_set():
-            aborted = True
-            break
-        if stdout_overflow.is_set():
-            # Only stdout ends the wait. A friend flooding stderr is noisy,
-            # not unanswerable.
-            break
-        if (
-            early_envelope is not None
-            and _buffer_looks_finished(stdout_chunks)
-            and answer_is_complete("".join(stdout_chunks), early_envelope)
-        ):
-            answered = True
-            break
-        time.sleep(_POLL_INTERVAL_S)
-
-    # Whether the friend finished on its own or ran long, sweep its process
-    # group. On a timeout this is the kill that hazard #1 exists for. On a
-    # clean exit it is just as necessary: a friend can exit 0 while a
-    # descendant it spawned (and never waited on) is still alive in the same
-    # group -- left alone, that descendant would keep making network calls
-    # or writing files after this round has already been decided. This is
-    # also what unblocks the output-pump threads when a descendant was
-    # holding a pipe open: killing the group closes its copy of the fd.
-    if sys.platform == "win32":
-        if job is not None:
-            orphans_suspected = wingroup.terminate(job, WINDOWS_KILLED_AFTER_ANSWER_EXIT_CODE)
-            wingroup.close(job)
+        deadline = started + timeout_s
+        timed_out = False
+        aborted = False
+        answered = False
+        while process.poll() is None:
+            if time.monotonic() >= deadline:
+                timed_out = True
+                break
+            if abort_event is not None and abort_event.is_set():
+                aborted = True
+                break
+            if stdout_overflow.is_set():
+                # Only stdout ends the wait. A friend flooding stderr is
+                # noisy, not unanswerable.
+                break
+            if (
+                early_envelope is not None
+                and _buffer_looks_finished(stdout_chunks)
+                and answer_is_complete("".join(stdout_chunks), early_envelope)
+            ):
+                answered = True
+                break
+            time.sleep(_POLL_INTERVAL_S)
+    finally:
+        # Whether the friend finished on its own, ran long, or this block
+        # raised, sweep its process group. On a timeout this is the kill
+        # that hazard #1 exists for. On a clean exit it is just as
+        # necessary: a friend can exit 0 while a descendant it spawned (and
+        # never waited on) is still alive in the same group -- left alone,
+        # that descendant would keep making network calls or writing files
+        # after this round has already been decided. This is also what
+        # unblocks the output-pump threads when a descendant was holding a
+        # pipe open: killing the group closes its copy of the fd.
+        if sys.platform == "win32":
+            # Captured before either cleanup path runs: whether OUR kill is
+            # what stops this process, as opposed to a friend that had
+            # already exited (with its own real exit code) before cleanup
+            # ever got here. A code review found the taskkill fallback
+            # could not tell these apart any other way -- it does not let
+            # this process choose the resulting exit code, so a friend that
+            # answered and was then killed via taskkill looked identical to
+            # one that answered and then genuinely failed with exit 1,
+            # discarding an already-normalized answer as `failed: exit 1`.
+            killed_by_runner = process.poll() is None
+            if job is not None:
+                orphans_suspected = wingroup.terminate(
+                    job, WINDOWS_KILLED_AFTER_ANSWER_EXIT_CODE, grace_seconds=KILL_GRACE_SECONDS
+                )
+                wingroup.close(job)
+            else:
+                # Job Object setup failed at spawn time; fall back to
+                # killing just this process's own tree rather than losing
+                # cleanup entirely.
+                orphans_suspected = wingroup.taskkill_tree(process.pid, timeout=KILL_GRACE_SECONDS)
+            # TerminateJobObject/taskkill change what GetExitCodeProcess
+            # reports, but Python's Popen only queries that when told to:
+            # unlike POSIX's `_reap_after_signal`, nothing above this point
+            # calls wait()/poll() after the kill, so `process.returncode`
+            # would otherwise stay None forever -- verified live: a friend
+            # correctly stopped after answering was reported as "exit None"
+            # and treated as a failure.
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                process.wait(timeout=KILL_GRACE_SECONDS)
+            if process.returncode is None:
+                # The wait above timed out: this process's own rundown
+                # (closing handles, unloading DLLs) outlived KILL_GRACE_
+                # SECONDS -- a stalled network share or AV filter driver can
+                # do this even though TerminateJobObject already initiated
+                # termination. Recorded as its own suspected-orphan signal,
+                # independent of wingroup.terminate()'s membership check
+                # above; `killed_after_answering` below treats it the same
+                # as the ordinary sentinel so an answer this runner
+                # deliberately stopped is never reported as "exit None"
+                # merely because rundown was slow.
+                orphans_suspected = True
         else:
-            # Job Object setup failed at spawn time; fall back to killing
-            # just this process's own tree via taskkill rather than losing
-            # cleanup entirely. taskkill does not let this process choose the
-            # resulting exit code, so `killed_after_answering` below cannot
-            # recognize this path -- an accepted narrowing of this fallback
-            # of a fallback, not a correctness bug: a nonzero code here is
-            # simply reported as a real failure instead.
-            taskkill = subprocess.run(
-                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
-                capture_output=True,
-            )
-            orphans_suspected = taskkill.returncode != 0
-        # TerminateJobObject/taskkill change what GetExitCodeProcess reports,
-        # but Python's Popen only queries that when told to: unlike POSIX's
-        # `_reap_after_signal`, nothing above this point calls wait()/poll()
-        # after the kill, so `process.returncode` would otherwise stay None
-        # forever -- verified live: a friend correctly stopped after
-        # answering was reported as "exit None" and treated as a failure.
-        with contextlib.suppress(subprocess.TimeoutExpired):
-            process.wait(timeout=KILL_GRACE_SECONDS)
-    else:
-        orphans_suspected = _terminate_group(process, pgid)
+            orphans_suspected = _terminate_group(process, pgid)
 
-    stdout_thread.join(timeout=_DRAIN_JOIN_S)
-    stderr_thread.join(timeout=_DRAIN_JOIN_S)
-    stdin_thread.join(timeout=_DRAIN_JOIN_S)
-    # A pump thread still alive here, well after the group sweep above has
-    # finished, has nothing left it could still be legitimately waiting
-    # for -- every process we can reach is dead. It being blocked anyway is
-    # itself the evidence: something still holds this pipe's write end
-    # open. That is deliberately used as a second, independent source for
-    # orphans_suspected, not just _terminate_group's pgid-membership check
-    # above. A descendant that calls os.setsid() (see
-    # test_setsid_escapee_is_not_reaped) leaves the *original* process
-    # group by definition, so pgid membership can never observe it -- the
-    # pipe it forgot to close is the only externally visible trace of it
-    # this process has.
-    # stdin counts too. It was excluded, so a descendant holding fd 0 open
-    # without reading it -- while stdout and stderr reached EOF, the shape of
-    # a daemon started with its output redirected -- produced a stdin pump
-    # that was detected (it warns, below) and then never asked to stop. Its
-    # non-blocking write loop polls a stop_event nobody set, so the thread and
-    # the artifact-sized prompt it pins leaked for the life of the process.
-    # It is the same evidence of a surviving descendant as the other two: a
-    # setsid() escapee cannot be seen by the pgid check, and the pipe it
-    # forgot to close is the only trace left.
-    if stdout_thread.is_alive() or stderr_thread.is_alive() or stdin_thread.is_alive():
-        orphans_suspected = True
-        stop_event.set()
-        stdout_thread.join(timeout=_DRAIN_JOIN_S)
-        stderr_thread.join(timeout=_DRAIN_JOIN_S)
-        stdin_thread.join(timeout=_DRAIN_JOIN_S)
-    for name, thread in (
-        ("stdin", stdin_thread),
-        ("stdout", stdout_thread),
-        ("stderr", stderr_thread),
-    ):
-        if thread.is_alive():
-            # Should not happen given the design above (a selector-polled
-            # non-blocking read always returns to check stop_event within
-            # _POLL_INTERVAL_S) -- recorded rather than left to leak
-            # silently if it ever does.
-            warnings.warn(
-                f"spawn: {name} pump thread for {argv!r} did not exit", RuntimeWarning, stacklevel=2
-            )
+        for thread in started_threads:
+            thread.join(timeout=_DRAIN_JOIN_S)
+        # A pump thread still alive here, well after the group sweep above
+        # has finished, has nothing left it could still be legitimately
+        # waiting for -- every process we can reach is dead. It being
+        # blocked anyway is itself the evidence: something still holds this
+        # pipe's write end open. That is deliberately used as a second,
+        # independent source for orphans_suspected, not just the group/job
+        # membership check above. A descendant that calls os.setsid() (see
+        # test_setsid_escapee_is_not_reaped) leaves the *original* process
+        # group by definition, so pgid membership can never observe it --
+        # the pipe it forgot to close is the only externally visible trace
+        # of it this process has.
+        # stdin counts too. It was excluded, so a descendant holding fd 0
+        # open without reading it -- while stdout and stderr reached EOF,
+        # the shape of a daemon started with its output redirected --
+        # produced a stdin pump that was detected (it warns, below) and then
+        # never asked to stop. Its non-blocking write loop polls a
+        # stop_event nobody set, so the thread and the artifact-sized prompt
+        # it pins leaked for the life of the process. It is the same
+        # evidence of a surviving descendant as the other two: a setsid()
+        # escapee cannot be seen by the pgid check, and the pipe it forgot
+        # to close is the only trace left.
+        if any(thread.is_alive() for thread in started_threads):
+            orphans_suspected = True
+            stop_event.set()
+            for thread in started_threads:
+                thread.join(timeout=_DRAIN_JOIN_S)
+        for thread in started_threads:
+            if thread.is_alive():
+                # Should not happen given the design above (a selector-
+                # polled non-blocking read always returns to check
+                # stop_event within _POLL_INTERVAL_S) -- recorded rather
+                # than left to leak silently if it ever does.
+                warnings.warn(
+                    f"spawn: {thread.name} pump thread for {argv!r} did not exit",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
 
     stdout = "".join(stdout_chunks)
     stderr = "".join(stderr_chunks)
@@ -530,18 +633,27 @@ def run_process(
     # exited nonzero ON ITS OWN in the same instant is still a failure, and
     # that is a real exit status rather than a signal we sent.
     #
-    # Windows has no negative-return-code-means-signalled convention, so it
-    # matches on the exact sentinel this module chose and passed to
-    # `TerminateJobObject` itself instead (see WINDOWS_KILLED_AFTER_ANSWER_
-    # EXIT_CODE) -- the same distinction, drawn the only way Windows makes
-    # available: a friend that had already exited on its own in that same
-    # instant keeps ITS code, since termination of an empty job changes
-    # nothing for it to report.
+    # Windows has no negative-return-code-means-signalled convention. Its
+    # primary signal is `killed_by_runner`, captured in the cleanup `finally`
+    # above from whether the process was still running the moment cleanup
+    # began: a friend that answered and was then killed via the taskkill
+    # fallback does not let this process choose the resulting exit code (it
+    # is whatever taskkill produces, commonly 1), so a code review found the
+    # exit-code-only version of this check could not tell that case apart
+    # from a friend that answered and then genuinely failed with exit 1 --
+    # discarding an already-normalized answer as a false failure. The
+    # sentinel/None check is kept as a second, independent signal: a friend
+    # that had already exited on its own in the same instant keeps ITS code
+    # (termination of an empty job changes nothing for it to report), and
+    # `returncode is None` covers the post-termination process.wait() above
+    # itself timing out on a rundown slower than KILL_GRACE_SECONDS, which
+    # used to leave returncode None forever and report a validly-answered
+    # friend as `failed: exit None` -- the exact regression this sentinel
+    # exists to prevent. orphans_suspected is already set above for that
+    # case, so it is not reported as a silent success either.
     if _WINDOWS:
-        killed_after_answering = (
-            answered
-            and process.returncode is not None
-            and process.returncode == WINDOWS_KILLED_AFTER_ANSWER_EXIT_CODE
+        killed_after_answering = answered and (
+            killed_by_runner or process.returncode in (None, WINDOWS_KILLED_AFTER_ANSWER_EXIT_CODE)
         )
     else:
         killed_after_answering = (

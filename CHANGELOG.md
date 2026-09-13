@@ -1,5 +1,65 @@
 # Changelog
 
+## 0.12.0
+
+**`afriend` now runs on Windows**, dispatching `claude`, `codex`, and `agy`
+(`opencode` and `ollama` are not yet ported). Windows has no `os.killpg`, no
+`dir_fd`, no `select()` on pipes, and `CreateProcess` does not retry
+`PATHEXT` the way a shell does, so this is a real port rather than a
+compatibility shim, built entirely on the standard library to keep the
+project's zero-runtime-dependency claim.
+
+**Process-tree containment uses Job Objects, via raw `ctypes` into
+`kernel32.dll`** (`wingroup.py`), not `pywin32`. A friend is created
+suspended (`CREATE_SUSPENDED`) and assigned to its Job Object before it is
+resumed, so a descendant it spawns immediately on start cannot end up
+outside the job the way it could if assignment happened after an ordinary
+resume — Job Objects otherwise pull in only a process's *future*
+descendants. `TerminateJobObject` has no graceful mode, so there is no
+SIGTERM-then-SIGKILL escalation on Windows; termination is one call, whose
+completion the runner now polls for (initiating termination is not the same
+as every member having finished rundown) rather than checking once
+immediately. A bounded `taskkill`-tree fallback covers the case where Job
+Object setup itself fails.
+
+**Every bare executable name this project spawns is now resolved through a
+CWD-safe wrapper** (`execresolve.py`), not handed to `Popen`/`subprocess`
+directly. `shutil.which()` — and Windows' own `CreateProcess` bare-name
+search — checks the *current directory* before `PATH`, which a hostile
+repository checkout could exploit by shipping its own `git.exe` or a
+same-named agent CLI at its root. `execresolve.safe_which()` keeps
+`shutil.which`'s resolution but refuses a match outside an actual `PATH`
+entry; every adapter-binary lookup (`run`, `doctor`, `init`, `providers`)
+and every bare `git`/`taskkill` invocation goes through it or the
+equivalent `git_executable()`/`taskkill_executable()` helpers.
+
+**Filesystem primitives (`secureio.py`) branch internally** between a POSIX
+`dir_fd`-chained walk and a Windows name-based walk that re-validates each
+path component and refuses an existing symlink or NTFS junction/mount
+point — a narrower TOCTOU guarantee than `dir_fd` gives, documented rather
+than silent. `filelock.py` wraps `fcntl.flock` (POSIX) and `msvcrt.locking`
+(Windows) behind one API; `procio.py`'s pump threads are non-blocking and
+`selectors`-polled on POSIX, plain blocking reads on Windows, relying on
+Job Object termination to unblock a stuck read the way group termination
+does on POSIX.
+
+**Known limitations, not yet closed:**
+- Run-owned artifacts (prompts, raw model output, claims) have no
+  Windows-native privacy control. POSIX forces `0700`/`0600`; Windows has
+  no equivalent mode bits, and a first attempt at an owner-only ACL via
+  `icacls` surfaced real permission errors on resume and was backed out
+  rather than shipped half-verified. A run's files are only as private as
+  the parent directory's own inherited permissions.
+- `afriend runs prune` remains POSIX-only — its deletion machinery uses
+  `dir_fd` directly. Every other command works normally.
+- No OS-level sandbox equivalent to `bwrap`/`sandbox-exec` exists on
+  Windows; `codex` and `agy` need `--allow-unsandboxed-friend` there, the
+  same fallback a `bwrap`-less Linux host already uses. `afriend doctor`
+  reports them `ready` with a reason naming the missing confinement, not
+  `policy-blocked`.
+
+CI gained a `windows-latest` job running the full suite.
+
 ## 0.11.1
 
 **`afriend resume <run-id>` went to the read-only skill.** Resuming a halted

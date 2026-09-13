@@ -8,10 +8,9 @@ than re-derived (see _dispatch's own docstring below).
 import dataclasses
 from pathlib import Path
 import re
-import shutil
 import threading
 
-from . import childenv, http_transport, sandbox
+from . import childenv, execresolve, http_transport, sandbox
 from .adapters import Adapter, Capability, FriendSpec, build_argv, place_extra_args
 from .authority import (
     DENY_ALL,
@@ -342,7 +341,7 @@ def _dispatch(
         argv, stdin_text, capability = build_argv(
             adapter, spec, prompt_file, schema_file, provider_policy
         )
-        binary_present = bool(adapter.binary and shutil.which(adapter.binary))
+        binary_present = bool(adapter.binary and execresolve.safe_which(adapter.binary))
         # Probed BEFORE the argv is screened, and once. `allow_outer_readonly`
         # used to be computed purely from adapter declarations, so the one
         # route that permits an otherwise-denied `danger-full-access` was

@@ -19,6 +19,7 @@ from typing import Any
 
 from ..adapters import FriendSpec
 from ..errors import UsageError
+from ..execresolve import git_executable
 from ..runstore import RunStore
 from ..snapshots import SnapshotIdentity
 
@@ -57,7 +58,13 @@ def _resolve_repo_root(artifact: Path) -> Path | None:
     # link's target supplies only the bytes.
     try:
         result = subprocess.run(
-            ["git", "-C", str(artifact.parent.resolve()), "rev-parse", "--show-toplevel"],
+            [
+                git_executable(),
+                "-C",
+                str(artifact.parent.resolve()),
+                "rev-parse",
+                "--show-toplevel",
+            ],
             capture_output=True,
             text=True,
         )
@@ -107,7 +114,7 @@ def resolve_run_repo(artifact: Path, explicit_repo: str | None) -> tuple[Path | 
         raise UsageError(f"--repo {explicit_repo!r} must be a Git worktree root")
     try:
         result = subprocess.run(
-            ["git", "-C", str(candidate), "rev-parse", "--show-toplevel"],
+            [git_executable(), "-C", str(candidate), "rev-parse", "--show-toplevel"],
             capture_output=True,
             text=True,
         )

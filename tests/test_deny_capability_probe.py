@@ -1,4 +1,8 @@
 import dataclasses
+import os
+import signal
+import sys
+import time
 
 import pytest
 
@@ -141,6 +145,82 @@ def test_deny_argv_probe_times_out_without_model_or_network_fallback(tmp_path, r
 
     assert not result.supported
     assert "timed out" in result.reason
+
+
+@pytest.mark.windows_only(
+    reason="exercises the Windows-specific taskkill_tree fallback and its "
+    "survivor-suspected reason enrichment directly"
+)
+def test_deny_argv_probe_names_a_suspected_survivor_in_its_reason(tmp_path, registry, monkeypatch):
+    """A code review of the readiness probe's Windows timeout path found
+    `taskkill_tree`'s return value was discarded entirely -- a survivor
+    (taskkill itself refused or timed out) was reported only as a plain
+    "timed out", identical to the ordinary case where cleanup succeeded."""
+    from afriend import wingroup
+
+    monkeypatch.setattr(wingroup, "taskkill_tree", lambda *_a, **_k: True)
+    adapter = dataclasses.replace(
+        _probe_adapter(registry),
+        deny_external_tools_probe_argv=("-c", "import time; time.sleep(60)"),
+    )
+
+    # process.kill() (unmocked) still genuinely terminates this real
+    # process -- only taskkill_tree's reported outcome is overridden, to
+    # check the wiring without actually leaking anything.
+    result = probe_deny_argv(adapter, sys.executable, timeout_s=0.2)
+
+    assert not result.supported
+    assert "timed out" in result.reason
+    assert "may have survived" in result.reason
+
+
+def _assert_process_dead(pid: int) -> None:
+    """See tests/test_spawn.py's identical helper for the Windows-vs-POSIX
+    rationale; duplicated rather than imported since test modules in this
+    repo do not import fixtures/helpers from one another."""
+    if sys.platform == "win32":
+        with pytest.raises(OSError):
+            os.kill(pid, signal.SIGTERM)
+    else:
+        with pytest.raises(ProcessLookupError):
+            os.kill(pid, signal.SIGTERM)
+
+
+@pytest.mark.windows_only(
+    reason="c-0006: exercises the Windows-specific timeout branch of the "
+    "deny-argv capability probe, which needs a real child process tree -- "
+    "the POSIX branch already kills the whole process group via os.killpg "
+    "and has no equivalent gap"
+)
+def test_deny_argv_probe_timeout_kills_the_whole_tree_not_just_the_shim(tmp_path, registry):
+    """A code review of the Windows port found that this probe's timeout
+    branch called process.kill() on only the immediate process. For the
+    .cmd-shimmed CLIs this port exists to support, that shim spawns the real
+    agent process as a child -- so a slow-starting shim (cold npm cache, an
+    on-access AV scan) left the real CLI process running after the probe
+    gave up on it, with nothing to report the survivor."""
+    pidfile = tmp_path / "child.pid"
+    shim_spawns_a_child_then_hangs = (
+        "import subprocess, sys, time\n"
+        "p = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])\n"
+        f"open(r'{pidfile}', 'w').write(str(p.pid))\n"
+        "time.sleep(60)\n"
+    )
+    adapter = dataclasses.replace(
+        registry["codex"],
+        deny_external_tools_probe_argv=("-c", shim_spawns_a_child_then_hangs),
+        deny_external_tools_probe_markers=("unused",),
+    )
+
+    result = probe_deny_argv(adapter, sys.executable, timeout_s=2.0)
+
+    assert not result.supported
+    assert "timed out" in result.reason
+    deadline = time.monotonic() + 5.0
+    while not pidfile.exists() and time.monotonic() < deadline:
+        time.sleep(0.05)
+    child_pid = int(pidfile.read_text().strip())
+    _assert_process_dead(child_pid)
 
 
 @pytest.mark.posix_only(

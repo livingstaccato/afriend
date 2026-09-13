@@ -52,7 +52,7 @@ def only_codex(monkeypatch, tmp_path):
     )
     echo = _echo(tmp_path)
     monkeypatch.setattr(
-        friends_module.shutil, "which", lambda name: echo if name == "codex" else None
+        friends_module.execresolve, "safe_which", lambda name: echo if name == "codex" else None
     )
     monkeypatch.setenv("AF_NO_HTTP_DISCOVERY", "1")
     # Reproduce the reported session: the host is claude, so claude is
@@ -182,8 +182,8 @@ def codex_host_and_claude(monkeypatch, tmp_path):
         ),
     )
     monkeypatch.setattr(
-        friends_module.shutil,
-        "which",
+        friends_module.execresolve,
+        "safe_which",
         lambda name: echo if name in {"codex", "claude"} else None,
     )
     monkeypatch.setenv("AF_NO_HTTP_DISCOVERY", "1")

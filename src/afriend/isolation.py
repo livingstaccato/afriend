@@ -16,6 +16,7 @@ import subprocess
 import tempfile
 
 from .errors import AfError
+from .execresolve import git_executable
 from .secureio import secure_copy, secure_mkdir
 
 # Suppress post-checkout hooks on worktree add. Hooks are not transferred by
@@ -52,7 +53,9 @@ SNAPSHOT_IDENTITY_EMAIL = "af-snapshot@localhost"
 
 
 def _git(repo: Path, *args: str, env: dict[str, str] | None = None) -> str:
-    result = subprocess.run(["git", *args], cwd=str(repo), capture_output=True, text=True, env=env)
+    result = subprocess.run(
+        [git_executable(), *args], cwd=str(repo), capture_output=True, text=True, env=env
+    )
     if result.returncode != 0:
         raise AfError(f"git {' '.join(args)} failed: {result.stderr.strip()}")
     return result.stdout.strip()
@@ -65,7 +68,7 @@ def _resolve_head(repo: Path) -> str | None:
     silently being treated as an empty repo.
     """
     result = subprocess.run(
-        ["git", "rev-parse", "--verify", "-q", "HEAD"],
+        [git_executable(), "rev-parse", "--verify", "-q", "HEAD"],
         cwd=str(repo),
         capture_output=True,
         text=True,
@@ -93,7 +96,10 @@ def _require_repo_root(repo: Path) -> None:
     """
     resolved = repo.resolve()
     result = subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"], cwd=str(repo), capture_output=True, text=True
+        [git_executable(), "rev-parse", "--show-toplevel"],
+        cwd=str(repo),
+        capture_output=True,
+        text=True,
     )
     if result.returncode != 0:
         raise AfError(f"not a git repository: {repo}")
@@ -158,7 +164,7 @@ def add_worktree(repo: Path, sha: str, dest: Path) -> Path:
 
 def remove_worktree(repo: Path, dest: Path) -> None:
     subprocess.run(
-        ["git", "worktree", "remove", "--force", str(dest)],
+        [git_executable(), "worktree", "remove", "--force", str(dest)],
         cwd=str(repo),
         capture_output=True,
         text=True,

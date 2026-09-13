@@ -27,6 +27,7 @@ from pathlib import Path
 import re
 import subprocess
 
+from .execresolve import git_executable
 from .ledger import Claim, Resolution
 from .verdicts import GATE_CLEARING_STATES, GATE_EXEMPT_STATES
 
@@ -145,7 +146,7 @@ def _git_ignores(repo: Path, relpath: str) -> bool:
     """
     try:
         result = subprocess.run(
-            ["git", "check-ignore", "-q", "--", relpath],
+            [git_executable(), "check-ignore", "-q", "--", relpath],
             cwd=str(repo),
             capture_output=True,
             text=True,
@@ -171,7 +172,7 @@ def _git_has_commit(repo: Path, sha: str) -> bool:
     """
     try:
         result = subprocess.run(
-            ["git", "cat-file", "-e", f"{sha}^{{commit}}"],
+            [git_executable(), "cat-file", "-e", f"{sha}^{{commit}}"],
             cwd=str(repo),
             capture_output=True,
             text=True,
@@ -193,7 +194,7 @@ def _git_show(repo: Path, sha: str, relpath: str) -> str | None:
     """
     try:
         result = subprocess.run(
-            ["git", "show", f"{sha}:{relpath}"],
+            [git_executable(), "show", f"{sha}:{relpath}"],
             cwd=str(repo),
             capture_output=True,
             text=True,
