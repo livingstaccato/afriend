@@ -1,5 +1,7 @@
 """Repository-scope provenance in the human-readable report."""
 
+from pathlib import Path
+
 import pytest
 from report_helpers import meta
 
@@ -39,7 +41,7 @@ def test_report_renders_explicit_repository_scope_from_validated_metadata():
 
     assert "## Repository snapshot" in out
     assert "Repository scope: explicit" in out
-    assert "Repository root: `/work/repo`" in out
+    assert f"Repository root: `{Path('/work/repo')}`" in out
     assert f"Snapshot commit: `{_COMMIT}`" in out
     assert f"Snapshot tree: `{_TREE}`" in out
     assert f"Artifact digest: `{_DIGEST}`" in out

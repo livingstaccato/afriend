@@ -114,6 +114,9 @@ def test_deny_capability_probe_markers_are_bounded(tmp_path):
         load_adapters(tmp_path)
 
 
+@pytest.mark.posix_only(
+    reason="starts a #!/bin/sh script as the executable, which Windows cannot run"
+)
 def test_deny_argv_probe_accepts_only_a_successful_bounded_marker_match(tmp_path, registry):
     adapter = _probe_adapter(registry)
     supported = _shim(tmp_path / "supported", 'printf "%s\\n" "--deny supported"')
@@ -127,6 +130,9 @@ def test_deny_argv_probe_accepts_only_a_successful_bounded_marker_match(tmp_path
     assert len(result.reason) <= 300
 
 
+@pytest.mark.posix_only(
+    reason="starts a #!/bin/sh script as the executable, which Windows cannot run"
+)
 def test_deny_argv_probe_times_out_without_model_or_network_fallback(tmp_path, registry):
     adapter = _probe_adapter(registry)
     slow = _shim(tmp_path / "slow", "sleep 2")
@@ -137,6 +143,9 @@ def test_deny_argv_probe_times_out_without_model_or_network_fallback(tmp_path, r
     assert "timed out" in result.reason
 
 
+@pytest.mark.posix_only(
+    reason="starts a #!/bin/sh script as the executable, which Windows cannot run"
+)
 def test_readiness_blocks_rejected_deny_flags_and_caches_process_snapshot(tmp_path, registry):
     adapter = _probe_adapter(registry)
     counter = tmp_path / "count"

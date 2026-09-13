@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 from typing import IO, Any
 
 from . import filelock
@@ -127,6 +128,23 @@ class RunStore:
             ) from exc
         self._lock_handle.write(f"{os.getpid()}\n")
         self._lock_handle.flush()
+
+    def release_lock(self) -> None:
+        if self._lock_handle is not None:
+            with contextlib.suppress(OSError):
+                self._lock_handle.close()
+            self._lock_handle = None
+
+    def remove_partial_run(self) -> None:
+        """Delete a fresh run directory that holds nothing durable yet.
+
+        The lock is released first. Windows cannot delete a file that is still
+        open, and the lock file is held open for the life of the run, so
+        removing the directory first left all of it behind -- silently, under
+        rmtree's ignore_errors.
+        """
+        self.release_lock()
+        shutil.rmtree(self.run_dir, ignore_errors=True)
 
     def round_dir(self, round_no: int) -> Path:
         path = self.run_dir / f"round-{round_no}"

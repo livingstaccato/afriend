@@ -330,9 +330,12 @@ def _json_object(text: str) -> dict:
 
 
 def run_judge(command: str, prompt: str) -> dict:
-    argv = shlex.split(command)
-    if not argv:
+    words = shlex.split(command, posix=sys.platform != "win32")
+    if not words:
         raise Unreadable("--judge-cmd is empty")
+    # Windows parses a command line itself, and POSIX splitting would eat
+    # every backslash in a Windows path; elsewhere the words are the argv.
+    argv: str | list[str] = command if sys.platform == "win32" else words
     try:
         proc = subprocess.run(
             argv,
@@ -343,7 +346,7 @@ def run_judge(command: str, prompt: str) -> dict:
             check=False,
         )
     except FileNotFoundError as exc:
-        raise Unreadable(f"judge command not found: {argv[0]}") from exc
+        raise Unreadable(f"judge command not found: {words[0]}") from exc
     except subprocess.TimeoutExpired as exc:
         raise Unreadable(f"the judge did not answer within {JUDGE_TIMEOUT_S}s") from exc
     if proc.returncode != 0:

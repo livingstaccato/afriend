@@ -15,9 +15,9 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 import re
-import selectors
 import subprocess
 import tempfile
+import threading
 from typing import cast
 
 from .errors import UsageError
@@ -33,6 +33,7 @@ MAX_CHANGE_BYTES = 4 * 1024 * 1024
 MAX_CHANGE_MEMBERS = 64
 MAX_CHANGESET_BYTES = 8 * 1024 * 1024
 _MAX_GIT_ERROR_BYTES = 64 * 1024
+_STDERR_DRAIN_JOIN_S = 5.0
 COMPOSER_MARKER = "<!-- afriend-review-context: v1 -->"
 
 
@@ -283,27 +284,26 @@ def _git_bytes(
     except OSError as exc:
         raise UsageError(f"cannot compose review context: cannot run git: {exc}") from exc
     assert process.stdout is not None and process.stderr is not None
-    output = bytearray()
-    errors = bytearray()
-    selector = selectors.DefaultSelector()
-    selector.register(process.stdout, selectors.EVENT_READ, "stdout")
-    selector.register(process.stderr, selectors.EVENT_READ, "stderr")
-    exceeded = False
-    while selector.get_map():
-        for key, _event in selector.select():
-            chunk = os.read(key.fd, 64 * 1024)
-            if not chunk:
-                selector.unregister(key.fileobj)
-                continue
-            if key.data == "stdout":
-                if len(output) + len(chunk) > limit:
-                    exceeded = True
-                    process.kill()
-                else:
-                    output.extend(chunk)
-            elif len(errors) < _MAX_GIT_ERROR_BYTES:
+    output, errors = bytearray(), bytearray()
+    stderr_fd = process.stderr.fileno()
+
+    def drain_stderr() -> None:
+        # A thread, not a selector: Windows cannot select on a pipe (WinError 10038).
+        while chunk := os.read(stderr_fd, 64 * 1024):
+            if len(errors) < _MAX_GIT_ERROR_BYTES:
                 errors.extend(chunk[: _MAX_GIT_ERROR_BYTES - len(errors)])
+
+    drainer = threading.Thread(target=drain_stderr, daemon=True)
+    drainer.start()
+    exceeded = False
+    while chunk := os.read(process.stdout.fileno(), 64 * 1024):
+        if len(output) + len(chunk) > limit:
+            exceeded = True
+            process.kill()
+            break
+        output.extend(chunk)
     returncode = process.wait()
+    drainer.join(timeout=_STDERR_DRAIN_JOIN_S)
     if exceeded:
         raise UsageError(
             f"cannot compose review context: git output exceeds the {limit}-byte limit"

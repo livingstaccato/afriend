@@ -56,8 +56,14 @@ def read_artifact_bytes_and_text(path: Path) -> tuple[bytes, str]:
     so it refuses only inputs that were going to fail later and names the
     limit when it does.
     """
+    if Path(path).is_dir():
+        # Windows refuses to open a directory at all, which would otherwise
+        # read as a permission problem rather than the wrong kind of path.
+        raise UsageError(f"artifact {path} must be a regular file")
     try:
-        descriptor = os.open(path, os.O_RDONLY)
+        # O_BINARY: Windows opens descriptors in text mode by default and
+        # would strip every \r before the digest sees the bytes.
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_BINARY", 0))
     except OSError as exc:
         raise UsageError(f"cannot read artifact {path}: {exc}") from exc
     try:

@@ -239,6 +239,8 @@ def test_the_roster_tells_the_operator_which_friends_the_os_confines(tmp_path, m
         )
     }
     monkeypatch.setattr(init_module, "assess_all", lambda *_args, **_kwargs: rows)
+    # A mechanism must exist for the note to promise confinement; Windows has none.
+    monkeypatch.setattr(init_module.sandbox, "detect", lambda: init_module.sandbox.BWRAP)
 
     init_module.cmd_init(_args("--apply", "--default-profile", "balanced", "--out", str(target)))
 

@@ -24,7 +24,11 @@ def read_bounded_bytes(path: Path, *, label: str, max_bytes: int = MAX_JSON_FILE
             raise UsageError(f"{label} {target} must be a regular file, not a symlink")
         if info.st_size > max_bytes:
             raise UsageError(f"{label} {target} exceeds the {max_bytes}-byte limit")
-        descriptor = os.open(target, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        # O_BINARY: these bytes are hashed and bounded exactly, and Windows
+        # descriptors default to text mode.
+        descriptor = os.open(
+            target, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0)
+        )
     except FileNotFoundError:
         raise
     except UsageError:

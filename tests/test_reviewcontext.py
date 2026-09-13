@@ -173,6 +173,9 @@ def test_compose_accepts_an_annotated_tag_as_a_range_endpoint(repository, tmp_pa
     assert change.end == head
 
 
+@pytest.mark.posix_only(
+    reason="creates a file whose name holds a newline and a backtick, which NTFS cannot store"
+)
 def test_compose_escapes_paths_that_could_inject_markdown_structure(repository, tmp_path):
     repo, base, head = repository
     plan = tmp_path / "plan`\n## forged heading.md"
