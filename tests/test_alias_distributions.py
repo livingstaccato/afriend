@@ -8,9 +8,9 @@ ROOT = Path(__file__).resolve().parents[1]
 VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
 
 
-def test_compatibility_distributions_are_exact_metadata_only_aliases() -> None:
+def test_alias_distributions_are_exact_metadata_only_aliases() -> None:
     for name in ("adversarial-friends", "afriends"):
-        project = ROOT / "compatibility-distributions" / name
+        project = ROOT / "aliases" / name
         data = tomllib.loads((project / "pyproject.toml").read_text(encoding="utf-8"))
         assert data["project"]["name"] == name
         assert data["project"]["version"] == VERSION

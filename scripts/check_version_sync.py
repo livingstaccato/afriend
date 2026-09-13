@@ -27,9 +27,9 @@ MANIFESTS = [
 COMPATIBILITY_PROJECTS = (
     (
         "adversarial-friends",
-        Path("compatibility-distributions/adversarial-friends/pyproject.toml"),
+        Path("aliases/adversarial-friends/pyproject.toml"),
     ),
-    ("afriends", Path("compatibility-distributions/afriends/pyproject.toml")),
+    ("afriends", Path("aliases/afriends/pyproject.toml")),
 )
 
 

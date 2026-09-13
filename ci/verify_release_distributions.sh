@@ -19,8 +19,8 @@ else
 fi
 
 uv build --wheel --sdist --out-dir "$dist" "$repo"
-uv build --wheel --sdist --out-dir "$dist" "$repo/compatibility-distributions/adversarial-friends"
-uv build --wheel --sdist --out-dir "$dist" "$repo/compatibility-distributions/afriends"
+uv build --wheel --sdist --out-dir "$dist" "$repo/aliases/adversarial-friends"
+uv build --wheel --sdist --out-dir "$dist" "$repo/aliases/afriends"
 
 test -f "$dist/afriend-${version}-py3-none-any.whl"
 test -f "$dist/afriend-${version}.tar.gz"
