@@ -174,6 +174,8 @@ def test_available_cli_is_ready_and_carries_model_preference(registry):
         env={"AF_NO_HTTP_DISCOVERY": "1"},
         which=lambda name: f"/bin/{name}" if name == "codex" else None,
         probe=lambda _: False,
+        # Pinned: with no sandbox on the host (Windows) the reason says so.
+        detect_confinement=lambda: "bwrap",
     )
     assert rows["codex"] == FriendReadiness(
         provider="codex",

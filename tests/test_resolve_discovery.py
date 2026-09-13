@@ -95,7 +95,8 @@ def test_resolve_next_prints_the_only_highest_priority_claim_without_appending(t
     output = capsys.readouterr().out
     assert "c-0001@1" in output
     assert "c-0002@1" not in output
-    assert f"afriend resolve {run} --claim c-0001@1" in output
+    # Shell-quoted as printed: a Windows path's backslashes need the quotes.
+    assert f"afriend resolve {shlex.quote(str(run))} --claim c-0001@1" in output
     assert (run / "claims.jsonl").read_bytes() == before
 
 
