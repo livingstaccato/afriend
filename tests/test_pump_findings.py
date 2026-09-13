@@ -93,6 +93,9 @@ def test_a_json_path_run_still_stops_early(tmp_path):
 
 
 @pytest.mark.slow
+@pytest.mark.posix_only(
+    reason="the Windows pumps block in os.read/os.write until Job Object termination closes the pipe, and never poll stop_event (see procio's module docstring)"
+)
 def test_a_pump_stops_promptly_even_while_data_keeps_arriving(tmp_path):
     """c-0007/c-0012. The loop `continue`d straight past its stop_event check
     after any successful read, so a writer trickling bytes forever kept the

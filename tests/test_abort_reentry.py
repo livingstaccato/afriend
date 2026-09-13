@@ -13,6 +13,9 @@ pytestmark = pytest.mark.process
 PROBE = Path(__file__).with_name("abort_reentry_probe.py")
 
 
+@pytest.mark.posix_only(
+    reason="the probe re-delivers SIGTERM to itself, which ends the process outright on Windows"
+)
 def test_a_second_signal_during_abort_does_not_deadlock():
     """Found as a two-day-old `afriend` process: five nested invocations of
     the abort handler on the main thread, the innermost parked on

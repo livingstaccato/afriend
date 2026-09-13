@@ -221,6 +221,9 @@ def _assert_signal_tears_everything_down(tmp_path, sig: int):
     assert not _pid_alive(child_pid), "friend's child survived the signal"
 
 
+@pytest.mark.posix_only(
+    reason="lists processes with ps and signals a process group, neither of which Windows has"
+)
 def test_sigterm_tears_down_isolation_and_kills_the_friend_and_its_child(tmp_path):
     """Without an installed handler, SIGTERM's default disposition kills
     `afriend` immediately -- no Python-level unwinding, no `finally`
@@ -231,6 +234,9 @@ def test_sigterm_tears_down_isolation_and_kills_the_friend_and_its_child(tmp_pat
     _assert_signal_tears_everything_down(tmp_path, signal.SIGTERM)
 
 
+@pytest.mark.posix_only(
+    reason="lists processes with ps and signals a process group, neither of which Windows has"
+)
 def test_sigint_tears_down_isolation_and_kills_the_friend_and_its_child(tmp_path):
     """SIGINT's default handler does raise KeyboardInterrupt, but (before
     this fix) that exception immediately re-blocks inside
@@ -243,6 +249,9 @@ def test_sigint_tears_down_isolation_and_kills_the_friend_and_its_child(tmp_path
 
 
 @pytest.mark.slow
+@pytest.mark.posix_only(
+    reason="lists processes with ps and signals a process group, neither of which Windows has"
+)
 def test_orphans_suspected_is_surfaced_end_to_end(tmp_path):
     """Task 12 review, Finding 4: spawn.SpawnResult.orphans_suspected was
     plumbed into cmd_run's .meta file and status string, but never actually

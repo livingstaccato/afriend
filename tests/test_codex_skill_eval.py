@@ -272,6 +272,7 @@ def _container_script(tmp_path, exec_body, preinstalled=()):
     )
 
 
+@pytest.mark.posix_only(reason="runs a POSIX shell script, which Windows cannot execute")
 def test_the_container_passes_codex_through_when_no_model_cli_appears(tmp_path):
     proc = _container_script(tmp_path, TURN)
 
@@ -279,6 +280,7 @@ def test_the_container_passes_codex_through_when_no_model_cli_appears(tmp_path):
     assert b"turn.completed" in proc.stdout
 
 
+@pytest.mark.posix_only(reason="runs a POSIX shell script, which Windows cannot execute")
 def test_the_container_keeps_codexs_own_exit_status(tmp_path):
     assert _container_script(tmp_path, "exit 3").returncode == 3
 
@@ -291,6 +293,7 @@ def test_the_container_keeps_codexs_own_exit_status(tmp_path):
         'ln -s /bin/sh "$TMPDIR/claude"',
     ],
 )
+@pytest.mark.posix_only(reason="runs a POSIX shell script, which Windows cannot execute")
 def test_a_model_cli_that_appears_during_the_run_is_a_breach(tmp_path, install):
     proc = _container_script(tmp_path, install)
 
@@ -298,6 +301,7 @@ def test_a_model_cli_that_appears_during_the_run_is_a_breach(tmp_path, install):
     assert b"appeared during the run" in proc.stderr
 
 
+@pytest.mark.posix_only(reason="runs a POSIX shell script, which Windows cannot execute")
 def test_a_model_cli_already_present_stops_before_codex_runs(tmp_path):
     proc = _container_script(tmp_path, 'touch "$HOME/codex-ran"', preinstalled=("opencode",))
 
@@ -319,6 +323,9 @@ def test_the_login_asks_for_a_terminal_only_when_it_has_one():
     assert "-it" not in without and "-t" not in without
 
 
+@pytest.mark.posix_only(
+    reason="fakes docker with a shell script on PATH, which Windows cannot execute"
+)
 def test_login_without_a_terminal_starts_docker_without_one(tmp_path):
     env, log = _docker(tmp_path)
 
@@ -407,6 +414,9 @@ def _run(tmp_path, env, *extra):
     return M.main(argv, base_env=env)
 
 
+@pytest.mark.posix_only(
+    reason="fakes docker with a shell script on PATH, which Windows cannot execute"
+)
 def test_a_run_through_the_container_passes_and_records_what_it_blocked(tmp_path):
     env, log = _docker(tmp_path)
 
@@ -422,6 +432,9 @@ def test_a_run_through_the_container_passes_and_records_what_it_blocked(tmp_path
     assert record["attempted"] == ["/bin/zsh -lc 'afriend status run-123 --json'"]
 
 
+@pytest.mark.posix_only(
+    reason="fakes docker with a shell script on PATH, which Windows cannot execute"
+)
 def test_a_wrong_selection_exits_1(tmp_path):
     env, _ = _docker(tmp_path)
 
@@ -434,6 +447,9 @@ def test_a_wrong_selection_exits_1(tmp_path):
         (M.MODEL_CLI_PRESENT, "installed in the image"),
         (M.MODEL_CLI_APPEARED, "appeared in the container"),
     ],
+)
+@pytest.mark.posix_only(
+    reason="fakes docker with a shell script on PATH, which Windows cannot execute"
 )
 def test_a_model_cli_found_in_the_container_makes_the_run_untrusted(tmp_path, exit_code, message):
     env, _ = _docker(tmp_path, FAKE_RUN_EXIT=str(exit_code))
@@ -457,6 +473,9 @@ def test_an_unknown_case_is_refused(tmp_path):
     assert _run(tmp_path, env, "--dry-run", "--case", "pos-nope") == 2
 
 
+@pytest.mark.posix_only(
+    reason="fakes docker with a shell script on PATH, which Windows cannot execute"
+)
 def test_missing_docker_is_reported_not_raised(tmp_path, capsys):
     env = {"PATH": str(tmp_path / "empty")}
 

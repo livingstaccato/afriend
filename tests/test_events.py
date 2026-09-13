@@ -85,6 +85,9 @@ def test_run_started_accepts_only_declared_repository_scope_modes():
             )
 
 
+@pytest.mark.posix_only(
+    reason="asserts POSIX permission bits; Windows has none, so every mode reads back as 0o777"
+)
 def test_writer_appends_private_jsonl_and_reader_ignores_only_torn_tail(tmp_path):
     store = RunStore(tmp_path / "runs", "run-events")
     writer = store.events_writer()

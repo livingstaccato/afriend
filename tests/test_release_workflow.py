@@ -192,6 +192,7 @@ def test_every_action_is_pinned_to_a_full_commit_sha():
 
 
 @pytest.mark.external
+@pytest.mark.posix_only(reason="runs a POSIX shell script, which Windows cannot execute")
 def test_wheel_asset_verifier_ignores_stale_intermediate_assets():
     """A deleted asset in setuptools' build/lib must not leak into a wheel."""
     stale_asset = ROOT / "build/lib/afriend/assets/SKILL.md"

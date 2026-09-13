@@ -29,7 +29,12 @@ import pytest
 
 from afriend import procgroup
 
-pytestmark = pytest.mark.process
+pytestmark = [
+    pytest.mark.process,
+    pytest.mark.posix_only(
+        reason="signals a POSIX process group with os.killpg; Windows uses Job Objects, covered by test_wingroup.py"
+    ),
+]
 
 
 @pytest.fixture

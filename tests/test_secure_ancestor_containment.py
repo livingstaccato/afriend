@@ -94,6 +94,9 @@ def test_kept_isolation_refuses_a_symlinked_isolation_ancestor(tmp_path):
     assert not (outside / "round-3").exists()
 
 
+@pytest.mark.posix_only(
+    reason="asserts POSIX permission bits; Windows has none, so every mode reads back as 0o777"
+)
 def test_scratch_creation_does_not_follow_a_symlinked_private_root(tmp_path):
     isolation_root = tmp_path / "isolation"
     isolation_root.mkdir()
@@ -128,6 +131,9 @@ def test_doc_scope_creation_does_not_follow_an_ancestor_symlink(tmp_path):
     assert not (outside / "friend").exists()
 
 
+@pytest.mark.posix_only(
+    reason="asserts POSIX permission bits; Windows has none, so every mode reads back as 0o777"
+)
 def test_permission_repair_skips_a_contained_symlink_without_chmodding_outside(tmp_path):
     store = RunStore(tmp_path / "runs", "run-001")
     outside = tmp_path / "outside"
@@ -161,6 +167,9 @@ def test_resume_with_a_symlinked_round_refuses_writes_without_touching_target(tm
 
 
 @pytest.mark.parametrize("op", [secureio.secure_open_write, secureio.secure_open_append])
+@pytest.mark.posix_only(
+    reason="exercises secureio's POSIX dir_fd walk; Windows takes the name-based walk its module docstring describes"
+)
 def test_secure_open_closes_descriptor_when_post_open_chmod_fails(tmp_path, monkeypatch, op):
     target = tmp_path / "capture"
     captured = []
@@ -185,6 +194,9 @@ def test_secure_open_closes_descriptor_when_post_open_chmod_fails(tmp_path, monk
         os.fstat(captured[-1])
 
 
+@pytest.mark.posix_only(
+    reason="exercises secureio's POSIX dir_fd walk; Windows takes the name-based walk its module docstring describes"
+)
 def test_secure_read_closes_descriptor_when_post_open_fstat_fails(tmp_path, monkeypatch):
     target = tmp_path / "capture"
     target.write_text("payload")
@@ -211,6 +223,9 @@ def test_secure_read_closes_descriptor_when_post_open_fstat_fails(tmp_path, monk
         real_fstat(captured[-1])
 
 
+@pytest.mark.posix_only(
+    reason="exercises secureio's POSIX dir_fd walk; Windows takes the name-based walk its module docstring describes"
+)
 def test_secure_directory_open_closes_descriptor_when_fstat_fails(tmp_path, monkeypatch):
     captured = []
     real_open = secureio.os.open
