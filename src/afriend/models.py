@@ -40,7 +40,15 @@ def _parse(text: str, models_format: str) -> tuple[str, ...]:
         line = line.strip()
         if not line:
             continue
-        if models_format == "tsv":
+        if models_format == "columns":
+            # A padded multi-column table (pi --list-models): the model id is
+            # the second whitespace column, and the CLI's own header row names
+            # the columns. Anything shorter is prose, not a row.
+            parts = line.split()
+            if len(parts) < 2 or parts[0] == "provider":
+                continue
+            candidate = parts[1]
+        elif models_format == "tsv":
             # No tab means the CLI is talking to the operator, not listing.
             if "\t" not in line:
                 continue

@@ -490,7 +490,7 @@ def test_dispatch_confines_every_exec_friend_that_does_not_restrain_itself():
     needs_sandbox = {
         n for n, a in registry.items() if a.transport == "exec" and a.needs_os_confinement
     }
-    assert needs_sandbox == {"agy", "codex", "opencode"}, needs_sandbox
+    assert needs_sandbox == {"agy", "codex", "opencode", "pi"}, needs_sandbox
 
 
 def test_an_unconfinable_adapter_declares_where_its_credentials_live():

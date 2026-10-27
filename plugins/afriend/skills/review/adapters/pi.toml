@@ -1,0 +1,210 @@
+name = "pi"
+binary = "pi"
+# --print runs one non-interactive invocation; --mode json streams it as
+# NDJSON (pi 1.4.0 writes no JSON transcript by default). --no-session keeps
+# the run ephemeral -- without it pi would persist every review, rescued or
+# not, into ~/.pi/agent/sessions; with it, the operator's own pi history is
+# untouched. --offline stops the startup model-catalog refresh -- one less
+# thing that needs the network before the model does, and one less write
+# into the operator's state directory (the refresh target, models-store.json,
+# otherwise lands beside auth.json). The model call itself is not gated by
+# PI_OFFLINE: ModelRuntime uses it only for refresh paths, confirmed live.
+base_argv = ["--print", "--mode", "json", "--no-session", "--offline"]
+# stdin, the same reason as claude: a positional prompt is one argv element,
+# and the artifact-under-review broke claude on Linux's ~128KB single-argument
+# cap. pi's resolvePrompt prefers piped stdin over positionals; verified
+# against 1.4.0 with a 30KB prompt answered from stdin.
+prompt_mode = "stdin"
+model_flag = "--model"
+# pi model ids may themselves carry a provider prefix ("verda/glm-5.2"), and
+# a thinking level can ride along as a suffix ("glm-5.2:high"); both forms
+# pass MODEL_RE unchanged.
+internal_timeout_flag = ""
+# Measured against pi 1.4.0 with the dispatch argv below:
+#   Write probe   asked to create a file in its working directory, pi reports
+#                 it has no write tool and creates nothing -- the --tools
+#                 allowlist holds. Executes nothing else: --no-approve ignores
+#                 project-local approval files too.
+#   Read probe    asked to read /etc/hostname (absolutely outside its working
+#                 directory) it succeeds -- the allowlist restricts WRITES
+#                 only, so pi does not confine itself. It takes the OS
+#                 confinement below, with only its own state readable.
+readonly = true
+self_confines = false
+readonly_argv = ["--no-approve", "--tools", "read,grep,find,ls"]
+# Effort is --thinking <level>. Measured: an unknown level warns and runs
+# anyway ("Invalid thinking level 'bogus'... Valid values: off, minimal, low,
+# medium, high, xhigh, max"), so afriend cannot verify the level a friend
+# actually ran at from the emitted flags -- same shape as opencode's
+# --variant, hence unverified rather than native.
+effort_kind = "unverified"
+# --list-models prints a padded multi-column table (pi has no plain/tsv mode;
+# --plain only matters interactively):
+#   provider  model              context  max-out  thinking  images
+#   verda     glm-5.2            128K     16.4K    no        no
+# The header row and every prose line are dropped by the "columns" format:
+# the model id is the second whitespace-separated column.
+models_argv = ["--list-models"]
+models_format = "columns"
+
+# pi customizes itself from user config, project config and extensions:
+# --no-extensions/--no-mcp/--no-skills/--no-prompt-templates/--no-themes/
+# --no-context-files are pi 1.4.0's own denial flags, measured rather than
+# assumed: an AGENTS.md canary in the working directory changed the answer
+# without them, and a project extension executed when explicitly trusted; with
+# the full set neither fired and an MCP server canary never started. The
+# command `pi <all six flags> --help` parses cleanly, which is the capability
+# probe: a pi old enough to lack these flags fails it at parse time.
+external_tools = "deny-argv"
+deny_external_tools_argv = [
+  "--no-extensions",
+  "--no-mcp",
+  "--no-skills",
+  "--no-prompt-templates",
+  "--no-themes",
+  "--no-context-files",
+]
+deny_external_tools_probe_argv = [
+  "--no-extensions",
+  "--no-mcp",
+  "--no-skills",
+  "--no-prompt-templates",
+  "--no-themes",
+  "--no-context-files",
+  "--help",
+]
+deny_external_tools_probe_markers = ["--no-mcp", "--no-extensions"]
+external_tool_sources = [
+  "extensions",
+  "MCP servers",
+  "skills",
+  "prompt templates",
+  "themes",
+  "context files",
+]
+
+# --mode json is itself the structured transcript: one JSON object per line,
+# session header first, then session events. The final assistant message_end
+# is the answer; agent_end duplicates it inside `messages` and agent_settled
+# closes the run. Captured 2026-10-27 from pi 1.4.0 print-mode streams.
+#
+# The answer text is at message.content[i].text -- where i sits depends on
+# whether the turn reasoned first: with thinking enabled the stream carries
+# [thinking, text] (content[0].text misses silently), without it [text].
+# Both positions are therefore declared rules; within one event the latest
+# producing rule wins, matching the latest-first stream ordering normalize
+# already relies on for progress-then-answer output.
+structured_output = true
+
+[envelope]
+kind = "ndjson"
+match_field = "type"
+terminal_event = "agent_end"
+
+# A failed turn (provider error, auth rejection) arrives as an assistant
+# message whose stopReason is "error", carrying errorMessage instead of text.
+# Captured verbatim: a 401 against a custom provider produced
+#   {"type":"message_end","message":{"role":"assistant",...,"stopReason":
+#    "error","errorMessage":"401: {...\"type\":\"auth_error\"...}"}}
+# and the process then exited with code 0 -- pi's text mode maps failures to
+# exit 1, but JSON mode exits 0 with the error in the stream, so afriend must
+# read the stream and not the status.
+[[envelope.error_rules]]
+type = "message_end"
+where = "message.stopReason"
+equals = "error"
+field = "message.errorMessage"
+
+[[envelope.rules]]
+type = "message_end"
+where = "message.role"
+equals = "assistant"
+field = "message.content[0].text"
+
+[[envelope.rules]]
+type = "message_end"
+where = "message.role"
+equals = "assistant"
+field = "message.content[1].text"
+
+[effort]
+off = ["--thinking", "off"]
+minimal = ["--thinking", "minimal"]
+low = ["--thinking", "low"]
+medium = ["--thinking", "medium"]
+high = ["--thinking", "high"]
+xhigh = ["--thinking", "xhigh"]
+max = ["--thinking", "max"]
+
+# §14 auth markers, both captured live without touching real credentials:
+#
+#   Credential-free state (PI_CODING_AGENT_DIR pointed at an empty
+#   directory): pi exits 1, stdout holds only the session header, and stderr
+#   is exactly "No API key found for the selected model." / "...for verda."
+#   -- same sentence, provider name infilled.
+#
+#   Credentials present but rejected (a wrong apiKey against the provider's
+#   real endpoint): the stream ends on a stopReason="error" assistant
+#   message whose errorMessage starts "401: {" and the provider's own JSON
+#   body embeds "type":"auth_error"; exit code is 0 in JSON mode (see the
+#   envelope note above).
+#
+# NOT markers, for the reasons failures.py requires:
+#   exit 1 -- parse errors exit 1 too (unknown flags; pi rejects extras).
+#   exit 0 -- everything, including failures, under --mode json.
+#   "No models available" (from --list-models with no credentials) -- says
+#     nothing about dispatch being unable to authenticate.
+#
+# A QUOTA marker is deliberately absent: no real quota exhaustion was
+# provoked (that would burn a paid allowance), so there is no captured
+# sentence to declare. An exhausted pi friend classifies UNKNOWN, and repeat
+# detection still stops it after two identical rounds.
+[auth]
+stderr_contains = ["No API key found for"]
+provider_error_contains = ['"type":"auth_error"']
+remediation = "authenticate pi (interactive `pi`, then /login; or an apiKey in ~/.pi/agent/models.json); a confined friend sees only auth.json and models.json, so credentials that live in shell environment variables need --pass-env"
+
+# §12.2, like codex: pi's flags confine WRITES only; /etc/hostname read
+# through them. Under confinement pi is granted read access to exactly its
+# own state -- the two credential/config files it must read to authenticate,
+# and the managed install tree (a ~/.pi/agent install keeps its runtime in
+# versions/ and its node_modules under install/, which the which/install-root
+# heuristic cannot see because that directory is also the operator's own
+# session state).
+#
+# Everything else stays out: settings.json is deliberately NOT granted --
+# with it absent, pi skips the settings lock entirely and a confined friend
+# reads no operator settings (a run that picks up the operator's interactive
+# profile would be a surprise, not a convenience). models.json is read-only
+# and pi's only writes into it happen on flows a print-mode review never
+# reaches (login, catalog refresh); probes under bwrap with this exact read
+# set completed a review answering CONFINED_OK, and a friend that tries to
+# write outside its workspace finds the rest of the operator's home directory
+# does not exist inside the namespace.
+#
+# write = []: nothing a review needs is written to the operator's state; the
+# session file --no-session would keep is discarded as documented above.
+[sandbox]
+os_confine = true
+readonly_workdir = true
+read = [
+  "~/.pi/agent/auth.json",
+  "~/.pi/agent/models.json",
+  "~/.pi/agent/install",
+  "~/.pi/agent/versions",
+]
+write = []
+
+[env]
+# Proxy configuration is pi's own documented outbound-request contract
+# (PI_OFFLINE docs list HTTP_PROXY/HTTPS_PROXY). NO_PROXY rides with them --
+# withholding it while passing the other two would re-route exactly the
+# traffic NO_PROXY exists to exempt.
+#
+# pi resolves credentials from files first (auth.json, the apiKey fields in
+# models.json), so nothing here is a provider key. Operators whose setup uses
+# environment-variable credentials instead (models.json "$VAR" indirection
+# included -- captured on the authoring machine, where the key materialized
+# only with the variable passed) add --pass-env explicitly, per run, naming
+# exactly their provider's variable.
+pass = ["HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "PI_CODING_AGENT_DIR"]

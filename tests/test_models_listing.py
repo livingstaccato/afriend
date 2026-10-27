@@ -152,7 +152,7 @@ def test_an_unknown_provider_is_named_along_with_the_known_ones():
 
 def test_the_shipped_adapters_declare_only_supported_formats():
     for name, adapter in load_adapters(ADAPTER_DIR).items():
-        assert adapter.models_format in {"lines", "tsv"}, name
+        assert adapter.models_format in {"lines", "tsv", "columns"}, name
         if adapter.models_argv:
             assert adapter.models_argv[0], name
 
@@ -202,3 +202,36 @@ def test_a_provider_with_no_executable_is_not_exec_ed(monkeypatch, tmp_path):
 
     assert calls == []
     assert answer.error is not None and "no executable" in answer.error
+
+
+def test_columns_format_reads_the_second_column_and_skips_the_header(monkeypatch, tmp_path):
+    """`pi --list-models` (1.4.0): one padded fixed-width table, header
+    'provider  model  context  ...', no tabs anywhere. The id is the second
+    whitespace column; padding-only prose and the header itself are not
+    offerable as model ids."""
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *a, **k: _completed(
+            "provider  model              context  max-out  thinking  images\n"
+            "verda     glm-5.2            128K     16.4K    no        no\n"
+            "verda     kimi-k3            128K     16.4K    no        no\n"
+            "verda     verda/kimi-k3-poc  128K     16.4K    no        no\n"
+            "\n"
+        ),
+    )
+    answer = list_models(_adapter(tmp_path, fmt="columns"))
+    assert answer.models == ("glm-5.2", "kimi-k3", "verda/kimi-k3-poc")
+
+
+def test_columns_format_with_only_the_header_lists_nothing(monkeypatch, tmp_path):
+    """A credential-free listing is a header over zero rows; that answers
+    'no claim, no offer' without inventing ids."""
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *a, **k: _completed("provider  model  context  max-out\n"),
+    )
+    answer = list_models(_adapter(tmp_path, fmt="columns"))
+    assert answer.supported is True
+    assert answer.models == ()

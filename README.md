@@ -4,13 +4,13 @@
 
 > Hand your spec, plan, or review to agent CLIs — `claude`, `codex`,
 > Antigravity (`agy`),
-> `opencode` — under adversarial lenses, then merge their critiques into one
+> `opencode`, `pi` — under adversarial lenses, then merge their critiques into one
 > ranked findings report.
 
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 [![Dependencies](https://img.shields.io/badge/runtime%20deps-none-brightgreen)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-2699-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2720-brightgreen)](tests/)
 
 It automates a workflow you may already do by hand: run a review, paste the
 findings into a different model, ask whether they hold up, carry the argument
@@ -577,6 +577,7 @@ is derived from your roster and actually enforced.
 | `codex` | ✅ ships |
 | `agy` | ✅ ships |
 | `opencode` | ✅ ships — no read-only mode, reported honestly |
+| `pi` | ✅ ships — write allowlist measured to hold, reads behind the OS sandbox like codex/agy; the friend sees only `auth.json`/`models.json` of your pi state, never `settings.json` |
 | `ollama` | ✅ ships — local models over HTTP, no schema/read-only to enforce; needs an explicit model |
 
 Antigravity's controlled reviewer is staged into the run's isolated workspace;

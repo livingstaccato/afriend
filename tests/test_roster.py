@@ -314,16 +314,18 @@ def test_override_with_empty_lens_list_is_unaffected(registry):
 
 
 def test_lens_list_shorter_than_discovered_clis_round_robins(registry):
-    """Attack: fewer lenses than discovered CLIs (4 exec adapters ship:
-    agy, claude, codex, opencode; ollama is http-only and skipped).
+    """Attack: fewer lenses than discovered CLIs (ollama is http-only and
+    skipped; the count is derived from the registry exactly so shipping a new
+    exec adapter -- as pi just was -- exercises this without a hand edit).
 
     Passes cleanly: the modulo round-robin terminates and cycles, and
     because each discovered cli is distinct, the (cli, lens) name pairing
     stays unique even when lenses repeat."""
+    exec_count = sum(1 for a in registry.values() if a.transport == "exec")
     friends = roster.resolve(registry, ["a", "b"], NO_HTTP, which_all)
-    assert len(friends) == 4
-    assert [f.lens for f in friends] == ["a", "b", "a", "b"]
-    assert len({f.name for f in friends}) == 4  # no name collisions
+    assert len(friends) == exec_count
+    assert [f.lens for f in friends] == [["a", "b"][i % 2] for i in range(exec_count)]
+    assert len({f.name for f in friends}) == exec_count  # no name collisions
 
 
 @pytest.mark.parametrize("value", ["0", "false", "False", "no", " "])

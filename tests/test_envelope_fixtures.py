@@ -321,3 +321,56 @@ def test_agy_error_envelope_leads_the_failure_with_agys_own_words():
     assert result.errors[0] == (
         "the CLI reported an error in place of an answer: 'timeout waiting for response'"
     ), result.errors
+
+
+# --- pi: captured NDJSON session-event streams -----------------------------
+
+
+def test_pi_judging_verdicts_unwrap_with_no_thinking_block():
+    result = _normalize_fixture("pi", "pi_judging_verdicts.ndjson", VERDICT_CONTRACT)
+    assert result.succeeded, result.errors
+    verdicts = result.payload["verdicts"]
+    assert verdicts[0]["claim_id"] == "c-0001@1"
+    assert verdicts[0]["verdict"] == "upheld"
+    assert verdicts[0]["evidence_assessment"] == "confirmed"
+
+
+def test_pi_success_findings_unwrap_from_beside_a_thinking_block():
+    """The shape that decided the two answer rules: with thinking enabled, the
+    final assistant message_end is [thinking, text] and content[0].text misses.
+    Both positions are declared, and normalize offers matches latest-first."""
+    result = _normalize_fixture("pi", "pi_success_findings.ndjson")
+    assert result.succeeded, result.errors
+    assert result.payload["findings"][0]["claim"] == "the retry loop drops the error branch"
+
+
+def test_pi_late_final_answer_beats_an_early_one_at_the_other_block_position():
+    """Two assistant message_ends in one stream: an earlier answer at
+    content[0], the final one at content[1] (beside thinking). Latest stream
+    position must win over block position -- an earlier schema-valid candidates
+    must not outrank the actual final answer, the same regression codex's
+    progress-then-findings fixture guards."""
+    result = _normalize_fixture("pi", "pi_thinking_then_text.ndjson")
+    assert result.succeeded, result.errors
+    assert result.payload["findings"][0]["claim"] == "the retry loop drops the error branch"
+    assert "WRONG-ORDER" not in str(result.payload)
+
+
+def test_pi_stream_without_any_text_block_fails_legibly():
+    """A thinking-only turn produces no answer event the rules can read. That
+    must be a failure with errors, never a silent success and never the
+    thinking text. (The payload normalize reports here is the raw-scan
+    fallback's best-effort object -- the stream's own session header --
+    not a finding: succeeded stays False either way.)"""
+    result = _normalize_fixture("pi", "pi_no_text_stop.ndjson")
+    assert result.succeeded is False
+    assert result.errors
+
+
+def test_pi_error_turns_marked_turn_aborts_stay_failure_shaped():
+    """stopReason='aborted' with nothing the rules match (a turn pi killed
+    itself). Nothing to unwrap; the failure is on the stream, not on a
+    misread of it."""
+    result = _normalize_fixture("pi", "pi_turn_aborted.ndjson")
+    assert result.succeeded is False
+    assert result.errors

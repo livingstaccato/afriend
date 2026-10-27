@@ -26,4 +26,5 @@ PROVIDER_DISPLAY_NAMES = {
     "agy": "Antigravity",
     "claude": "Claude",
     "ollama": "Ollama",
+    "pi": "Pi",
 }

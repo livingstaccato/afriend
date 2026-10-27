@@ -234,7 +234,7 @@ class Adapter:
     #          CLI's own progress chatter and are skipped (agy prints
     #          "Fetching available models..." first).
     models_argv: tuple[str, ...] = ()
-    models_format: str = "lines"  # lines | tsv
+    models_format: str = "lines"  # lines | tsv | columns
     workspace_assets: tuple[WorkspaceAsset, ...] = ()
     # An adapter may declare a static model that afriend should pass unless
     # a stronger source selects one. Shipped adapters intentionally leave
@@ -440,8 +440,8 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
                     f"substituted: {exc}"
                 ) from exc
         models_format = data.get("models_format", "lines")
-        if models_format not in {"lines", "tsv"}:
-            raise UsageError(f"{path}: models_format must be 'lines' or 'tsv'")
+        if models_format not in {"lines", "tsv", "columns"}:
+            raise UsageError(f"{path}: models_format must be 'lines', 'tsv' or 'columns'")
         readonly = data.get("readonly")
         self_confines = data.get("self_confines")
         sandbox_confine = sandbox_data.get("os_confine", False)

@@ -220,11 +220,28 @@ def parse_envelope(data: dict[str, Any] | None) -> "Envelope | None":
 
 
 def _dotted_get(obj: object, path: str) -> object:
+    """Walk `path`: dot-separated dict keys, with one list-position syntax
+    `key[N]` (pi's answer sits inside a content array, and WHICH slot holds
+    text depends on whether the turn reasoned first -- pi puts thinking
+    before text, so a rule naming content[0].text silently misses whenever
+    thinking ran). A position out of range or a malformed segment reads as
+    'path absent', same as a missing key: absent is never a hard error, it
+    is how one rule covering several event shapes says "not this event".
+    """
     current = obj
     for part in path.split("."):
-        if not isinstance(current, dict) or part not in current:
-            return None
-        current = current[part]
+        key, bracket, index = part.partition("[")
+        if key:
+            if not isinstance(current, dict) or key not in current:
+                return None
+            current = current[key]
+        if bracket:
+            if not index.endswith("]") or not index[:-1].isdigit():
+                return None
+            position = int(index[:-1])
+            if not isinstance(current, list) or position >= len(current):
+                return None
+            current = current[position]
     return current
 
 

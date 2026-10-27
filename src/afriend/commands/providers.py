@@ -10,13 +10,14 @@ from ..errors import UsageError
 from ..models import list_models, resolve_provider
 from ..paths import ADAPTER_DIR
 
+
 # Every listing is its own subprocess with its own MODELS_TIMEOUT_S, so a
 # serial sweep of the registry made the command's worst case the SUM of those
-# timeouts -- five providers, any of them uninstalled or slow to fetch a
-# catalogue, and nothing printed for over two minutes.
-MODELS_CONCURRENCY = 5
-
-
+# timeouts -- one provider per thread, any of them uninstalled or slow to
+# fetch a catalogue, and nothing printed for minutes. The pool is exactly as
+# wide as the ask: a width that counts providers has to be maintained by the
+# act of adding a provider, which is precisely the coupling this module
+# exists to avoid.
 def _models(args: argparse.Namespace, registry: dict[str, Adapter]) -> int:
     """Ask providers what they offer. Never a list afriend made up."""
     names = [args.name] if getattr(args, "name", None) else sorted(registry)
@@ -24,9 +25,7 @@ def _models(args: argparse.Namespace, registry: dict[str, Adapter]) -> int:
     if len(adapters_to_ask) == 1:
         answers = [list_models(adapters_to_ask[0])]
     else:
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=min(MODELS_CONCURRENCY, len(adapters_to_ask))
-        ) as pool:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(adapters_to_ask)) as pool:
             answers = list(pool.map(list_models, adapters_to_ask))
     if args.json:
         print(
