@@ -368,9 +368,11 @@ def test_pi_stream_without_any_text_block_fails_legibly():
 
 
 def test_pi_error_turns_marked_turn_aborts_stay_failure_shaped():
-    """stopReason='aborted' with nothing the rules match (a turn pi killed
-    itself). Nothing to unwrap; the failure is on the stream, not on a
-    misread of it."""
+    """stopReason='aborted' carrying a FULLY VALID findings text block. Rules
+    that gate only on role and block position would accept it as the answer
+    (the run-20261027 c-0002 review found exactly that before the gate moved
+    to stopReason=="stop"); the settled-turn condition must reject it even
+    when the payload itself is perfect."""
     result = _normalize_fixture("pi", "pi_turn_aborted.ndjson")
     assert result.succeeded is False
     assert result.errors

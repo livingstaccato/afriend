@@ -94,6 +94,16 @@ external_tool_sources = [
 # Both positions are therefore declared rules; within one event the latest
 # producing rule wins, matching the latest-first stream ordering normalize
 # already relies on for progress-then-answer output.
+#
+# Both rules gate on stopReason == "stop", NOT on message.role ==
+# "assistant". Found by pi itself reviewing this adapter (claim c-0002 in
+# run-20261027T125543): user and system message_end events carry no
+# stopReason at all, so the role check was never load-bearing, while an
+# aborted or length-truncated turn CAN carry a text block that happens to
+# parse as valid findings JSON -- and accepting that merges a silent subset
+# of findings exactly when the run degraded. "stop" admits only the final
+# settled turn: intermediate assistant turns end "pending" and are excluded
+# by the same condition.
 structured_output = true
 
 [envelope]
@@ -117,14 +127,14 @@ field = "message.errorMessage"
 
 [[envelope.rules]]
 type = "message_end"
-where = "message.role"
-equals = "assistant"
+where = "message.stopReason"
+equals = "stop"
 field = "message.content[0].text"
 
 [[envelope.rules]]
 type = "message_end"
-where = "message.role"
-equals = "assistant"
+where = "message.stopReason"
+equals = "stop"
 field = "message.content[1].text"
 
 [effort]
