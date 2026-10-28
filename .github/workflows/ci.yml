@@ -153,3 +153,60 @@ jobs:
       # -vv, because pyproject's addopts pass -q and a single -v only cancels it.
       - name: pytest
         run: uv run pytest -n 4 -vv
+
+  windows-cli-startup:
+    name: Windows startup (${{ matrix.provider }})
+    runs-on: windows-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - provider: claude
+            version-variable: AF_STARTUP_CLAUDE_VERSION
+          - provider: codex
+            version-variable: AF_STARTUP_CODEX_VERSION
+          - provider: opencode
+            version-variable: AF_STARTUP_OPENCODE_VERSION
+          - provider: pi
+            version-variable: AF_STARTUP_PI_VERSION
+    env:
+      PYTHONUTF8: "1"
+      AF_STARTUP_PROVIDER: ${{ matrix.provider }}
+      # Follow current releases unless an operator explicitly sets an override.
+      AF_PROVIDER_VERSION: ${{ vars[matrix.version-variable] || 'latest' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: "lts/*"
+      - run: uv sync --all-extras
+      - name: Install real reviewer CLI
+        shell: pwsh
+        run: |
+          $out = "artifacts/startup-$env:AF_STARTUP_PROVIDER"
+          New-Item -ItemType Directory -Force $out | Out-Null
+          $package = uv run python -c "import os,runpy; print(runpy.run_path('ci/provider_startup.py')['PROVIDERS'][os.environ['AF_STARTUP_PROVIDER']]['package'])"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $prefix = Join-Path $env:RUNNER_TEMP "afriend-reviewer-cli"
+          $installArgs = @("install", "--global", "--prefix", $prefix, "--no-audit", "--no-fund")
+          if ($env:AF_STARTUP_PROVIDER -eq "pi") { $installArgs += "--ignore-scripts" }
+          $installArgs += "$package@$env:AF_PROVIDER_VERSION"
+          npm @installArgs 2>&1 | Tee-Object "$out/npm-install.log"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm list --global --prefix $prefix --depth=0 --json | Out-File "$out/installed.json" -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node --version | Out-File "$out/node-version.txt" -Encoding utf8
+          $prefix | Out-File $env:GITHUB_PATH -Append -Encoding utf8
+      - name: Exercise native startup and expected rejection
+        run: uv run python ci/provider_startup.py --provider ${{ matrix.provider }} --out artifacts/startup-${{ matrix.provider }} --require-windows
+      - name: Upload startup evidence
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: windows-startup-${{ matrix.provider }}
+          path: artifacts/startup-${{ matrix.provider }}/
+          if-no-files-found: error

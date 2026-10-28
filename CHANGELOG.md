@@ -31,6 +31,12 @@ These tests use a strict process double and POSIX executable shims; they do not
 claim live-provider or Windows Pi validation. Provider model listings now query
 all selected adapters concurrently.
 
+**Windows CI installs real reviewer CLIs for startup checks.** Claude, Codex,
+OpenCode, and Pi follow their latest npm release by default, with optional
+per-provider version overrides. Native executable startup, advertised adapter
+options, and diagnostic rejection paths are checked without model credentials;
+installed versions and process evidence are retained as CI artifacts.
+
 
 **Final answer precedence follows event order.** JSON fences in an earlier
 progress answer can no longer override a later bare answer, including replacing
