@@ -36,6 +36,8 @@ OpenCode, and Pi follow their latest npm release by default, with optional
 per-provider version overrides. Native executable startup, advertised adapter
 options, and diagnostic rejection paths are checked without model credentials;
 installed versions and process evidence are retained as CI artifacts.
+The gate exposed a Windows npm-shim quoting bug: recognized native Claude and
+OpenCode targets now launch directly, preserving inline JSON arguments.
 
 
 **Final answer precedence follows event order.** JSON fences in an earlier

@@ -91,11 +91,11 @@ their diagnostics; the startup jobs have no skip or continue-on-error path.
   `agy`, for example, remains `policy-blocked` without an explicit
   `--allow-external-tools=agy` grant. `claude` confines its own writes and
   needs no sandbox exception.
-- **A `.cmd`/`.ps1`-shimmed CLI (a plain `npm install -g` install) is found
-  and run correctly** — `afriend` resolves the binary via a CWD-safe
-  wrapper around `shutil.which` (`execresolve.safe_which`) before spawning
-  it rather than passing the bare name to `Popen`, which Windows'
-  `CreateProcess` cannot resolve through `PATHEXT` on its own.
+- **npm `.cmd` shims are resolved through PATH.** `afriend` uses its CWD-safe
+  resolver before spawning. Recognized Claude and OpenCode npm shims that target
+  native executables are unwrapped to that same executable: otherwise cmd.exe
+  reparses arguments and corrupts Claude's quoted inline JSON schema. Custom
+  launchers keep their own selection; Node-based shims remain unchanged.
 - **Weaker filesystem-race protection.** `secureio.py`'s POSIX path uses
   `dir_fd` to hold an open parent directory across every step of a write,
   so a symlink swapped in mid-operation can't redirect it. Windows has no

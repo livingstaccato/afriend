@@ -31,17 +31,65 @@ _UNSET = _Unset()
 _git_cache: str | _Unset | None = _UNSET
 
 
+def _native_npm_executable(found: str) -> str:
+    """Bypass a recognized npm batch shim when it targets a native CLI.
+
+    cmd.exe reparses npm's arguments and corrupts quoted inline JSON. These
+    two packages expose native executables, so execute that same target
+    directly. Do not replace custom launchers just because another install
+    coexists beside them. Resolve the shim before looking up sibling files.
+    """
+    shim = Path(found).resolve()
+    packages = {"claude": "@anthropic-ai/claude-code", "opencode": "@opencode/cli"}
+    command = shim.stem.lower()
+    if shim.suffix.lower() not in {".cmd", ".bat"} or command not in packages:
+        return found
+    relative = Path("node_modules") / packages[command] / "bin" / f"{command}.exe"
+    try:
+        with shim.open("rb") as stream:
+            content = stream.read(16385).lower()
+        if len(content) > 16384:
+            return found
+        target = str(relative).replace("/", "\\").lower().encode("ascii")
+        native = shim.parent / relative
+        # Match npm/cmd-shim's complete native forwarding template. A
+        # substring also matches custom wrappers that set a profile or add
+        # arguments; bypassing those would change the operator's selection.
+        # Case/whitespace are insignificant in this fixed template. Normalize
+        # slash style only in its forwarding path, not in command switches.
+        lines = [b" ".join(line.split()) for line in content.splitlines() if line.strip()]
+        if lines:
+            lines[-1] = lines[-1].replace(b"/", b"\\")
+        expected = [
+            b"@echo off",
+            b"goto start",
+            b":find_dp0",
+            b"set dp0=%~dp0",
+            b"exit /b",
+            b":start",
+            b"setlocal",
+            b"call :find_dp0",
+            b'"%dp0%\\' + target + b'" %*',
+        ]
+        if native.is_file() and lines == expected:
+            return str(native.resolve())
+    except OSError:
+        pass
+    return found
+
+
 def safe_which(name: str) -> str | None:
     """Like `shutil.which(name)`, but refuses a match that exists only
     because Windows implicitly searched the current directory ahead of
     `PATH`.
 
-    Keeps `shutil.which`'s own resolution -- PATHEXT handling, executable-
-    mode checks, and everything else stay identical -- and only rejects a
+    Keeps `shutil.which`'s PATH/PATHEXT and executable-mode checks, rejecting a
     result whose containing directory is not one of the actual entries in
     `PATH`. A `PATH` that genuinely includes `.` (a user's own choice) still
     resolves normally: that directory is then a real entry, not merely the
-    implicit injection this function exists to refuse.
+    implicit injection this function exists to refuse. An authorized npm
+    batch shim for a known native CLI is then resolved to its own executable
+    target, avoiding cmd.exe's extra argument parse.
     """
     found = shutil.which(name)
     if found is None or sys.platform != "win32":
@@ -52,7 +100,7 @@ def safe_which(name: str) -> str | None:
         for entry in os.environ.get("PATH", "").split(os.pathsep)
         if entry
     }
-    return found if directory in path_entries else None
+    return _native_npm_executable(found) if directory in path_entries else None
 
 
 def git_executable() -> str:
