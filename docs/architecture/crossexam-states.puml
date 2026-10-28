@@ -34,7 +34,7 @@ skinparam StateAttributeFontSize 12
 title Claim states in cross-examination
 
 legend top right
-  <color:#7A9B72>██</color>  terminal, clears a gate
+  <color:#7A9B72>██</color>  terminal, refuted or replaced by successor
   <color:#C07A6E>██</color>  terminal, needs a human
   <color:#7E99A3>██</color>  another round could change it
 endlegend
@@ -46,7 +46,7 @@ state "superseded" as SUP #D9E8D5
 state "deadlocked" as DL #F3D7D2
 state "unproven" as UP
 state "incomplete" as IN
-state "discarded" as DIS #D9E8D5
+state "discarded" as DIS #F3D7D2
 
 [*] --> C : round 1 raised it
 
@@ -68,6 +68,11 @@ note bottom of SU
   Not a pass. The judges agreed
   the defect is real, so a gate
   needs a Resolution, not silence.
+end note
+
+note bottom of DIS
+  Repeatedly unverified evidence is not a pass.
+  A gate still needs an explicit Resolution.
 end note
 
 note bottom of DL

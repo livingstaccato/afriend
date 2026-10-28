@@ -149,3 +149,51 @@ def test_error_rules_get_the_same_refusal_as_answer_rules():
                 ],
             }
         )
+
+
+def test_wildcard_joins_blocks_in_order_while_latest_event_still_wins():
+    envelope = Envelope(
+        kind="ndjson",
+        rules=(EnvelopeRule(match_value="item.completed", field="item.content[*].text"),),
+    )
+    stream = "\n".join(
+        _event({"content": blocks})
+        for blocks in (
+            [{"text": "early "}, {"text": "answer"}],
+            [{"thinking": "skip"}, {"text": "final "}, {"text": None}, {"text": "answer"}],
+        )
+    )
+    assert unwrap_envelope(stream, envelope) == "final answer\nearly answer"
+
+
+@pytest.mark.parametrize("content", [None, {}, [], [{"thinking": "skip"}, {"text": 123}]])
+def test_wildcard_without_string_matches_has_no_answer(content):
+    envelope = Envelope(
+        kind="ndjson",
+        rules=(EnvelopeRule(match_value="item.completed", field="item.content[*].text"),),
+    )
+    assert unwrap_envelope(_event({"content": content}), envelope) is None
+
+
+def test_wildcard_can_join_direct_string_fragments():
+    envelope = Envelope(
+        kind="ndjson",
+        rules=(EnvelopeRule(match_value="item.completed", field="item.fragments[*]"),),
+    )
+    assert (
+        unwrap_envelope(_event({"fragments": ['{"no_findings":', None, "true}"]}), envelope)
+        == '{"no_findings":true}'
+    )
+
+
+def test_fixed_index_rule_still_selects_only_its_declared_block():
+    envelope = Envelope(
+        kind="ndjson",
+        rules=(EnvelopeRule(match_value="item.completed", field="item.content[1].text"),),
+    )
+    assert (
+        unwrap_envelope(
+            _event({"content": [{"text": "progress"}, {"text": "final answer"}]}), envelope
+        )
+        == "final answer"
+    )

@@ -571,7 +571,12 @@ def render(
         # and never confined -- stayed in, so the least protected friend read
         # as the safer one. An HTTP friend is excluded because it is a bare
         # model behind an endpoint with no subprocess and no filesystem.
-        exposed = friend.get("transport", "exec") != "http" and not friend.get("os_confined", False)
+        # A deliberate skip has no process and cannot acquire filesystem
+        # authority. Keep genuine executions visible across other rounds.
+        exposed = friend.get("transport", "exec") not in {
+            "http",
+            "not-dispatched",
+        } and not friend.get("os_confined", False)
         if exposed and name not in exposed_seen:
             exposed_seen.add(name)
             read_exposed.append(name)

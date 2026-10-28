@@ -251,16 +251,34 @@ def test_capability_for_a_templated_stdin_adapter(registry, files):
     assert stdin is not None and stdin.startswith('{"event":"user"')
 
 
-def test_opencode_effort_is_unverified(registry, files):
+@pytest.mark.parametrize("effort", ["low", "medium", "high", "xhigh", "max"])
+def test_opencode_rejects_unsupported_effort_before_dispatch(registry, files, effort):
     prompt, schema = files
-    argv, _, cap = _build_argv(
+    with pytest.raises(UsageError, match=r"opencode does not support effort.*available: none"):
+        _build_argv(
+            registry["opencode"],
+            spec(cli="opencode", effort=effort),
+            prompt_file=prompt,
+            schema_file=schema,
+        )
+
+
+@pytest.mark.parametrize("model", [None, "openai/gpt-5.6-sol"])
+def test_opencode_preserves_model_selection_without_effort_flags(registry, files, model):
+    prompt, schema = files
+    argv, stdin, cap = _build_argv(
         registry["opencode"],
-        spec(cli="opencode", effort="high"),
+        spec(cli="opencode", model=model),
         prompt_file=prompt,
         schema_file=schema,
     )
-    assert "--variant" in argv
-    assert cap.effort == "unverified"
+    assert cap.effort == "none"
+    assert "--variant" not in argv
+    assert stdin == "CHALLENGE THIS ARTIFACT"
+    if model is None:
+        assert "--model" not in argv
+    else:
+        assert argv_contains_sequence(argv, ["--model", model])
 
 
 def test_opencode_uses_standalone_server_to_avoid_port_collision(registry):

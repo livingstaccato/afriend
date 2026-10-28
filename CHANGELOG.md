@@ -1,5 +1,56 @@
 # Changelog
 
+## 0.13.0
+
+**Pi joins the friend roster.** The new `pi` adapter sends review prompts over
+stdin, reads its JSON event stream, supports thinking levels, and lists models
+with their provider-qualified identities. It disables extensions, MCP servers,
+skills, prompt templates, themes, and context files, and opts into OS confinement
+because Pi's read-only tools do not restrict filesystem reads. Reviews do not
+persist Pi sessions or refresh its model catalog. Environment-based credentials
+require an explicit `--pass-env`.
+
+**Pi failures and retries are handled explicitly.** A provider error can arrive
+inside a successful process exit; authentication errors are classified from the
+stream. Aborted and truncated turns are excluded from findings. Completion waits
+for `agent_settled`, allowing automatic retries to finish, and model discovery
+rejects the successful no-models prose response instead of inventing a model ID.
+Answer extraction handles any number of thinking and text blocks, and confined
+runs follow `PI_CODING_AGENT_DIR` with exact credential/config file grants.
+
+**OpenCode 2.1.4 reviews work with its current protocol and permissions.** The
+adapter uses standalone runs, accepts text-event answers, grants only its log
+directory for writes, and preserves provider configuration when confinement
+redirects XDG state. Missing writable directories are created before Linux
+sandbox binding, and an explicit `OPENCODE_CONFIG_DIR` remains authoritative.
+
+**Offline Pi end-to-end coverage exercises the real afriend CLI and adapter**
+across report, crossexam, gate, and loop modes, including retry, authentication
+failure, abort, timeout, cancellation, large prompts, isolation, and resume.
+These tests use a strict process double and POSIX executable shims; they do not
+claim live-provider or Windows Pi validation. Provider model listings now query
+all selected adapters concurrently.
+
+
+**Final answer precedence follows event order.** JSON fences in an earlier
+progress answer can no longer override a later bare answer, including replacing
+real findings with a stale clean result. Malformed wrapped answers retain their
+specific schema diagnosis when raw fallback cannot recover a better response.
+
+**Provider integration failures are explicit.** OpenCode no longer receives its
+removed `--variant` option: the adapter declares no separate effort support,
+keeps preset runs dispatchable, and leaves its configured model/variant intact.
+Claude's captured individual spend-limit error is diagnosed as quota exhaustion
+with actionable remediation instead of being retried as an unknown failure.
+
+**Inventory and confinement preserve executable selection.** Model-listing
+subprocesses now use the same safe resolver as dispatch, closing Windows'
+implicit checkout-executable lookup. Pi pins its managed Node runtime before
+XDG state redirection and grants only the required runtime read-only. This
+applies only to the managed launcher; an npm/manual Pi keeps its PATH-selected
+Node even when a separate managed installation exists. Skipped
+friends no longer add false filesystem-exposure warnings to reports.
+
 ## 0.12.0
 
 **`afriend` now runs on Windows**, dispatching `claude`, `codex`, and `agy`

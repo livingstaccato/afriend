@@ -12,9 +12,10 @@ case today.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 import subprocess
 
-from . import childenv
+from . import childenv, execresolve
 from .adapters import Adapter
 from .errors import UsageError
 
@@ -36,18 +37,28 @@ class ProviderModels:
 
 def _parse(text: str, models_format: str) -> tuple[str, ...]:
     found: list[str] = []
+    columns_started = False
     for line in text.splitlines():
         line = line.strip()
         if not line:
             continue
         if models_format == "columns":
-            # A padded multi-column table (pi --list-models): the model id is
-            # the second whitespace column, and the CLI's own header row names
-            # the columns. Anything shorter is prose, not a row.
+            # Pi prints prose (and exits successfully) when no models are
+            # available. Only consume complete rows after its table header.
             parts = line.split()
-            if len(parts) < 2 or parts[0] == "provider":
+            if parts == ["provider", "model", "context", "max-out", "thinking", "images"]:
+                columns_started = True
                 continue
-            candidate = parts[1]
+            if (
+                not columns_started
+                or len(parts) != 6
+                or parts[4] not in {"yes", "no"}
+                or parts[5] not in {"yes", "no"}
+            ):
+                continue
+            # Provider is part of the selectable identity. Model IDs may
+            # themselves contain slashes; preserve the entire ID unchanged.
+            candidate = f"{parts[0]}/{parts[1]}"
         elif models_format == "tsv":
             # No tab means the CLI is talking to the operator, not listing.
             if "\t" not in line:
@@ -78,6 +89,13 @@ def list_models(adapter: Adapter, *, timeout_s: int = MODELS_TIMEOUT_S) -> Provi
         )
     argv = [adapter.binary, *adapter.models_argv]
     try:
+        executable = execresolve.safe_which(adapter.binary)
+        if executable is None:
+            raise FileNotFoundError(adapter.binary)
+        # CreateProcess must never search again for a bare provider name.
+        # PATH entries may themselves be relative, so anchor an accepted
+        # match before handing it to the subprocess boundary.
+        argv[0] = str(Path(executable).absolute())
         completed = subprocess.run(
             argv,
             capture_output=True,

@@ -10,7 +10,7 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 [![Dependencies](https://img.shields.io/badge/runtime%20deps-none-brightgreen)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-2724-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2821-brightgreen)](tests/)
 
 It automates a workflow you may already do by hand: run a review, paste the
 findings into a different model, ask whether they hold up, carry the argument
@@ -63,7 +63,7 @@ require two independent non-host friends. The runner itself is **stdlib-only**
 Linux and macOS get OS-level filesystem confinement for free (`bwrap` /
 `sandbox-exec` — see [How it works](#-how-it-works)). Windows has no
 equivalent mechanism, so a friend that doesn't confine itself (`codex`,
-`agy`) needs an explicit `--allow-unsandboxed-friend` there — the same
+`agy`, `opencode`, `pi`) needs an explicit `--allow-unsandboxed-friend` there — the same
 fallback a Linux host without `bwrap` installed already uses. `claude`
 confines its own writes and needs no flag. Process-tree cleanup on Windows
 uses a [Job Object](https://learn.microsoft.com/windows/win32/procthread/job-objects)
@@ -414,12 +414,12 @@ read-only. If `/etc/resolv.conf` resolves to a safe regular file elsewhere on
 the host, the sandbox exposes that resolver target read-only too. DNS therefore
 continues to work without granting general access to the host filesystem.
 
-For a provider without a verified read-only/write-protection mode, make
-`sandbox-exec` (macOS) or `bwrap` (Linux) available, or choose a provider
-with a verified read-only/write-protection mode. That mode controls writes,
-not filesystem reads, and does not replace OS read confinement. A provider
-with a verified read-only/write-protection mode does not need
-`--allow-unsandboxed-friend`. That flag is explicit risk acceptance, not a
+For a provider that requires OS confinement, make `sandbox-exec` (macOS) or
+`bwrap` (Linux) available, or choose a self-confining adapter (currently
+`claude`). A read-only mode controls writes, not filesystem reads, and does
+not replace OS read confinement. Pi's verified write allowlist, for example,
+does not exempt it from its adapter's OS-confinement requirement.
+`--allow-unsandboxed-friend` is explicit risk acceptance, not a
 normal fix: the affected provider runs without OS confinement and retains
 same-user filesystem read access. It never weakens that provider further to
 run it — a flag whose only justification was the outer OS policy is dropped
@@ -576,8 +576,8 @@ is derived from your roster and actually enforced.
 | `claude` | ✅ ships |
 | `codex` | ✅ ships |
 | `agy` | ✅ ships |
-| `opencode` | ✅ ships — no read-only mode, reported honestly |
-| `pi` | ✅ ships — write allowlist measured to hold, reads behind the OS sandbox like codex/agy; the friend sees only `auth.json`/`models.json` of your pi state, never `settings.json` |
+| `opencode` | ✅ ships — no read-only mode; no separate effort override |
+| `pi` | ✅ ships — write allowlist measured to hold, reads behind the OS sandbox like codex/agy; under OS confinement, its state grants include `auth.json`/`models.json` and the managed install/runtime directories, but exclude `settings.json` |
 | `ollama` | ✅ ships — local models over HTTP, no schema/read-only to enforce; needs an explicit model |
 
 Antigravity's controlled reviewer is staged into the run's isolated workspace;

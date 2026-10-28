@@ -138,22 +138,26 @@ partition "Dispatch — parallel, one thread per friend" {
   :re-enforce this provider's authority at dispatch;
   :build argv and filtered child environment;
   :probe the OS confinement mechanism\nBEFORE screening the argv;
-  if (mechanism available?) then (yes)
-    :apply adapter read-only controls and,\nwhere declared, an outer read-only OS\npolicy; Codex uses the outer policy because\nmacOS command sandboxes cannot nest; Linux\nbwrap exposes a safe resolver target\nread-only when /etc/resolv.conf resolves outside /etc;
-  else (no)
-    :drop any flag justified only by that policy\n(Codex ""--sandbox danger-full-access""),\nkeeping the rest of readonly_argv; <<downgrade>>
-    :withdraw readonly where the sandbox WAS\nthe write protection; record the downgrade; <<downgrade>>
-  endif
-  :capability = the declared, enforced\ncontrols — never re-derived from scope;
-  :spawn in its own process group (POSIX)\nor Job Object (Windows)\ndeadline = ""--timeout"" + 60s grace;
-  if (timed out / aborted?) then (yes)
-    :POSIX: SIGTERM the group, then SIGKILL\nWindows: terminate the Job Object; <<failed>>
-  else (no)
-    :unwrap the CLI's JSON envelope,\nstrip ANSI, extract JSON, validate;
-    if (usable payload?) then (yes)
-      :emit claims;
+  if (adapter requires OS confinement, none available,\nand fallback not explicitly authorized?) then (refuse)
+    :record refused friend; do not spawn; <<failed>>
+  else (permitted)
+    if (mechanism available?) then (yes)
+      :apply adapter read-only controls and,\nwhere declared, an outer read-only OS\npolicy; Codex uses the outer policy because\nmacOS command sandboxes cannot nest; Linux\nbwrap exposes a safe resolver target\nread-only when /etc/resolv.conf resolves outside /etc;
     else (no)
-      :mark failed, keep stderr tail; <<failed>>
+      :drop any flag justified only by that policy\n(Codex ""--sandbox danger-full-access""),\nkeeping the rest of readonly_argv; <<downgrade>>
+      :withdraw readonly where the sandbox WAS\nthe write protection; record the downgrade; <<downgrade>>
+    endif
+    :capability = the declared, enforced\ncontrols — never re-derived from scope;
+    :spawn in its own process group (POSIX)\nor Job Object (Windows)\ndeadline = ""--timeout"" + 60s grace;
+    if (timed out / aborted?) then (yes)
+      :POSIX: SIGTERM the group, then SIGKILL\nWindows: terminate the Job Object; <<failed>>
+    else (no)
+      :unwrap the CLI's JSON envelope,\nstrip ANSI, extract JSON, validate;
+      if (usable payload?) then (yes)
+        :emit claims;
+      else (no)
+        :mark failed, keep stderr tail; <<failed>>
+      endif
     endif
   endif
 }

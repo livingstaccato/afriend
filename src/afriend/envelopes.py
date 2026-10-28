@@ -220,22 +220,30 @@ def parse_envelope(data: dict[str, Any] | None) -> "Envelope | None":
 
 
 def _dotted_get(obj: object, path: str) -> object:
-    """Walk `path`: dot-separated dict keys, with one list-position syntax
-    `key[N]` (pi's answer sits inside a content array, and WHICH slot holds
-    text depends on whether the turn reasoned first -- pi puts thinking
-    before text, so a rule naming content[0].text silently misses whenever
-    thinking ran). A position out of range or a malformed segment reads as
-    'path absent', same as a missing key: absent is never a hard error, it
-    is how one rule covering several event shapes says "not this event".
+    """Walk dotted keys and list positions `key[N]`. `key[*]` joins all
+    string matches from the remaining path in list order, without inserting
+    separators: an answer can span several text blocks, after any number of
+    thinking blocks. Missing/non-string wildcard matches are skipped.
+    Absent keys, malformed positions and out-of-range positions read as
+    'path absent', so one rule can cover several event shapes.
     """
     current = obj
-    for part in path.split("."):
+    parts = path.split(".")
+    for offset, part in enumerate(parts):
         key, bracket, index = part.partition("[")
         if key:
             if not isinstance(current, dict) or key not in current:
                 return None
             current = current[key]
         if bracket:
+            if index == "*]":
+                if not isinstance(current, list):
+                    return None
+                rest = ".".join(parts[offset + 1 :])
+                strings = [
+                    value for item in current if isinstance(value := _dotted_get(item, rest), str)
+                ]
+                return "".join(strings) if strings else None
             if not index.endswith("]") or not index[:-1].isdigit():
                 return None
             position = int(index[:-1])
@@ -272,10 +280,13 @@ def _unwrap_json_path(raw: str, envelope: Envelope) -> str | None:
     return value
 
 
-def _unwrap_ndjson(raw: str, envelope: Envelope) -> str | None:
+def _unwrap_ndjson(raw: str, envelope: Envelope) -> list[str]:
     """Scan every line as its own JSON object (an NDJSON event stream);
     every line whose `match_field` matches a rule contributes that rule's
-    extracted field to the unwrapped text, latest first. A line that
+    extracted field as a separate answer, latest first. Event boundaries
+    must survive until normalization: a fence in an older answer must never
+    outrank a newer bare answer, and incomplete events cannot be spliced
+    together into a fabricated answer. A line that
     fails to parse (blank, partial, non-JSON) is simply skipped -- one
     malformed event must not poison the rest of a real stream.
 
@@ -288,9 +299,7 @@ def _unwrap_ndjson(raw: str, envelope: Envelope) -> str | None:
     -- a high-severity finding, in the run that found this. Captured in
     tests/fixtures/codex_progress_then_findings.ndjson."""
     extracted = list(_scan_ndjson(raw, envelope, envelope.rules))
-    if not extracted:
-        return None
-    return "\n".join(reversed(extracted))
+    return list(reversed(extracted))
 
 
 def _scan_ndjson(raw: str, envelope: Envelope, rules: tuple[EnvelopeRule, ...]) -> Iterator[str]:
@@ -352,16 +361,28 @@ def _ndjson_error(raw: str, envelope: Envelope) -> str | None:
     return found
 
 
-def unwrap_envelope(raw: str, envelope: Envelope) -> str | None:
-    """Return the friend's answer text as described by `envelope`, or None
-    if the envelope's own path/rules found nothing to extract -- "found
-    nothing" is the caller's signal to fall back to scanning `raw` directly
-    (see normalize())."""
+def unwrap_envelope_answers(raw: str, envelope: Envelope) -> list[str]:
+    """Answer texts in precedence order, retaining NDJSON event boundaries.
+
+    No matches returns an empty list, so callers can scan the raw output.
+    Each answer is an independent document for JSON extraction and repair.
+    """
     if envelope.kind == "json_path":
-        return _unwrap_json_path(raw, envelope)
+        answer = _unwrap_json_path(raw, envelope)
+        return [answer] if answer is not None else []
     if envelope.kind == "ndjson":
         return _unwrap_ndjson(raw, envelope)
-    return None
+    return []
+
+
+def unwrap_envelope(raw: str, envelope: Envelope) -> str | None:
+    """Return joined answer text, or None if no declared path/rule matched.
+
+    Use `unwrap_envelope_answers` when selecting a payload: joining loses
+    the event boundaries that determine which answer takes precedence.
+    """
+    answers = unwrap_envelope_answers(raw, envelope)
+    return "\n".join(answers) if answers else None
 
 
 def envelope_error(raw: str, envelope: Envelope) -> str | None:

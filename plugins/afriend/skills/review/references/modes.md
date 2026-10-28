@@ -311,9 +311,10 @@ report states the effort each friend actually received. Otherwise a weak
 critique from a friend that topped out low reads as a signal about the
 artifact when it is a signal about the flag matrix.
 
-**A preset promises nothing for `opencode`.** Its effort flag accepts any
-string silently, so the level it ran at cannot be confirmed; the run records
-a note saying so rather than implying the preset was honoured.
+**OpenCode has no separate effort control through afriend.** Its installed CLI
+rejects the former `--variant` flag. Presets leave its configured model/variant
+unchanged and record that no effort levels are available. Pi reports effort as
+unverified because an invalid thinking level warns and still runs.
 
 Precedence, strongest last: adapter default → `--preset` → roster entry →
 `--friend`. Each layer fills only what the one above left unset, so you can
@@ -420,7 +421,7 @@ this authority, and these grants do not change provider defaults.
 | `--allow-external-tools=PROVIDER` | Explicitly inherit that provider's managed tools and connectors for this run; repeat per provider, or use `=*` globally |
 | `--pass-env VAR` (repeatable) | Allow an exported `VAR` through the filtered environment to every executable friend process; HTTP friends have no child environment |
 | `--no-progress` | Suppress the per-friend progress on stderr; stdout is unaffected |
-| `--allow-unsandboxed-friend` | Explicit risk acceptance for a provider without a verified read-only mode: only permits fallback when OS confinement is unavailable; it does not disable an available OS sandbox. In that fallback, it retains same-user filesystem read access (§12.2) |
+| `--allow-unsandboxed-friend` | Explicit risk acceptance for an adapter that requires OS confinement: only permits fallback when OS confinement is unavailable; it does not disable an available OS sandbox. In that fallback, it retains same-user filesystem read access (§12.2) |
 | `--unsafe-extra-args='...'` | Pass unvalidated flags; needs `--i-accept-unsandboxed` |
 
 ### Guided setup and profiles

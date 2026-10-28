@@ -1,5 +1,6 @@
 """Focused report coverage for review completeness and unconfined-read warnings."""
 
+import pytest
 from report_helpers import meta
 
 from afriend.report import render as render_review
@@ -123,3 +124,33 @@ def test_an_http_friend_is_never_named_as_read_exposed():
     out = render([], [], meta(friends=[http_friend]))
 
     assert not [line for line in out.splitlines() if line.startswith("**Filesystem")]
+
+
+@pytest.mark.parametrize("was_confined", [True, False])
+def test_skipping_later_rounds_does_not_change_recorded_execution_exposure(was_confined):
+    executed = {
+        "name": "pi-security",
+        "model": "provider/model",
+        "effort": None,
+        "transport": "exec",
+        "write_protected": True,
+        "declared_scope": "repo",
+        "os_confined": was_confined,
+        "status": "ok",
+        "round": 1,
+    }
+    skipped = dict(
+        executed,
+        transport="not-dispatched",
+        os_confined=False,
+        status="skipped: repeated provider failure",
+        round=2,
+    )
+
+    out = render([], [], meta(friends=[executed, skipped]))
+    warnings = [line for line in out.splitlines() if line.startswith("**Filesystem")]
+
+    assert bool(warnings) is not was_confined
+    if warnings:
+        assert "pi-security" in warnings[0]
+    assert "skipped: repeated provider failure" in out

@@ -63,14 +63,15 @@ updated independently.
 
 ## Windows notes
 
-- **`codex` and `agy` need `--allow-unsandboxed-friend`.** Neither `bwrap`
-  nor `sandbox-exec` exists on Windows. `afriend doctor` reports both as
-  `ready`, not `policy-blocked` — the executable is genuinely there, and
-  the flag is what makes it dispatchable — but the reported reason says
-  plainly that OS confinement is unavailable and a run without the flag
-  will refuse them, the same fallback a Linux host without `bwrap`
-  installed already uses. `claude` confines its own writes and needs no
-  flag.
+- **`codex`, `agy`, `opencode`, and `pi` need `--allow-unsandboxed-friend`.**
+  Neither `bwrap` nor `sandbox-exec` exists on Windows. Once provider and
+  external-tool policy permit a provider, `afriend doctor` can report it as
+  `ready` while explaining that OS confinement is unavailable and a run
+  without the flag will refuse it. This is the same fallback a Linux host
+  without `bwrap` installed uses. External-tool denial is a separate check:
+  `agy`, for example, remains `policy-blocked` without an explicit
+  `--allow-external-tools=agy` grant. `claude` confines its own writes and
+  needs no sandbox exception.
 - **A `.cmd`/`.ps1`-shimmed CLI (a plain `npm install -g` install) is found
   and run correctly** — `afriend` resolves the binary via a CWD-safe
   wrapper around `shutil.which` (`execresolve.safe_which`) before spawning

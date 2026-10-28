@@ -30,7 +30,7 @@ def test_thorough_takes_the_best_each_adapter_actually_has(registry):
 
 
 def test_cheap_takes_the_lowest(registry):
-    for name in ("claude", "codex", "agy", "opencode"):
+    for name in ("claude", "codex", "agy"):
         assert presets.effort_for(presets.CHEAP, registry[name]) == "low"
 
 
@@ -59,10 +59,8 @@ def test_every_other_mode_inherits():
 
 
 def test_an_unverifiable_adapter_is_called_out(registry):
-    """§18.8: opencode's effort flag accepts any string silently, so a
-    preset cannot promise anything for it. Reported, not raised -- the run
-    should still happen, it just must not claim the preset was honoured."""
-    note = presets.unverifiable_note(presets.THOROUGH, registry["opencode"])
+    """Pi accepts invalid thinking levels with a warning and keeps running."""
+    note = presets.unverifiable_note(presets.THOROUGH, registry["pi"])
     assert note is not None and "unverified" in note
 
 
@@ -79,3 +77,50 @@ def test_inherit_never_produces_notes(registry):
 def test_an_adapter_with_no_effort_says_so(registry):
     note = presets.no_effort_note(presets.CHEAP, registry["ollama"])
     assert note is not None and "no effort levels" in note
+
+
+@pytest.mark.parametrize("preset", [presets.CHEAP, presets.THOROUGH])
+@pytest.mark.parametrize("model", [None, "openai/gpt-5.6-sol"])
+def test_opencode_presets_resolve_and_build_without_unsupported_flags(
+    registry, tmp_path, monkeypatch, preset, model
+):
+    from afriend import adapters, cli
+    from afriend.authority import ExternalToolPolicy
+    from afriend.commands import friends
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setattr(friends.execresolve, "safe_which", lambda _binary: "/bin/opencode")
+    flags = [
+        "run",
+        "spec.md",
+        "--friend",
+        "opencode:security",
+        "--preset",
+        preset,
+        "--allow-external-tools=opencode",
+    ]
+    if model is not None:
+        flags += ["--model", model]
+    args = cli.build_parser().parse_args(flags)
+    downgrades = []
+    resolved = friends.resolve_friends(args, registry, None, downgrades)
+    assert len(resolved.specs) == 1
+    spec = resolved.specs[0]
+    assert spec.effort is None
+    assert spec.model == model
+    assert any("opencode has no effort levels" in note for note in downgrades)
+    prompt = tmp_path / "prompt.txt"
+    prompt.write_text("Review this")
+    argv, _, capability = adapters.build_argv(
+        registry["opencode"],
+        spec,
+        prompt_file=prompt,
+        schema_file=tmp_path / "schema.json",
+        external_tool_policy=ExternalToolPolicy.ALLOW,
+    )
+    assert "--variant" not in argv
+    assert capability.effort == "none"
+    if model is None:
+        assert "--model" not in argv
+    else:
+        assert argv[argv.index("--model") + 1] == model

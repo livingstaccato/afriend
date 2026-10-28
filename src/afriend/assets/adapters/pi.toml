@@ -35,15 +35,14 @@ readonly_argv = ["--no-approve", "--tools", "read,grep,find,ls"]
 # Effort is --thinking <level>. Measured: an unknown level warns and runs
 # anyway ("Invalid thinking level 'bogus'... Valid values: off, minimal, low,
 # medium, high, xhigh, max"), so afriend cannot verify the level a friend
-# actually ran at from the emitted flags -- same shape as opencode's
-# --variant, hence unverified rather than native.
+# actually ran at from the emitted flags, hence unverified rather than native.
 effort_kind = "unverified"
 # --list-models prints a padded multi-column table (pi has no plain/tsv mode;
 # --plain only matters interactively):
 #   provider  model              context  max-out  thinking  images
 #   verda     glm-5.2            128K     16.4K    no        no
-# The header row and every prose line are dropped by the "columns" format:
-# the model id is the second whitespace-separated column.
+# The "columns" format requires a complete table row after this header and
+# returns provider/model, preserving provider identity and slashes in IDs.
 models_argv = ["--list-models"]
 models_format = "columns"
 
@@ -88,14 +87,12 @@ external_tool_sources = [
 # is the answer; agent_end duplicates it inside `messages` and agent_settled
 # closes the run. Captured 2026-10-27 from pi 1.4.0 print-mode streams.
 #
-# The answer text is at message.content[i].text -- where i sits depends on
-# whether the turn reasoned first: with thinking enabled the stream carries
-# [thinking, text] (content[0].text misses silently), without it [text].
-# Both positions are therefore declared rules; within one event the latest
-# producing rule wins, matching the latest-first stream ordering normalize
-# already relies on for progress-then-answer output.
+# The answer text is in message.content's text blocks. Providers can emit
+# multiple thinking blocks (including redacted thinking) before text, and
+# multiple text blocks can hold one answer. The wildcard joins every text
+# field in content order; no fixed block position limits extraction.
 #
-# Both rules gate on stopReason == "stop", NOT on message.role ==
+# The answer rule gates on stopReason == "stop", NOT on message.role ==
 # "assistant". Found by pi itself reviewing this adapter (claim c-0002 in
 # run-20261027T125543): user and system message_end events carry no
 # stopReason at all, so the role check was never load-bearing, while an
@@ -109,7 +106,9 @@ structured_output = true
 [envelope]
 kind = "ndjson"
 match_field = "type"
-terminal_event = "agent_end"
+# agent_end may precede automatic retry (willRetry=true) or context recovery.
+# agent_settled is the invocation-level completion event, after recovery.
+terminal_event = "agent_settled"
 
 # A failed turn (provider error, auth rejection) arrives as an assistant
 # message whose stopReason is "error", carrying errorMessage instead of text.
@@ -129,13 +128,7 @@ field = "message.errorMessage"
 type = "message_end"
 where = "message.stopReason"
 equals = "stop"
-field = "message.content[0].text"
-
-[[envelope.rules]]
-type = "message_end"
-where = "message.stopReason"
-equals = "stop"
-field = "message.content[1].text"
+field = "message.content[*].text"
 
 [effort]
 off = ["--thinking", "off"]

@@ -9,8 +9,10 @@ import dataclasses
 from pathlib import Path
 import re
 import threading
+from urllib.parse import urlsplit
+from urllib.request import url2pathname
 
-from . import childenv, execresolve, http_transport, sandbox
+from . import childenv, execresolve, http_transport, managedruntime, sandbox
 from .adapters import Adapter, Capability, FriendSpec, build_argv, place_extra_args
 from .authority import (
     DENY_ALL,
@@ -341,7 +343,8 @@ def _dispatch(
         argv, stdin_text, capability = build_argv(
             adapter, spec, prompt_file, schema_file, provider_policy
         )
-        binary_present = bool(adapter.binary and execresolve.safe_which(adapter.binary))
+        executable = execresolve.safe_which(adapter.binary) if adapter.binary else None
+        binary_present = bool(executable)
         # Probed BEFORE the argv is screened, and once. `allow_outer_readonly`
         # used to be computed purely from adapter declarations, so the one
         # route that permits an otherwise-denied `danger-full-access` was
@@ -450,6 +453,36 @@ def _dispatch(
                 # "Failed to read output schema file". opencode never hit it
                 # because it declares no schema flag.
                 inputs = tuple(str(f) for f in (prompt_file, schema_file) if f and Path(f).exists())
+                adapter_reads = adapter.sandbox_read
+                if spec.cli == "pi":
+                    inputs += managedruntime.pi_node_reads(child_env, cwd, executable)
+                    # Pi's state redirect changes its credential paths, not
+                    # just its environment. Keep the grants to two files,
+                    # replacing default credentials rather than exposing both
+                    # profiles. Pi expands ~/ and file URLs, but not $VARS.
+                    state_dir = child_env.get("PI_CODING_AGENT_DIR") or "~/.pi/agent"
+                    if state_dir == "~":
+                        state_dir = str(Path.home())
+                    elif state_dir.startswith("~/"):
+                        state_dir = str(Path.home() / state_dir[2:].lstrip("/"))
+                    elif state_dir.startswith("file://"):
+                        state_dir = url2pathname(urlsplit(state_dir).path)
+                    state_path = Path(state_dir)
+                    if not state_path.is_absolute():
+                        state_path = (cwd / state_path).resolve()
+                        child_env["PI_CODING_AGENT_DIR"] = str(state_path)
+                    # Runtime grants preserve literal $ signs. A malformed
+                    # directory endpoint must never become a subtree grant.
+                    inputs += tuple(
+                        str(state_path / name)
+                        for name in ("auth.json", "models.json")
+                        if not (state_path / name).is_dir()
+                    )
+                    adapter_reads = tuple(
+                        p
+                        for p in adapter_reads
+                        if p not in {"~/.pi/agent/auth.json", "~/.pi/agent/models.json"}
+                    )
                 # Created before the policy is built: the write grant below
                 # resolves the path, and on macOS an isolation directory is
                 # reached through a symlink -- resolving a path whose leaf
@@ -460,7 +493,7 @@ def _dispatch(
                 policy = sandbox.policy_for(
                     cwd,
                     adapter.binary,
-                    adapter.sandbox_read,
+                    adapter_reads,
                     adapter.sandbox_write,
                     workdir_writable=not adapter.sandbox_readonly_workdir,
                     runtime_read=inputs,

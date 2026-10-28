@@ -1,4 +1,3 @@
-# --variant accepts any string silently, so effort can never be verified.
 name = "opencode"
 binary = "opencode"
 base_argv = ["run", "--standalone", "--format", "json"]
@@ -20,7 +19,11 @@ model_flag = "--model"
 models_argv = ["models"]
 models_format = "lines"
 internal_timeout_flag = ""
-effort_kind = "unverified"
+# OpenCode 2.1.4 rejects --variant. Its model#variant syntax cannot be
+# expressed by the generic additive effort mappings without guessing a
+# default model, so separate effort selection is unsupported. Presets leave
+# the CLI's configured model/variant alone and report no effort levels.
+effort_kind = "none"
 structured_output = true
 # Authority evidence captured from installed opencode 1.18.18 on 2026-08-30:
 # `opencode --help` exposes `--pure` only for external plugins. The same help
@@ -30,11 +33,6 @@ structured_output = true
 external_tools = "uncontrolled"
 deny_external_tools_argv = []
 external_tool_sources = ["tools", "MCP servers", "external plugins"]
-
-[effort]
-low = ["--variant", "minimal"]
-high = ["--variant", "high"]
-max = ["--variant", "max"]
 
 # `opencode run --format json` emits NDJSON (one event object per line).
 # Captured from opencode 2.1.4 on 2026-10-27: the model's answer arrives as a

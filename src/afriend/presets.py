@@ -6,16 +6,17 @@ surprise cost, and inheriting is the only policy correct on an unseen
 machine. So `inherit` is the default and emits no flags at all.
 
 `thorough` is "maximum *available* effort per friend", which is uneven by
-construction: claude reaches `xhigh`, codex `xhigh`, agy stops at `high`, and
+construction: claude reaches `max`, codex `xhigh`, agy stops at `high`, and
 ollama has no effort concept whatsoever. That unevenness is why the report
 header states the effort each friend actually received -- otherwise a weak
 critique from a friend that topped out low reads as a signal about the
 artifact when it is a signal about the flag matrix.
 
-**A preset cannot promise anything for opencode** (§18.8). Its `--variant`
-flag accepts any string silently, so the runner cannot confirm the level a
-friend actually ran at; opencode reports `effort: unverified` regardless.
-Asking for `thorough` and getting a note saying so is the honest outcome.
+**OpenCode currently exposes no separate effort control through afriend.**
+Its installed CLI rejects the old additive `--variant` flag; presets leave
+its configured model/variant unchanged and record that no effort levels are
+available. Pi's `--thinking` can warn and continue on an invalid level, so
+its effort remains unverified rather than native.
 """
 
 from .adapters import Adapter
@@ -62,13 +63,13 @@ def unverifiable_note(preset: str, adapter: Adapter) -> str | None:
 
     Returned rather than raised: the run should still happen. What must not
     happen is a report that implies `thorough` was honoured everywhere when
-    one friend's CLI accepts any variant string without complaint.
+    one friend's effective effort cannot be independently confirmed.
     """
     if preset == INHERIT or adapter.effort_kind != "unverified":
         return None
     return (
-        f"{adapter.name} reports effort as unverified: its effort flag accepts "
-        f"any value silently, so --preset {preset} cannot be confirmed for it. "
+        f"{adapter.name} reports effort as unverified: the adapter cannot confirm "
+        f"its effective effort, so --preset {preset} cannot be confirmed for it. "
         "The level it actually ran at is unknown."
     )
 

@@ -77,6 +77,9 @@ structured_output = true
 [envelope]
 kind = "json_path"
 path = "structured_output"
+# Failures omit structured_output and put their diagnosis in result.
+# Read only after normalization fails, so a valid answer stays successful.
+error_path = "result"
 
 [effort]
 low = ["--effort", "low"]
@@ -121,3 +124,13 @@ remediation = "run `claude /login`; if the friend is OS-confined, its credential
 [[auth.markers]]
 path = "result"
 equals = "Not logged in · Please run /login"
+
+
+# Captured 2026-10-28 from a live spent individual allowance:
+# {"is_error":true,"api_error_status":429,"api_error":"usage_limit_reached",
+#  "result":"You've hit your individual spend limit · run /usage-credits to ask your admin for a higher limit"}
+# Match the precise provider error code, not 429 (also transient throttling),
+# is_error (all failures), or exit 1 (also bad flags/auth failures).
+[quota]
+markers = [{ path = "api_error", equals = "usage_limit_reached" }]
+remediation = "run `claude /usage-credits` to ask your admin for a higher limit, or use a friend with a separate allowance"

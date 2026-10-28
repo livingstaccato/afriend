@@ -101,9 +101,10 @@ and the repeat rule stops it after two identical rounds).
   `~/.pi/agent` grant paths expand through home resolution the same way as
   other adapters.
 - **Provider model listing under filtered env**: `afriend providers models pi`
-  prints nothing on hosts where models.json uses `$VAR` key indirection — the
-  listing runs childenv-filtered and `--pass-env` is not a providers flag. The
-  `columns` parser itself is unit-tested against the captured table shape.
+  cannot discover authenticated models on hosts where models.json uses `$VAR`
+  key indirection — the listing runs childenv-filtered and `--pass-env` is not
+  a providers flag. The 2026-10-28 follow-up below fixes parsing of Pi's
+  resulting no-models message; it now reports unavailable inventory.
 - **c-0001 (credential echo through findings)**: pi-auth credentials granted
   read-only in the sandbox can be quoted by a compromised artifact into the
   findings channel; documented in pi.toml, identical property in every shipped
@@ -113,3 +114,47 @@ and the repeat rule stops it after two identical rounds).
 
 Four live reviews + one gate run ≈ 11 bounded pi calls (2–6.5 min each on these
 models); `--max-calls` was applied to every demo run.
+
+## 2026-10-28 offline end-to-end follow-up
+
+Added 24 deterministic cases in `tests/test_run_end_to_end_pi.py`, with the
+strict subprocess double `tests/pi_cli_stub.py`. They invoke the real CLI and
+canonical Pi adapter, not the `fake:` dispatch shortcut. A constructed PATH
+contains only git and the Pi double; HOME/config are temporary. No real model
+calls or operator credentials are involved. Event framing follows the captured
+Pi fixtures; findings, verdicts, error scenarios, and retry delays are synthetic.
+
+Coverage includes all four modes; upheld, refuted and clean gates; judging
+identities and authority/model/effort audit rows; repeated-finding aliases and
+loop convergence; new findings reaching the iteration ceiling; doctor, guided
+preview and provider settings; discovery and explicit model precedence; presets
+and host roles; cross-provider refusal for a Pi-only roster; large stdin prompts;
+repository worktree cleanup; auth/aborted output; timeout/cancellation child
+cleanup; and status plus halted-run resume preserving the roster without
+duplicate claims. Resume also verifies that environment authority must be
+reasserted, even after provider defaults change.
+
+Three regression cases failed against the pre-fix runtime, then passed after:
+
+- Waiting for `agent_settled`, rather than `agent_end` which can precede an
+  automatic retry. The double emits a transient 503 and `willRetry: true`,
+  pauses, then succeeds.
+- Keeping provider qualification in inventory IDs, including slashes inside
+  the underlying model ID.
+- Requiring complete table rows after the header, so the actual Pi message
+  `No models available. Use /login ...` is not advertised as model `models`.
+
+The new executable shim is explicitly POSIX-only. These Pi-specific tests
+exclude OS sandbox launchers and record `--allow-unsandboxed-friend`; they do
+not establish Pi's Windows behavior or repeat its live confinement evidence.
+The timeout case sets only the CLI child's kill-grace constant to zero to
+avoid a minute-long delay; existing dispatch tests cover grace arithmetic.
+
+Verification: `PATH=/tmp/plantuml-pinned/bin:$PATH make quality` exited 0 outside
+the execution sandbox (localhost sockets, bubblewrap namespaces, and build
+dependency downloads require that access). The pinned launcher uses PlantUML
+1.2026.8 in headless mode. Result: **2717 passed, 31 skipped**, one existing
+multiprocessing/fork deprecation warning; all lint/type/projection/version/line
+gates, diagram rendering, wheel assets/isolated installation, release aliases,
+and all **16 mutation probes** passed. An independent read-only reviewer
+approved the changes with no actionable findings.

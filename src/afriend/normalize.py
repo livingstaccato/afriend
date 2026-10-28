@@ -36,7 +36,7 @@ from .envelopes import (
     Envelope,
     envelope_error,
     strip_ansi,
-    unwrap_envelope,
+    unwrap_envelope_answers,
 )
 
 FENCE_RE = re.compile(r"```[ \t]*[a-zA-Z0-9_+-]*[ \t]*\n?(.*?)```", re.DOTALL)
@@ -235,16 +235,9 @@ def extract_json(
     each candidate considered during the search is validated exactly once,
     not twice.
 
-    `prefer_order` inverts that for an ORDERED source: the first candidate
-    that is successful under the contract wins outright, whatever its tier.
-    Only an NDJSON stream sets it (see normalize()), because only there does
-    a later event supersede an earlier one -- `_unwrap_ndjson` reverses its
-    segments so "first" means "newest". Tier ranking alone could not express
-    that: it is global and short-circuits on tier 0, so codex's schema-valid
-    progress narration (tier 0, carries `findings`) beat a real
-    `{"no_findings": true}` answer (tier 2) from ANY position, including
-    when the real answer came first. Left off for a single document, where
-    a stray well-formed marker must still lose to real findings.
+    `prefer_order` selects the first successful candidate within the supplied
+    text regardless of tier. Stream precedence is handled separately by
+    `normalize`, which extracts each answer event independently.
     """
     cleaned = strip_ansi(text).strip()
     best_tier = None
@@ -324,16 +317,16 @@ def normalize(
     that machinery is where the hard-won handling of real agent output
     lives, and a second copy of it would rot.
 
-    `envelope`, if given, is tried FIRST: `unwrap_envelope` extracts the
-    friend's real answer text from `raw` per the envelope's declared shape,
-    and the existing extraction/validation logic runs on THAT text instead.
+    `envelope`, if given, is tried FIRST: `unwrap_envelope_answers` extracts
+    answer texts per the declared shape. Each matching NDJSON event is
+    extracted and validated separately, newest first; the first successful
+    event wins. Fences and prose recovery apply within each event only.
     Two distinct ways this can fail to produce anything, both of which fall
     back to running the exact same logic on `raw` directly (unchanged from
     before envelopes existed at all):
 
     1. The envelope finds nothing to extract at all (a missing key, no
-       matching NDJSON line -- see unwrap_envelope's docstring) --
-       `unwrap_envelope` returns None.
+       matching NDJSON line) -- `unwrap_envelope_answers` returns no texts.
     2. The envelope DID extract some text, but that text does not itself
        yield a successful result (e.g. an NDJSON stream whose first
        matching line is a benign "rate limited, retrying" notice under the
@@ -345,6 +338,8 @@ def normalize(
        exclusively here would silently discard a raw scan that would have
        succeeded -- and report a status that is actively false ("no
        parseable JSON object" when the output plainly contained one).
+       If the raw retry also fails, retain an extracted answer's schema
+       diagnosis unless the raw candidate ranks better under the contract.
        Retrying the full scan against the untouched `raw` text is what a
        currently-working case must never be made to fail by an envelope
        declaration means in practice: a currently-working case includes one
@@ -364,28 +359,38 @@ def normalize(
     pan out.
     """
     if envelope is not None:
-        unwrapped = unwrap_envelope(raw, envelope)
-        if unwrapped is not None:
-            # An NDJSON stream is ordered and `_unwrap_ndjson` already put
-            # the newest segment first, so the newest complete answer wins
-            # over anything earlier -- see extract_json's `prefer_order`.
-            unwrapped_result = _normalize_text(
-                unwrapped, False, contract, prefer_order=envelope.kind == "ndjson"
+        unwrapped_result: NormalizeResult | None = None
+        for answer in unwrap_envelope_answers(raw, envelope):
+            # Extract and validate the whole event before visiting an older
+            # one. Fences only establish precedence within that event.
+            result = _normalize_text(answer, False, contract)
+            if result.succeeded:
+                return result
+            if (
+                result.payload is not None
+                and contract.container_key in result.payload
+                and (
+                    unwrapped_result is None
+                    or unwrapped_result.payload is None
+                    or contract.tier(result.payload, result.errors)
+                    < contract.tier(unwrapped_result.payload, unwrapped_result.errors)
+                )
+            ):
+                unwrapped_result = result
+        raw_result = _normalize_text(raw, structured_output, contract)
+        # A successful raw fallback still wins. Otherwise preserve a schema
+        # diagnosis from an actual answer over an equally or less relevant
+        # wrapper/prose candidate. Ties retain the newest extracted answer.
+        if (
+            not raw_result.succeeded
+            and unwrapped_result is not None
+            and unwrapped_result.payload is not None
+            and (
+                raw_result.payload is None
+                or contract.tier(unwrapped_result.payload, unwrapped_result.errors)
+                <= contract.tier(raw_result.payload, raw_result.errors)
             )
-            if unwrapped_result.succeeded:
-                return unwrapped_result
-            # Case 2: the envelope matched something, but it wasn't the
-            # answer. Retry against the untouched raw text -- it may still
-            # contain the real findings elsewhere (a different NDJSON line,
-            # or a key on the envelope object itself) -- and return that
-            # attempt's result regardless of whether it succeeds: on
-            # failure it is still the more informative diagnosis (it can
-            # carry the structured_output hint; the unwrapped-only failure
-            # never can, by design -- see above).
-            return _with_reported_error(
-                _normalize_text(raw, structured_output, contract), raw, envelope
-            )
-        return _with_reported_error(
-            _normalize_text(raw, structured_output, contract), raw, envelope
-        )
+        ):
+            raw_result = unwrapped_result
+        return _with_reported_error(raw_result, raw, envelope)
     return _normalize_text(raw, structured_output, contract)

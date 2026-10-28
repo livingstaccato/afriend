@@ -12,8 +12,11 @@ the operator has, which is worse than the gap it closes.
 """
 
 import json
+import sys
 
-from afriend import failures
+import pytest
+
+from afriend import failures, spawn
 from afriend.adapters import load_adapters
 from afriend.normalize import normalize
 from afriend.paths import ADAPTER_DIR
@@ -105,4 +108,78 @@ def test_the_remediation_names_the_keychain_constraint():
 def test_a_successful_run_is_never_classified():
     outcome = _outcome(CAPTURED)
     outcome.failure_reason = None
+    assert failures.classify(outcome, _claude()) == failures.UNKNOWN
+
+
+# Captured 2026-10-28 in run-20261028T124037-42d7aefc, round 1.
+SPEND_LIMIT_MESSAGE = "You've hit your individual spend limit · run /usage-credits to ask your admin for a higher limit"
+SPEND_LIMIT = json.dumps(
+    {
+        "type": "result",
+        "subtype": "success",
+        "is_error": True,
+        "terminal_reason": "api_error",
+        "api_error_status": 429,
+        "api_error_origin": "first_party",
+        "api_error": "usage_limit_reached",
+        "result": SPEND_LIMIT_MESSAGE,
+    }
+)
+
+
+def _replay(raw, tmp_path, *, exit_code=1):
+    capture = tmp_path / "capture.json"
+    capture.write_text(raw, encoding="utf-8")
+    return spawn.run_process(
+        [
+            sys.executable,
+            "-c",
+            "import pathlib,sys; print(pathlib.Path(sys.argv[1]).read_text()); sys.exit(int(sys.argv[2]))",
+            str(capture),
+            str(exit_code),
+        ],
+        None,
+        10,
+        tmp_path,
+        envelope=_claude().envelope,
+        structured_output=True,
+    )
+
+
+def test_captured_spend_exhaustion_exposes_provider_diagnosis_and_quota(tmp_path):
+    outcome = _replay(SPEND_LIMIT, tmp_path)
+    assert not outcome.result.succeeded
+    assert outcome.provider_error == SPEND_LIMIT_MESSAGE
+    assert failures.classify(outcome, _claude()) == failures.QUOTA
+    remediation = failures.quota_downgrade("claude-security", _claude(), [])
+    assert "/usage-credits" in remediation
+    assert "admin" in remediation and "higher limit" in remediation
+
+
+@pytest.mark.parametrize(
+    "raw, classification",
+    [
+        (RATE_LIMITED, failures.UNKNOWN),
+        (CAPTURED, failures.AUTH),
+    ],
+)
+def test_quota_marker_does_not_reclassify_other_api_errors(raw, classification, tmp_path):
+    outcome = _replay(raw, tmp_path)
+    assert outcome.provider_error == json.loads(raw)["result"]
+    assert failures.classify(outcome, _claude()) == classification
+
+
+def test_successful_structured_claude_answer_has_no_provider_error(tmp_path):
+    raw = json.dumps(
+        {
+            "type": "result",
+            "subtype": "success",
+            "is_error": False,
+            "structured_output": {"no_findings": True, "findings": None},
+            "result": "A clean answer",
+        }
+    )
+    outcome = _replay(raw, tmp_path, exit_code=0)
+    assert outcome.result.succeeded
+    assert outcome.provider_error is None
     assert failures.classify(outcome, _claude()) == failures.UNKNOWN

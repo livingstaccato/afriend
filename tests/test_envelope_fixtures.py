@@ -38,6 +38,8 @@ constructed to reproduce the regression, not the envelope shape itself.
 import json
 from pathlib import Path
 
+import pytest
+
 from afriend import adapters, envelopes, normalize
 from afriend.verdictschema import VERDICT_CONTRACT
 
@@ -353,7 +355,7 @@ def test_pi_judging_verdicts_unwrap_with_no_thinking_block():
 def test_pi_success_findings_unwrap_from_beside_a_thinking_block():
     """The shape that decided the two answer rules: with thinking enabled, the
     final assistant message_end is [thinking, text] and content[0].text misses.
-    Both positions are declared, and normalize offers matches latest-first."""
+    The wildcard reaches the text block, and normalize offers events latest-first."""
     result = _normalize_fixture("pi", "pi_success_findings.ndjson")
     assert result.succeeded, result.errors
     assert result.payload["findings"][0]["claim"] == "the retry loop drops the error branch"
@@ -362,13 +364,13 @@ def test_pi_success_findings_unwrap_from_beside_a_thinking_block():
 def test_pi_late_final_answer_beats_an_early_one_at_the_other_block_position():
     """Two assistant message_ends in one stream: an earlier answer at
     content[0], the final one at content[1] (beside thinking). Latest stream
-    position must win over block position -- an earlier schema-valid candidates
-    must not outrank the actual final answer, the same regression codex's
+    position must win over block position: the earlier eligible clean answer
+    must not outrank the final finding, the same regression codex's
     progress-then-findings fixture guards."""
     result = _normalize_fixture("pi", "pi_thinking_then_text.ndjson")
     assert result.succeeded, result.errors
     assert result.payload["findings"][0]["claim"] == "the retry loop drops the error branch"
-    assert "WRONG-ORDER" not in str(result.payload)
+    assert result.payload.get("no_findings") is not True
 
 
 def test_pi_stream_without_any_text_block_fails_legibly():
@@ -391,3 +393,156 @@ def test_pi_error_turns_marked_turn_aborts_stay_failure_shaped():
     result = _normalize_fixture("pi", "pi_turn_aborted.ndjson")
     assert result.succeeded is False
     assert result.errors
+
+
+@pytest.mark.parametrize("segments", [1, 3])
+def test_pi_answer_after_multiple_thinking_blocks_preserves_text_order(segments):
+    """Synthetic Anthropic block layout: ordinary and redacted thinking
+    precede text. Redacted thinking is exposed by Pi as another thinking
+    block; text can therefore occur beyond either formerly fixed position.
+    Splitting the JSON across text blocks also checks reconstruction order.
+    """
+    adapter = _registry()["pi"]
+    raw = (FIXTURES / "pi_success_findings.ndjson").read_text()
+    events = [json.loads(line) for line in raw.splitlines()]
+    event = next(
+        e for e in events if e["type"] == "message_end" and e["message"].get("stopReason") == "stop"
+    )
+    answer = next(block["text"] for block in event["message"]["content"] if "text" in block)
+    cuts = [len(answer) * i // segments for i in range(segments + 1)]
+    event["message"]["content"] = [
+        {"type": "thinking", "thinking": "ordinary thinking"},
+        {"type": "thinking", "thinking": "", "thinkingSignature": "redacted"},
+        *[{"type": "text", "text": answer[cuts[i] : cuts[i + 1]]} for i in range(segments)],
+    ]
+    result = normalize.normalize(
+        "\n".join(json.dumps(e) for e in events),
+        envelope=adapter.envelope,
+        structured_output=adapter.structured_output,
+    )
+    assert result.succeeded, result.errors
+    assert result.payload["findings"][0]["claim"] == "the retry loop drops the error branch"
+
+
+def _answer_stream(cli_name, answers):
+    if cli_name == "pi":
+        events = [
+            {
+                "type": "message_end",
+                "message": {
+                    "role": "assistant",
+                    "stopReason": "stop",
+                    "content": [{"type": "text", "text": answer}],
+                },
+            }
+            for answer in answers
+        ]
+        events.append({"type": "agent_settled", "aborted": False})
+    else:
+        events = [
+            {
+                "type": "item.completed",
+                "item": {"type": "agent_message", "text": answer},
+            }
+            for answer in answers
+        ]
+        events.append({"type": "turn.completed"})
+    return "\n".join(json.dumps(event) for event in events)
+
+
+@pytest.mark.parametrize("cli_name", ["pi", "codex"])
+@pytest.mark.parametrize("final_clean", [False, True])
+def test_newest_answer_wins_over_an_older_fenced_answer(cli_name, final_clean):
+    finding = {
+        "findings": [
+            {
+                "severity": "high",
+                "claim": "the final defect",
+                "location": None,
+                "evidence": "the guard is absent",
+                "failure_scenario": "bad input passes",
+                "suggested_fix": "add the guard",
+            }
+        ]
+    }
+    clean = {"no_findings": True, "findings": None}
+    earlier, final = (finding, clean) if final_clean else (clean, finding)
+    adapter = _registry()[cli_name]
+    result = normalize.normalize(
+        _answer_stream(cli_name, [f"```json\n{json.dumps(earlier)}\n```", json.dumps(final)]),
+        envelope=adapter.envelope,
+        structured_output=adapter.structured_output,
+    )
+    assert result.succeeded, result.errors
+    assert result.payload == final
+
+
+@pytest.mark.parametrize("cli_name", ["pi", "codex"])
+@pytest.mark.parametrize("final_fenced", [False, True])
+def test_newest_judging_answer_wins_independent_of_fencing(cli_name, final_fenced):
+    earlier = {
+        "verdicts": [
+            {
+                "claim_id": "c-0001@1",
+                "verdict": "upheld",
+                "confidence": "high",
+                "reasoning": "the defect exists",
+                "evidence_assessment": "confirmed",
+                "counter_evidence": None,
+                "amended_claim": None,
+            }
+        ]
+    }
+    final = {
+        "verdicts": [
+            {
+                "claim_id": "c-0001@1",
+                "verdict": "out-of-scope",
+                "confidence": "high",
+                "reasoning": "outside this artifact",
+                "evidence_assessment": None,
+                "counter_evidence": None,
+                "amended_claim": None,
+            }
+        ]
+    }
+    answers = [json.dumps(earlier), json.dumps(final)]
+    fenced_index = 1 if final_fenced else 0
+    answers[fenced_index] = f"```json\n{answers[fenced_index]}\n```"
+    adapter = _registry()[cli_name]
+    result = normalize.normalize(
+        _answer_stream(cli_name, answers),
+        envelope=adapter.envelope,
+        structured_output=adapter.structured_output,
+        contract=VERDICT_CONTRACT,
+    )
+    assert result.succeeded, result.errors
+    assert result.payload == final
+
+
+@pytest.mark.parametrize("cli_name", ["pi", "codex"])
+def test_newest_event_recovers_fenced_answer_after_unbalanced_prose(cli_name):
+    final = {"no_findings": True, "findings": None}
+    adapter = _registry()[cli_name]
+    result = normalize.normalize(
+        _answer_stream(
+            cli_name, ["still investigating", f"checking {{\n```json\n{json.dumps(final)}\n```"]
+        ),
+        envelope=adapter.envelope,
+        structured_output=adapter.structured_output,
+    )
+    assert result.succeeded, result.errors
+    assert result.payload == final
+
+
+@pytest.mark.parametrize("cli_name", ["pi", "codex"])
+def test_incomplete_newer_event_does_not_hide_earlier_valid_answer(cli_name):
+    earlier = {"no_findings": True, "findings": None}
+    adapter = _registry()[cli_name]
+    result = normalize.normalize(
+        _answer_stream(cli_name, [json.dumps(earlier), '```json\n{"findings": [']),
+        envelope=adapter.envelope,
+        structured_output=adapter.structured_output,
+    )
+    assert result.succeeded, result.errors
+    assert result.payload == earlier

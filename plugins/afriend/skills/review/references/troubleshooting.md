@@ -82,7 +82,7 @@ output rather than trusting exit codes (see `ledger.md` and `SKILL.md`'s
 | CLI | Trap |
 |---|---|
 | `codex` | `codex resume` / `codex fork` are interactive ("picker by default"); the non-interactive forms are `codex exec resume` / `codex exec fork` |
-| `agy` | `--print`/`-p` takes the prompt as its *value*, so every other flag must precede it on the command line or `--print` swallows the next token as the prompt |
+| `agy` | `--print`/`-p` requires a value; the shipped adapter supplies an empty value and sends the prompt on stdin with `--input-format stream-json`, so later flags remain options |
 | `claude` | `-p --permission-mode plan` routes the response into `~/.claude/plans/<name>.md` and prints three lines to stdout instead of the findings; the shipped adapter uses `--tools "Read,Grep,Glob"` for read-only instead, which stays in print mode |
 | `agy` | on a long task, findings can be routed to a brain artifact file with only a summary and a `file://` link printed to stdout |
 | `ollama` | `ollama run` writes ANSI cursor-control codes *inside* its own JSON payload even when stdout is not a terminal, which is why the adapter uses the HTTP API (`POST /api/generate`) instead of the CLI |
@@ -109,6 +109,7 @@ the returned list.
 | `codex` | `codex debug models` (JSON catalog; filter with `jq '.models[] \| {slug, display_name, supported_in_api}'` — some entries are `supported_in_api: false` and only work via `codex exec -m <slug>`, not the generic API path) |
 | `agy` | `agy models` |
 | `opencode` | `opencode models [provider]` |
+| `pi` | `pi --list-models` (provider/model table) |
 | `ollama` | `ollama list` (locally pulled models only; `ollama pull <name>` for one not yet local) |
 | `claude` | no listing subcommand found; `--model` takes a known alias (`sonnet`, `opus`, `haiku`) or a full model id — check current aliases rather than assuming one from memory |
 
@@ -199,7 +200,7 @@ in your first claim's evidence"* would simply work.
 So such a friend runs under `sandbox-exec` (present on every Mac) or `bwrap`
 (Linux, `apt install bubblewrap`), or it is refused. Only that friend is
 refused — the rest of the run continues. Windows has neither mechanism, so
-there `codex` and `agy` run only with the third way out below.
+there `codex`, `agy`, `opencode`, and `pi` run only with the third way out below.
 
 Three ways out, best first:
 
@@ -207,11 +208,12 @@ Three ways out, best first:
    `bwrap` (`bubblewrap`) on Linux. Note that Ubuntu 24.04 and later also
    restrict unprivileged user namespaces, which bwrap needs:
    `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`.
-2. **Use a provider that restrains itself.** Such a provider does not need
+2. **Use a self-confining adapter (currently `claude`).** It does not need
    `--allow-unsandboxed-friend`. A declared read-only mode alone is not
-   enough: it controls writes, not filesystem reads, does not replace OS read
-   confinement, and where the adapter opts into OS confinement the sandbox is
-   what enforces the write protection in the first place.
+   enough: it controls writes, not filesystem reads, and does not replace OS
+   read confinement. Pi, for example, has a verified write allowlist but its
+   adapter still requires OS confinement. For Codex and agy, the outer sandbox
+   also provides the write protection.
 3. **`--allow-unsandboxed-friend`.** This is explicit risk acceptance, not a
    normal fix. It stamps every affected provider in the report; that provider
    runs without OS confinement and retains same-user filesystem read access.
@@ -257,15 +259,18 @@ are inside the sandbox. A successfully injected friend can still exfiltrate
 the artifact and its own credentials. What is removed is everything else —
 other repositories, SSH and cloud keys, the rest of your home directory.
 
-## opencode's effort is unverified
+## opencode has no separate effort control through afriend
 
-`opencode run --variant <name>` accepts any string silently — no error, no
-warning, no distinguishable difference in behavior for a typo versus a real
-variant name. There is no way to confirm from the outside which effort level
-an `opencode` friend actually ran at, so `afriend doctor` and `run.json` report its
-effort as `effort=unverified` rather than echoing back whatever was
-requested. Every other shipped adapter (`claude`, `codex`, `agy`) reports
-`effort=native` because each one rejects an unsupported level outright.
+OpenCode 2.1.4 rejects the old `--variant` flag. The adapter therefore declares
+`effort=none`; `cheap` and `thorough` leave its configured model/variant alone
+and record that no effort levels are available. Explicit separate `--effort`
+requests are rejected rather than sent as unsupported flags. Although the
+native CLI documents a `provider/model#variant` form, afriend's model grammar
+currently excludes `#`, so that form is not an afriend override workaround.
+
+Pi reports `effort=unverified`: an invalid `--thinking` level warns and still
+runs. The `claude`, `codex`, and `agy` adapters report `effort=native`;
+Ollama reports `effort=none`.
 
 ## ollama reports unreachable, or a run fails
 

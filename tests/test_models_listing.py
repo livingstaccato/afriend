@@ -10,10 +10,18 @@ import subprocess
 
 import pytest
 
+from afriend import execresolve
 from afriend.adapters import load_adapters
 from afriend.errors import UsageError
 from afriend.models import MAX_MODELS, list_models, resolve_provider
 from afriend.paths import ADAPTER_DIR
+
+
+@pytest.fixture(autouse=True)
+def resolved_inventory_executable(monkeypatch, tmp_path):
+    # Listing-format tests replace the process; provide a separately resolved
+    # executable so those tests do not depend on a real lister installation.
+    monkeypatch.setattr(execresolve, "safe_which", lambda name: str(tmp_path / "bin" / name))
 
 
 def _adapter(tmp_path, name="lister", fmt="lines", argv='["models"]'):
@@ -204,11 +212,11 @@ def test_a_provider_with_no_executable_is_not_exec_ed(monkeypatch, tmp_path):
     assert answer.error is not None and "no executable" in answer.error
 
 
-def test_columns_format_reads_the_second_column_and_skips_the_header(monkeypatch, tmp_path):
+def test_columns_format_qualifies_the_complete_model_id_and_skips_the_header(monkeypatch, tmp_path):
     """`pi --list-models` (1.4.0): one padded fixed-width table, header
     'provider  model  context  ...', no tabs anywhere. The id is the second
-    whitespace column; padding-only prose and the header itself are not
-    offerable as model ids."""
+    whitespace column, qualified by the provider in the first column.
+    Slashes inside the model ID are preserved."""
     monkeypatch.setattr(
         subprocess,
         "run",
@@ -221,12 +229,11 @@ def test_columns_format_reads_the_second_column_and_skips_the_header(monkeypatch
         ),
     )
     answer = list_models(_adapter(tmp_path, fmt="columns"))
-    assert answer.models == ("glm-5.2", "kimi-k3", "verda/kimi-k3-poc")
+    assert answer.models == ("verda/glm-5.2", "verda/kimi-k3", "verda/verda/kimi-k3-poc")
 
 
 def test_columns_format_with_only_the_header_lists_nothing(monkeypatch, tmp_path):
-    """A credential-free listing is a header over zero rows; that answers
-    'no claim, no offer' without inventing ids."""
+    """An incomplete/header-only table offers no model IDs."""
     monkeypatch.setattr(
         subprocess,
         "run",
@@ -235,3 +242,34 @@ def test_columns_format_with_only_the_header_lists_nothing(monkeypatch, tmp_path
     answer = list_models(_adapter(tmp_path, fmt="columns"))
     assert answer.supported is True
     assert answer.models == ()
+
+
+def test_listing_executes_the_resolved_path_not_the_bare_provider_name(monkeypatch, tmp_path):
+    trusted = tmp_path / "trusted-tools" / "lister"
+    monkeypatch.setattr(execresolve, "safe_which", lambda name: str(trusted))
+    calls = []
+
+    def run(argv, **kwargs):
+        calls.append(argv)
+        return _completed("model-a\n")
+
+    monkeypatch.setattr(subprocess, "run", run)
+    answer = list_models(_adapter(tmp_path))
+
+    assert answer.models == ("model-a",)
+    assert calls == [[str(trusted), "models"]]
+
+
+def test_listing_refuses_an_executable_rejected_by_safe_resolution(monkeypatch, tmp_path):
+    # On Windows the resolver rejects a checkout-only match. Inventory must
+    # not hand the bare name back to CreateProcess after that rejection.
+    monkeypatch.setattr(execresolve, "safe_which", lambda name: None)
+    calls = []
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: calls.append(a) or _completed("model-a"))
+
+    answer = list_models(_adapter(tmp_path))
+
+    assert calls == []
+    assert answer.supported is True
+    assert answer.models == ()
+    assert answer.error is not None and "not installed" in answer.error

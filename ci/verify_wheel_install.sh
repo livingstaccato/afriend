@@ -37,7 +37,7 @@ fi
 # runner reports. What proves the package data shipped is that it can name
 # every adapter -- those names exist only in the packaged .toml files.
 doctor_out="$(cd /tmp && "$venv/bin/afriend" doctor || true)"
-for adapter in agy claude codex ollama opencode; do
+for adapter in agy claude codex ollama opencode pi; do
   if ! grep -q "^$adapter " <<<"$doctor_out"; then
     echo "error: 'afriend doctor' did not report adapter '$adapter' from outside the checkout" >&2
     echo "$doctor_out" >&2

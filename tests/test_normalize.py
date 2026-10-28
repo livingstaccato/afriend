@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from afriend import envelopes, normalize
 from afriend.envelopes import Envelope, EnvelopeRule, parse_envelope
 
@@ -12,6 +14,12 @@ GOOD = (
 def test_plain_json_parses():
     result = normalize.normalize(GOOD)
     assert result.succeeded is True
+    assert result.payload["findings"][0]["claim"] == "c"
+
+
+def test_unknown_envelope_kind_cannot_hide_a_valid_raw_answer():
+    result = normalize.normalize(GOOD, envelope=Envelope(kind="unknown"))
+    assert result.succeeded
     assert result.payload["findings"][0]["claim"] == "c"
 
 
@@ -450,3 +458,33 @@ def test_parse_envelope_json_path_reads_an_error_path():
 def test_envelope_error_is_never_read_from_an_ndjson_envelope():
     env = envelopes.Envelope(kind="ndjson", rules=(envelopes.EnvelopeRule("error", "message"),))
     assert envelopes.envelope_error(json.dumps({"type": "error", "message": "boom"}), env) is None
+
+
+@pytest.mark.parametrize("kind", ["json_path", "ndjson"])
+def test_wrapped_schema_error_survives_an_unhelpful_raw_retry(kind):
+    malformed = json.loads(GOOD)
+    malformed["findings"][0]["location"] = ["worker.py:88"]
+    if kind == "json_path":
+        envelope = Envelope(kind=kind, path="response")
+        raw = json.dumps({"response": json.dumps(malformed)})
+    else:
+        envelope = Envelope(kind=kind, rules=(EnvelopeRule("answer", "text"),))
+        raw = "\n".join(
+            [
+                json.dumps({"type": "answer", "text": json.dumps(malformed)}),
+                json.dumps({"type": "answer", "text": "still investigating"}),
+            ]
+        )
+    result = normalize.normalize(raw, envelope=envelope, structured_output=True)
+    assert result.succeeded is False
+    assert result.payload == malformed
+    assert result.errors == ["findings[0].location must be string or null, not list"]
+
+
+def test_raw_retry_can_recover_a_success_after_an_inner_schema_error():
+    malformed = json.loads(GOOD)
+    malformed["findings"][0]["location"] = ["worker.py:88"]
+    raw = json.dumps({"response": json.dumps(malformed), **json.loads(GOOD)})
+    result = normalize.normalize(raw, envelope=Envelope(kind="json_path", path="response"))
+    assert result.succeeded, result.errors
+    assert result.payload["findings"][0]["location"] is None

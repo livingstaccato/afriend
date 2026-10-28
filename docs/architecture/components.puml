@@ -77,7 +77,7 @@ package "Interpret & record" {
 }
 
 database "assets/\nadapters · harnesses · lenses\nentrypoints/ (four skills)" as ASSETS #F6E7C8
-cloud "exec friend CLIs\nclaude · codex · Antigravity (agy) · opencode" as FRIENDS #D9E8D5
+cloud "exec friend CLIs\nclaude · codex · Antigravity (agy) · opencode · pi" as FRIENDS #D9E8D5
 cloud "Ollama HTTP endpoint" as HTTP #D9E8D5
 
 CLI --> ARGS
