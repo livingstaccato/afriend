@@ -496,7 +496,20 @@ def _dispatch(
                 # comment said self-confining CLIs were excluded here, which
                 # stopped being true the moment one of them opted in.
                 child_env.update(private_env)
-    if spec.cli != "fake":
+                # opencode v2.1.4 resolves its config from
+                # $XDG_CONFIG_HOME/opencode/, which private_env just
+                # redirected to an empty scratch dir -- hiding the Verda
+                # provider block and every credential the operator configured.
+                # Setting OPENCODE_CONFIG_DIR to the real path (already
+                # mounted read-only via sandbox_read) makes opencode find its
+                # config regardless of the XDG redirect. The adapter already
+                # declares this var in env.pass, but pass only forwards an
+                # operator-set value; it does not set one.
+                if spec.cli == "opencode" and "OPENCODE_CONFIG_DIR" in adapter.env_pass:
+                    for read_path in adapter.sandbox_read:
+                        if read_path.endswith(".config/opencode"):
+                            child_env["OPENCODE_CONFIG_DIR"] = str(Path(read_path).expanduser())
+                            break
         # Two things withdraw read-only, and both used to test `spec.cli !=
         # "fake"` and perform the same `dataclasses.replace` separately --
         # while the first also re-looked-up an `adapter` already bound on

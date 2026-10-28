@@ -1,7 +1,14 @@
 # --variant accepts any string silently, so effort can never be verified.
 name = "opencode"
 binary = "opencode"
-base_argv = ["run", "--format", "json"]
+base_argv = ["run", "--standalone", "--format", "json"]
+# --standalone runs a private in-process server instead of the shared
+# background service. Without it, a confined friend that cannot see the host's
+# background service tries to start its own on the same fixed port and collides
+# with any opencode the operator already has running ("Managed service port N
+# is already in use"). --standalone makes each dispatch self-contained.
+# Verified against opencode 2.1.4: --standalone emits the same NDJSON event
+# types as the shared-service path (step_start, text, etc.).
 # Verified against `opencode run --format json` with the prompt piped: it
 # reads stdin and emits its usual NDJSON. argv was the E2BIG exposure issue
 # #4 documented for claude -- Linux caps a single argument near 128KB, and a
@@ -30,16 +37,26 @@ high = ["--variant", "high"]
 max = ["--variant", "max"]
 
 # `opencode run --format json` emits NDJSON (one event object per line).
-# Only the "error" event's shape has actually been captured (see
-# normalize.py's module docstring and tests/fixtures/opencode_error.ndjson);
-# a success-carrying event type has not been observed, so no rule for it is
-# declared here rather than guessing one. A stream with no "error" line (and
-# therefore no rule match at all) makes ndjson unwrapping report "found
-# nothing," so normalize() falls back to scanning the raw NDJSON text
-# line-by-line, same as before this adapter had an envelope at all.
+# Captured from opencode 2.1.4 on 2026-10-27: the model's answer arrives as a
+# "text" event whose part.text holds the JSON-escaped findings payload. An
+# earlier version of this adapter declared no success rule because no
+# success-carrying event had been observed -- only the "error" event was
+# captured. A stream with no "error" line and no "text" line makes ndjson
+# unwrapping report "found nothing," so normalize() falls back to scanning
+# the raw NDJSON text line-by-line.
+#
+# The error event's shape was captured from a real ProviderAuthError; the
+# text event's shape from a real Verda review of the seeded archive-path
+# artifact. The answer may span multiple "text" events (streamed deltas);
+# the latest producing rule wins, matching the latest-first stream ordering
+# normalize already relies on for other ndjson adapters.
 [envelope]
 kind = "ndjson"
 match_field = "type"
+
+[[envelope.rules]]
+type = "text"
+field = "part.text"
 
 [[envelope.rules]]
 type = "error"
@@ -53,19 +70,27 @@ field = "error.data.message"
 # machine is simply not bound (see sandbox.linux_argv on --ro-bind-try).
 [sandbox]
 # Its own configuration and binary. opencode also keeps a bun cache in
-# `$TMPDIR` and a log under `$XDG_DATA_HOME`, and needed both granted until
-# `childenv.private_dirs` pointed those at a private directory beside its
-# working directory instead: granting the real ones exposed every other
-# friend's isolation tree and a state directory that outlives the run.
+# `$TMPDIR` and a log under `$XDG_DATA_HOME` (~/.local/share/opencode/log).
+# The log path is an absolute path resolved from the real HOME, not from a
+# redirected XDG_DATA_HOME, so childenv.private_dirs cannot redirect it:
+# opencode 2.1.4 writes /home/.../.local/share/opencode/log/opencode.log
+# directly and exits with EROFS if that path is read-only. Granting write
+# to the whole share directory is the measured fix; it exposes the operator's
+# opencode session/log state to the friend, but a confined friend's HOME
+# inside the namespace already differs, and --no-session keeps the run
+# ephemeral. The credential files (apiKey via {file:...} in opencode.json)
+# live under ~/.config/opencode, which stays read-only.
 read = [
   "~/.config/opencode",
-  "~/.local/share/opencode",
   "~/.local/state/opencode",
   "~/.cache/opencode",
   "~/.opencode",
   "~/.npm",
   "~/.bun",
   "~/.config/node",
+]
+write = [
+  "~/.local/share/opencode",
 ]
 
 
@@ -87,6 +112,10 @@ pass = [
   "ANTHROPIC_API_KEY",
   "OPENROUTER_API_KEY",
   "GROQ_API_KEY",
+  # An operator whose Verda provider config reads the key from an env var
+  # (e.g. $VERDA_API_KEY) instead of {file:...} needs it passed; one using a
+  # file-based key (the opencode.json "{file:...}" form) does not.
+  "VERDA_API_KEY",
   # `opencode auth list` reports where it actually looks for credentials,
   # and on the machine this was captured from it named exactly these two --
   # no stored credentials at all, both providers read from the environment.

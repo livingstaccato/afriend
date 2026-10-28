@@ -202,18 +202,33 @@ def test_opencode_error_ndjson_fixture_unwraps_the_real_error_message():
 
 
 def test_opencode_step_finish_only_fixture_falls_back_and_reports_legibly():
-    """No "error" event in this stream, so ndjson unwrapping finds nothing
-    to extract (the only declared rule is for type="error" -- see
-    adapters/opencode.toml's comment on why no success-event rule is
-    declared) and normalize() falls back to scanning the raw NDJSON text.
-    That scan finds the step_finish event object itself (a bare JSON object
-    with no findings key), so the structured_output hint applies -- same
-    mechanism as the agy error fixture above, exercised on the OTHER known
-    real shape."""
+    """A stream with only step_start + step_finish but no "text" event: the
+    declared rules match neither (step_finish is not a rule type), so ndjson
+    unwrapping finds nothing and normalize() falls back to scanning the raw
+    NDJSON text. That scan finds the step_finish event object itself (a bare
+    JSON object with no findings key), so the structured_output hint applies --
+    same mechanism as the agy error fixture above, exercised on the OTHER
+    known real shape. A stream that DID carry a text event would be extracted
+    by the text rule (see the test below)."""
     result = _normalize_fixture("opencode", "opencode_step_finish_only.ndjson")
     assert result.succeeded is False
     assert result.payload is not None
     assert any("envelope path" in e for e in result.errors)
+
+
+def test_opencode_text_event_extracts_findings():
+    """The success-carrying event for opencode 2.1.4 is a "text" event whose
+    part.text holds the JSON-escaped findings payload. Captured 2026-10-27
+    from a real Verda review through the opencode adapter: before the text
+    rule was declared, this stream produced "found nothing" and the run
+    reported an unusable-output failure despite the model having answered
+    correctly. The text rule makes the declared envelope extract the answer
+    the same way every other ndjson adapter's success rule does."""
+    result = _normalize_fixture("opencode", "opencode_text_findings.ndjson")
+    assert result.succeeded is True, result.errors
+    assert result.payload is not None
+    assert result.payload["findings"]
+    assert "zip slip" in result.payload["findings"][0]["claim"].lower()
 
 
 def test_ndjson_stream_with_a_benign_error_event_and_real_findings_still_succeeds():

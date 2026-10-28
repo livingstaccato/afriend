@@ -263,6 +263,22 @@ def test_opencode_effort_is_unverified(registry, files):
     assert cap.effort == "unverified"
 
 
+def test_opencode_uses_standalone_server_to_avoid_port_collision(registry):
+    """--standalone runs a private in-process server instead of the shared
+    background service. Without it, a confined friend that cannot see the
+    host's background service tries to start its own on the same fixed port
+    and collides with any opencode the operator already has running."""
+    assert "--standalone" in registry["opencode"].base_argv
+
+
+def test_opencode_writes_to_local_share_for_logs(registry):
+    """opencode 2.1.4 writes its log to ~/.local/share/opencode/log/ as an
+    absolute path resolved from HOME, not from a redirected XDG_DATA_HOME.
+    The adapter must grant write to that directory or the friend dies with
+    EROFS before reaching the model."""
+    assert "~/.local/share/opencode" in registry["opencode"].sandbox_write
+
+
 def test_unsupported_effort_level_raises(registry, files):
     prompt, schema = files
     with pytest.raises(UsageError):
