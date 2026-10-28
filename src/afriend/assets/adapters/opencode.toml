@@ -80,9 +80,12 @@ field = "error.data.message"
 # Granting write to only the log subdirectory, not the whole share dir,
 # limits exposure: the operator's session state, auth tokens, and other
 # files under ~/.local/share/opencode stay read-only. HOME is passed
-# through unchanged (childenv.py does not redirect it), and --no-session
-# is NOT in base_argv, so nothing else makes this ephemeral — the narrow
-# write grant is the only protection.
+# through unchanged (childenv.py does not redirect it). opencode v2.1.4
+# has no --no-session flag, but --standalone (in base_argv) runs a private
+# in-process server that does not persist sessions to the operator's
+# ~/.local/share/opencode/sessions/ — verified: zero session files after
+# a standalone run. The narrow write grant for the log dir is the only
+# remaining host-path exposure.
 read = [
   "~/.config/opencode",
   "~/.local/share/opencode",
