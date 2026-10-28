@@ -47,9 +47,11 @@ max = ["--variant", "max"]
 #
 # The error event's shape was captured from a real ProviderAuthError; the
 # text event's shape from a real Verda review of the seeded archive-path
-# artifact. The answer may span multiple "text" events (streamed deltas);
-# the latest producing rule wins, matching the latest-first stream ordering
-# normalize already relies on for other ndjson adapters.
+# artifact. The captured stream carried one complete text event; whether
+# opencode can split an answer across multiple "text" events (streamed
+# deltas) has not been observed. If it does, the latest-first extraction
+# would join them in reverse order and may need an adapter-specific
+# reconstruction mode — but that is hypothetical, not measured.
 [envelope]
 kind = "ndjson"
 match_field = "type"
@@ -69,19 +71,21 @@ field = "error.data.message"
 # plus opencode's own directories; a path that does not exist on a given
 # machine is simply not bound (see sandbox.linux_argv on --ro-bind-try).
 [sandbox]
-# Its own configuration and binary. opencode also keeps a bun cache in
-# `$TMPDIR` and a log under `$XDG_DATA_HOME` (~/.local/share/opencode/log).
-# The log path is an absolute path resolved from the real HOME, not from a
-# redirected XDG_DATA_HOME, so childenv.private_dirs cannot redirect it:
-# opencode 2.1.4 writes /home/.../.local/share/opencode/log/opencode.log
-# directly and exits with EROFS if that path is read-only. Granting write
-# to the whole share directory is the measured fix; it exposes the operator's
-# opencode session/log state to the friend, but a confined friend's HOME
-# inside the namespace already differs, and --no-session keeps the run
-# ephemeral. The credential files (apiKey via {file:...} in opencode.json)
-# live under ~/.config/opencode, which stays read-only.
+# Its own configuration and binary. opencode 2.1.4 writes its log to
+# ~/.local/share/opencode/log/opencode.log — an absolute path resolved from
+# the real HOME, not from redirected XDG_DATA_HOME. childenv.private_dirs
+# redirects XDG_DATA_HOME to a scratch dir, but opencode ignores that and
+# writes to the HOME-derived path, exiting with EROFS if it's read-only.
+#
+# Granting write to only the log subdirectory, not the whole share dir,
+# limits exposure: the operator's session state, auth tokens, and other
+# files under ~/.local/share/opencode stay read-only. HOME is passed
+# through unchanged (childenv.py does not redirect it), and --no-session
+# is NOT in base_argv, so nothing else makes this ephemeral — the narrow
+# write grant is the only protection.
 read = [
   "~/.config/opencode",
+  "~/.local/share/opencode",
   "~/.local/state/opencode",
   "~/.cache/opencode",
   "~/.opencode",
@@ -90,7 +94,7 @@ read = [
   "~/.config/node",
 ]
 write = [
-  "~/.local/share/opencode",
+  "~/.local/share/opencode/log",
 ]
 
 

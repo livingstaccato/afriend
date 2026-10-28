@@ -271,12 +271,16 @@ def test_opencode_uses_standalone_server_to_avoid_port_collision(registry):
     assert "--standalone" in registry["opencode"].base_argv
 
 
-def test_opencode_writes_to_local_share_for_logs(registry):
+def test_opencode_writes_only_to_log_dir_not_whole_share(registry):
     """opencode 2.1.4 writes its log to ~/.local/share/opencode/log/ as an
     absolute path resolved from HOME, not from a redirected XDG_DATA_HOME.
-    The adapter must grant write to that directory or the friend dies with
-    EROFS before reaching the model."""
-    assert "~/.local/share/opencode" in registry["opencode"].sandbox_write
+    The adapter grants write only to the log subdirectory, not the whole
+    share dir — the operator's session state and auth tokens under
+    ~/.local/share/opencode stay read-only. HOME is not redirected and
+    --no-session is not in base_argv, so the narrow grant is the only
+    protection."""
+    assert "~/.local/share/opencode/log" in registry["opencode"].sandbox_write
+    assert "~/.local/share/opencode" not in registry["opencode"].sandbox_write
 
 
 def test_unsupported_effort_level_raises(registry, files):

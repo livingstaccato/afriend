@@ -502,10 +502,11 @@ def _dispatch(
                 # provider block and every credential the operator configured.
                 # Setting OPENCODE_CONFIG_DIR to the real path (already
                 # mounted read-only via sandbox_read) makes opencode find its
-                # config regardless of the XDG redirect. The adapter already
-                # declares this var in env.pass, but pass only forwards an
-                # operator-set value; it does not set one.
-                if spec.cli == "opencode" and "OPENCODE_CONFIG_DIR" in adapter.env_pass:
+                # config regardless of the XDG redirect. Only set when the
+                # operator has not already supplied one: an explicit
+                # OPENCODE_CONFIG_DIR is preserved by childenv.build and must
+                # not be overwritten.
+                if spec.cli == "opencode" and "OPENCODE_CONFIG_DIR" not in child_env:
                     for read_path in adapter.sandbox_read:
                         if read_path.endswith(".config/opencode"):
                             child_env["OPENCODE_CONFIG_DIR"] = str(Path(read_path).expanduser())
