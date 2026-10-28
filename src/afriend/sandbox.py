@@ -82,6 +82,7 @@ at all (sandbox-exec reports this as SIGABRT with no diagnostic). `(literal
 directory itself, and without it nothing runs.
 """
 
+import contextlib
 from dataclasses import dataclass, field
 import os
 from pathlib import Path
@@ -408,6 +409,15 @@ def linux_argv(policy: SandboxPolicy, root: Path = Path("/")) -> list[str]:
     workdir_bind = "--bind" if policy.workdir_writable else "--ro-bind"
     argv += [workdir_bind, str(policy.workdir), str(policy.workdir)]
     for write_path in policy.write_paths:
+        # A write path the CLI needs (e.g. opencode's log dir) may not exist
+        # on a fresh install. --bind-try silently skips a missing source, so
+        # the grant does nothing and the CLI still dies with EROFS. Create it
+        # here: the adapter declared it writable, so its existence is the
+        # intent, and 0700 keeps it owner-only.
+        with contextlib.suppress(OSError):
+            write_path.mkdir(parents=True, exist_ok=True, mode=0o700)
+        # Cannot create (read-only parent, permissions). The --bind-try below
+        # still tries, and a failure surfaces there rather than as a crash.
         argv += ["--bind-try", str(write_path), str(write_path)]
     argv.append("--")
     return argv

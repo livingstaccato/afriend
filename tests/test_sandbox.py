@@ -142,6 +142,20 @@ def test_bwrap_binds_the_workdir_writable(policy):
     assert str(policy.workdir) in argv
 
 
+@pytest.mark.posix_only(reason="bwrap directory creation; the mechanism does not exist on Windows")
+def test_bwrap_creates_a_missing_write_path_before_binding(tmp_path):
+    """A write path the CLI needs (e.g. opencode's log dir) may not exist on
+    a fresh install. --bind-try silently skips a missing source, so the grant
+    does nothing and the CLI still dies with EROFS. linux_argv creates the
+    directory before binding so the grant is real."""
+    write_path = tmp_path / "does-not-exist-yet" / "log"
+    assert not write_path.exists()
+    policy = sandbox.SandboxPolicy(workdir=tmp_path / "iso", write_paths=(write_path,))
+    (tmp_path / "iso").mkdir(exist_ok=True)
+    sandbox.linux_argv(policy)
+    assert write_path.is_dir()
+
+
 def test_bwrap_binds_system_paths_read_only(policy, tmp_path):
     fake_root = tmp_path / "root"
     (fake_root / "usr").mkdir(parents=True)
