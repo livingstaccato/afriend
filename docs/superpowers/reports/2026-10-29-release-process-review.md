@@ -4,7 +4,11 @@ The review below records the original findings at `75ba1f8`; its open-finding
 status and statement that no changes were made describe that review only.
 The current candidate implements all five fixes. Integrated `make quality` passed: **2,913 passed, 31 skipped**, one existing
 warning; all16 mutants killed, zero survivors/skips. Static, diagram, wheel and
-isolated six-distribution checks passed. Hosted CI remains pending for the final fix. Initial candidate `0c8fdef` passed
+isolated six-distribution checks passed. The corrected implementation `f153ec7` passed all eight jobs in
+[CI run40799404634](https://github.com/livingstaccato/afriend/actions/runs/40799404634).
+Linux3.11/3.12/3.13 each passed2,911 tests with33 skips; native Windows passed
+2,803 with141 skips. All16 hosted mutants were killed and all four latest
+Windows startup jobs passed. Real Twine recovery tests ran on both platforms. Initial candidate `0c8fdef` passed
 all three Linux jobs (including mutation/containment) and four real Windows
 startup jobs; the Windows unit suite exposed CRLF diagnostic matching failures.
 Four explicit CRLF subprocess cases reproduced failure locally before matching

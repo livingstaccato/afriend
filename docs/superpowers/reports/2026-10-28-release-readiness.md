@@ -4,7 +4,12 @@ A subsequent adversarial process audit found five release-enforcement gaps.
 All five are addressed in the current remediation candidate. Integrated local
 `make quality` passed: **2,913 passed, 31 skipped**, one existing warning, and
 **16 mutation probes killed, zero survivors/skips**. All portable static, diagram,
-package and isolated-install gates passed. Hosted CI for this candidate is pending. The earlier measurements below
+package and isolated-install gates passed. The corrected implementation `f153ec7` passed all eight jobs in
+[CI run40799404634](https://github.com/livingstaccato/afriend/actions/runs/40799404634):
+Linux Python3.11/3.12/3.13 each **2,911 passed,33 skipped**; native Windows
+**2,803 passed,141 skipped**. Hosted mutation results were16 killed, zero
+survivors/skips. All four real latest Windows startup jobs passed. The three
+real Twine loopback recovery tests also passed on Linux and native Windows. The earlier measurements below
 remain historical evidence, not clearance of the revised release process. See
 [process review](2026-10-29-release-process-review.md) and the
 [release procedure](../../release-process.md). No publication has been performed.

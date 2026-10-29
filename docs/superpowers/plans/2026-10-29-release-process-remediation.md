@@ -16,7 +16,7 @@ anything. Keep reviewer CLIs latest by default with explicit optional overrides.
   rejecting skips, deselection, missing cases and failures despite ambient
   PYTEST_ADDOPTS/plugin changes.
 - [x] Run the full mutation probe in hosted Linux CI once, serially after tests.
-- [ ] Add regressions and local failure-injection coverage, run all portable
+- [x] Add regressions and local failure-injection coverage, run all portable
   quality checks and workflow validation, obtain independent review, reconcile
   documentation/changelog/version counts, push PR #9 and watch every CI job.
 
@@ -29,4 +29,5 @@ forward model credentials as part of this remediation.
 Local quality passed: 2,913 tests passed,31 skipped; all16 mutation probes killed.
 Independent integrated review finding (Node crash) repaired and reverified.
 Documentation and changelog reconciled; version remains0.13.0,2,944 collected
-tests. Final checklist stays open until the pushed commit completes hosted CI.
+tests. Implementation `f153ec7` completed all eight hosted jobs successfully in
+run40799404634, including the corrected native Windows suite.
