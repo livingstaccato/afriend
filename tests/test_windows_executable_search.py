@@ -151,7 +151,9 @@ def test_real_custom_shim_and_sibling_node_keep_operator_selection(native_node_s
     monkeypatch.setenv(
         "PATH", os.pathsep.join(entry for entry in entries if Path(entry) != fixture.node.parent)
     )
-    assert execresolve.safe_which("pi") == str(shim)
+    resolved = execresolve.safe_which("pi")
+    assert resolved is not None
+    assert Path(resolved).samefile(shim)
     adapter = dataclasses.replace(
         load_adapters(ADAPTER_DIR)["pi"],
         models_argv=("two words",),
