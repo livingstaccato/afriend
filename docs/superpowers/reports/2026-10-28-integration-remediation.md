@@ -1,9 +1,11 @@
 # Integration remediation — afriend 0.13.0
 
 All seven findings in the [full integration review](2026-10-28-full-integration-review.md)
-are resolved in the uncommitted working tree. This records code corrections and
-local verification; publication remains held pending unrestricted verification
-and incomplete live-provider evidence.
+are resolved in the branch. Current release readiness is recorded in the
+[release audit](2026-10-28-release-readiness.md). The sections below are a
+chronological remediation record: earlier statements about uncommitted work,
+restricted execution, and pending Windows checks describe those historical
+snapshots, not the current release status.
 
 ## Finding dispositions
 

@@ -5,8 +5,10 @@
 **Remediation update:** all seven findings below (two P1, four P2, one P3)
 are resolved in the working tree with regression coverage. See the
 [remediation and verification record](2026-10-28-integration-remediation.md).
-Release remains held for unrestricted verification and incomplete live-provider
-evidence. The original review below preserves the pre-fix findings and evidence;
+For current release readiness, see the
+[release audit](2026-10-28-release-readiness.md): unrestricted quality checks and
+native Windows startup verification subsequently passed. The original review
+below preserves the pre-fix findings and evidence;
 its source line numbers and verification results describe that earlier snapshot.
 
 The user requested all current uncommitted changes plus integration with the
