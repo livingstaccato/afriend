@@ -707,3 +707,51 @@ def _verified_deny_probe(monkeypatch):
         "probe_deny_argv",
         lambda *_args: readiness.DenyProbeResult(True, "verified test shim"),
     )
+
+
+@pytest.mark.parametrize("source", ["flags", "roster", "discovery"])
+def test_unsupported_effective_effort_is_refused_before_run_creation_or_dispatch(
+    monkeypatch, tmp_path, capsys, source
+):
+    from afriend.cli import main
+    from afriend.commands import run as run_module
+
+    _registry, friends_module = _selection_fixture(
+        monkeypatch, enabled={"codex", "opencode"}, executables={"codex", "opencode"}
+    )
+    # Readiness may locate these harmless executables; grants below avoid a
+    # CLI deny-capability probe. No test is allowed to cross into dispatch.
+    monkeypatch.setattr(friends_module.execresolve, "safe_which", lambda _name: sys.executable)
+    monkeypatch.setenv("AF_NO_HTTP_DISCOVERY", "1")
+
+    def unexpected_dispatch(*_args, **_kwargs):
+        pytest.fail("unsupported effort reached the model dispatch boundary")
+
+    monkeypatch.setattr(run_module, "run_critique", unexpected_dispatch)
+    extra = ["--effort", "medium"]
+    if source == "flags":
+        extra += ["--friend", "codex:ops", "--friend", "opencode:security"]
+    elif source == "roster":
+        roster = _roster(
+            tmp_path,
+            '[[friend]]\nname="codex-ops"\ncli="codex"\nlens="ops"\n'
+            '[[friend]]\nname="opencode-security"\ncli="opencode"\nlens="security"\n'
+            'effort="medium"\n',
+        )
+        extra = ["--roster", str(roster)]
+
+    code = main(
+        [
+            "run",
+            str(_artifact(tmp_path)),
+            "--out",
+            str(tmp_path / "runs"),
+            "--allow-external-tools=codex",
+            "--allow-external-tools=opencode",
+            *extra,
+        ]
+    )
+
+    assert code == 2
+    assert "opencode does not support effort 'medium'" in capsys.readouterr().err
+    assert not (tmp_path / "runs").exists()

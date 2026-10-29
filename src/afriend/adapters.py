@@ -543,6 +543,15 @@ def load_adapters(directory: Path) -> dict[str, Adapter]:
     return registry
 
 
+def validate_effort(adapter: Adapter, effort: str | None) -> None:
+    """Refuse an unsupported effective effort without reading files or launching a CLI."""
+    if effort and effort not in adapter.effort:
+        raise UsageError(
+            f"{adapter.name} does not support effort {effort!r} "
+            f"(available: {sorted(adapter.effort) or 'none'})"
+        )
+
+
 def build_argv(
     adapter: Adapter,
     spec: FriendSpec,
@@ -610,12 +619,8 @@ def build_argv(
 
     if spec.model and adapter.model_flag:
         argv += [adapter.model_flag, spec.model]
+    validate_effort(adapter, spec.effort)
     if spec.effort:
-        if spec.effort not in adapter.effort:
-            raise UsageError(
-                f"{adapter.name} does not support effort {spec.effort!r} "
-                f"(available: {sorted(adapter.effort) or 'none'})"
-            )
         argv += adapter.effort[spec.effort]
     if adapter.internal_timeout_flag:
         # The CLI's own timeout is set explicitly rather than inherited, so it

@@ -72,6 +72,13 @@ already captured by the same run. Release CI job names are explicit and a
 configuration-derived test catches drift in required job/step names.
 
 
+**Unsupported effort is rejected before any review worker starts.** The final
+roster is validated during setup for explicit friends, roster files, discovery
+and frozen resumes, so a static option error cannot arrive after other friends
+have begun model calls. CI also fetches full history and requires both historical
+artifact-provenance cases to pass without skips before release admission.
+
+
 **Final answer precedence follows event order.** JSON fences in an earlier
 progress answer can no longer override a later bare answer, including replacing
 real findings with a stale clean result. Malformed wrapped answers retain their

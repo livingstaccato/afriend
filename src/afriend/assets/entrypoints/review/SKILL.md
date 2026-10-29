@@ -188,7 +188,9 @@ single-friend run a completed independent review.
 ### Recovering a failed friend
 
 If a dispatched friend fails, inspect its saved provider diagnostic and report
-what failed before suggesting a replacement. `doctor` readiness proves neither
+what failed before suggesting a replacement. A static usage/configuration refusal
+is not evidence of a broken friend: correct unsupported flags first. Remove an
+unsupported global effort override when using a per-adapter preset. `doctor` readiness proves neither
 authentication nor available quota. Distinguish a model-specific allowance from
 an account-wide or individual spend limit: changing models is not evidence of a
 separate allowance for an account-level refusal. Do not repeatedly retry that

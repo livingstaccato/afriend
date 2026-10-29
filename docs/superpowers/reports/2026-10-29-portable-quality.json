@@ -1,0 +1,33 @@
+{
+  "command": "make quality",
+  "source_base_commit": "08ba17e1e283f15ad6f61f40a4ba21e62b60753f",
+  "includes_uncommitted_followups": true,
+  "passed": 2948,
+  "skipped": 36,
+  "warnings": 1,
+  "collected": 2984,
+  "mutants": {
+    "killed": 16,
+    "survived": 0,
+    "skipped": 0
+  },
+  "retained_log": "2026-10-29-portable-quality.log.gz",
+  "retained_log_sha256": "29ffa13502a6c13b486d6e6ffd9cf86aa8462e0d0d03710628c9cba42d3feb36",
+  "source_files_sha256": {
+    "VERSION": "d84c9e596c7d6a94e5f74579ef8d8912a807b0d28582474900ad35dfb3edfcf4",
+    "README.md": "113829a376d35fbf47877093fad4761cba4fce45aa9a514b482cbac9ef54be35",
+    ".github/workflows/ci.yml": "c1599704152b103949974985aaa17fd54387656874f840329155e9a287197717",
+    "ci/verify_release_ci.py": "fcc34acb45c2dbcf5a78b3243e0f0c448080d4a63c83b79ca27955bd2ee10e98",
+    "ci/provider_startup.py": "75a8f1bf369057382659ba433d23bb09d974948ec316982a7d7d4434c893cd7a",
+    "src/afriend/childenv.py": "0cd747579d642b299d51b88d1b1ed7d73bd80297f223f23c05a4003c31f58ccf",
+    "src/afriend/readiness.py": "95324f7cd6a21a32f93c36548d5035a40590294cb4956beebcf91e67c442712d",
+    "src/afriend/adapters.py": "9a28584e80c7bbcaae74c3d6303830309aa931648dadf79c071da2a03b7c066e",
+    "src/afriend/commands/setup.py": "47414dc2c79a943ecb3731bc84da6b7ce21bc1db1e05a364526ae7f4c651e70c",
+    "scripts/run_codex_skill_eval.py": "e7826d02492d2449bfc89ebf91520d4a4170c84aac32977742c4fd546df6d347",
+    "src/afriend/assets/entrypoints/review/SKILL.md": "09181d72ddea26af3f7e1d69d586140285eb9edccd56f4739e1b9944d855fdf2",
+    "tests/test_windows_executable_search.py": "f2bc87de90404953134d960d0f428e05e492d30a511e696492a42f8f656194bb",
+    "tests/test_release_ci_gate.py": "8118ee8ad7661d838ccbb3af8e82868765e5c8b089d42d75cb67614ac942969c",
+    "tests/test_run_end_to_end_roster.py": "a5e48a8abc9745271dd684436915d5e6c31abba0ef289e5eb151ec730681a377",
+    "tests/test_codex_skill_eval.py": "e6f656b38cf78d65c10eedb4ea4572485d0c927c9febfa2dd4e1ab68ba7f0cb9"
+  }
+}

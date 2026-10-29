@@ -43,7 +43,7 @@ def jobs():
         if name.startswith("quality"):
             steps = ["pytest", "assert containment tests ran"]
             if name == "quality (3.13)":
-                steps.append("mutation-probe")
+                steps.extend(["friend-eval provenance", "mutation-probe"])
         elif name == "windows":
             steps = ["pytest"]
         else:
@@ -106,6 +106,7 @@ def test_no_run_cannot_release():
         "wrong-sha",
         "wrong-run",
         "missing-step",
+        "missing-provenance",
         "skipped-step",
         "failed-mutation",
         "duplicate-step",
@@ -126,6 +127,10 @@ def test_incomplete_or_false_green_jobs_cannot_release(mutation):
         records[0]["run_id"] = 1234
     elif mutation == "missing-step":
         records[0]["steps"].pop()
+    elif mutation == "missing-provenance":
+        records[2]["steps"] = [
+            s for s in records[2]["steps"] if s["name"] != "friend-eval provenance"
+        ]
     elif mutation == "skipped-step":
         records[0]["steps"][0]["conclusion"] = "skipped"
     elif mutation == "failed-mutation":

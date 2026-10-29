@@ -14,7 +14,12 @@ from urllib.request import Request, urlopen
 REQUIRED_STEPS = {
     "quality (3.11)": ("pytest", "assert containment tests ran"),
     "quality (3.12)": ("pytest", "assert containment tests ran"),
-    "quality (3.13)": ("pytest", "mutation-probe", "assert containment tests ran"),
+    "quality (3.13)": (
+        "pytest",
+        "friend-eval provenance",
+        "mutation-probe",
+        "assert containment tests ran",
+    ),
     "windows": ("pytest",),
     "Windows startup (claude)": (
         "Install real reviewer CLI",

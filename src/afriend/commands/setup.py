@@ -16,7 +16,7 @@ import os
 import threading
 from typing import Any
 
-from ..adapters import Adapter, FriendSpec, load_adapters
+from ..adapters import Adapter, FriendSpec, load_adapters, validate_effort
 from ..authority import AuthorityPolicy, enforce_extra_args
 from ..paths import ADAPTER_DIR
 from ..progress import Progress
@@ -79,6 +79,13 @@ def prepare_run(args: argparse.Namespace) -> RunSetup:
         )
 
     resolved, specs = roster_for_run(args, registry, fake_cmd, downgrades, authority_policy)
+    # Validate the whole effective roster before creating run artifacts or
+    # dispatching any friend: a later worker's static argv error must not
+    # arrive after earlier workers have already made model calls. This also
+    # checks frozen resume efforts against the currently installed adapters.
+    for spec in specs:
+        if spec.cli != "fake":
+            validate_effort(registry[spec.cli], spec.effort)
     # §12.2: every friend that will run without OS confinement is named in
     # the report, whether that is because the operator overrode the refusal
     # or because the CLI has no read-only mode and one was available. A

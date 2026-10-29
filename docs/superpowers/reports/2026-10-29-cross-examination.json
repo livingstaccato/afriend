@@ -1,0 +1,1074 @@
+{
+  "mode": "crossexam",
+  "rounds_run": 3,
+  "attempted_calls": 15,
+  "spent_calls": 15,
+  "succeeded_friends": 5,
+  "successful_friend_ids": [
+    "codex-security-0",
+    "codex-ops-1",
+    "opencode-spec-vs-reality-2",
+    "codex-testability-3",
+    "pi-testability-4"
+  ],
+  "claim_states": {
+    "c-0001@1": "deadlocked",
+    "c-0002@1": "incomplete",
+    "c-0003@1": "incomplete",
+    "c-0004@1": "deadlocked",
+    "c-0005@1": "settled-refuted",
+    "c-0006@1": "deadlocked",
+    "c-0007@1": "deadlocked",
+    "c-0008@1": "settled-upheld",
+    "c-0009@1": "deadlocked",
+    "c-0010@1": "deadlocked"
+  },
+  "downgrades": [
+    "opencode has no effort levels, so --preset cheap changes nothing for it.",
+    "pi reports effort as unverified: the adapter cannot confirm its effective effort, so --preset cheap cannot be confirmed for it. The level it actually ran at is unknown.",
+    "72 environment variable(s) were withheld from every friend this run dispatches (codex-security-0, codex-ops-1, opencode-spec-vs-reality-2, codex-testability-3, pi-testability-4); names are recorded, values never are. Pass --pass-env VAR if a friend needs one.",
+    "these variables were withheld from some friends but passed to others, because an adapter declares them in its own pass list: PI_CODING_AGENT_DIR, VERDA_API_KEY. They are NOT in this run's withheld record."
+  ],
+  "stop_reason": "incomplete",
+  "exit_code": 1,
+  "friends": [
+    {
+      "name": "codex-security-0",
+      "cli": "codex",
+      "model": null,
+      "round": 1,
+      "status": "ok (diagnostics: Reading prompt from stdin...; full text in round-1/codex-security-0.err)",
+      "os_confined": true
+    },
+    {
+      "name": "codex-ops-1",
+      "cli": "codex",
+      "model": null,
+      "round": 1,
+      "status": "ok (diagnostics: Reading prompt from stdin...; full text in round-1/codex-ops-1.err)",
+      "os_confined": true
+    },
+    {
+      "name": "opencode-spec-vs-reality-2",
+      "cli": "opencode",
+      "model": "verda/kimi-k3",
+      "round": 1,
+      "status": "ok",
+      "os_confined": true
+    },
+    {
+      "name": "codex-testability-3",
+      "cli": "codex",
+      "model": null,
+      "round": 1,
+      "status": "ok (diagnostics: Reading prompt from stdin...; full text in round-1/codex-testability-3.err)",
+      "os_confined": true
+    },
+    {
+      "name": "pi-testability-4",
+      "cli": "pi",
+      "model": "verda/kimi-k3",
+      "round": 1,
+      "status": "ok",
+      "os_confined": true
+    },
+    {
+      "name": "codex-security-0",
+      "cli": "codex",
+      "model": null,
+      "round": 2,
+      "status": "ok (diagnostics: Reading prompt from stdin...; full text in round-2/codex-security-0.err)",
+      "os_confined": true
+    },
+    {
+      "name": "codex-ops-1",
+      "cli": "codex",
+      "model": null,
+      "round": 2,
+      "status": "ok (diagnostics: Reading prompt from stdin...; full text in round-2/codex-ops-1.err)",
+      "os_confined": true
+    },
+    {
+      "name": "opencode-spec-vs-reality-2",
+      "cli": "opencode",
+      "model": "verda/kimi-k3",
+      "round": 2,
+      "status": "ok",
+      "os_confined": true
+    },
+    {
+      "name": "codex-testability-3",
+      "cli": "codex",
+      "model": null,
+      "round": 2,
+      "status": "ok (diagnostics: Reading prompt from stdin...; full text in round-2/codex-testability-3.err)",
+      "os_confined": true
+    },
+    {
+      "name": "pi-testability-4",
+      "cli": "pi",
+      "model": "verda/kimi-k3",
+      "round": 2,
+      "status": "failed: timeout",
+      "os_confined": true
+    },
+    {
+      "name": "codex-security-0",
+      "cli": "codex",
+      "model": null,
+      "round": 3,
+      "status": "failed: exit 1 (provider: Selected model is at capacity. Please try a different model.; full text in round-3/codex-security-0.raw)",
+      "os_confined": true
+    },
+    {
+      "name": "codex-ops-1",
+      "cli": "codex",
+      "model": null,
+      "round": 3,
+      "status": "ok (diagnostics: Reading prompt from stdin...; full text in round-3/codex-ops-1.err)",
+      "os_confined": true
+    },
+    {
+      "name": "opencode-spec-vs-reality-2",
+      "cli": "opencode",
+      "model": "verda/kimi-k3",
+      "round": 3,
+      "status": "ok",
+      "os_confined": true
+    },
+    {
+      "name": "codex-testability-3",
+      "cli": "codex",
+      "model": null,
+      "round": 3,
+      "status": "ok (diagnostics: Reading prompt from stdin...; full text in round-3/codex-testability-3.err)",
+      "os_confined": true
+    },
+    {
+      "name": "pi-testability-4",
+      "cli": "pi",
+      "model": "verda/kimi-k3",
+      "round": 3,
+      "status": "ok",
+      "os_confined": true
+    }
+  ],
+  "degraded_process_captures": [
+    "round-2/pi-testability-4.meta"
+  ],
+  "failed_friend_rows": 2,
+  "run_id": "run-20261028T191753-cf077b81",
+  "snapshot_commit": "1a379a6155310a11f6a1a459f064d0e74805b020",
+  "snapshot_tree": "89211ed355e615df60263ea471822ab6713009f1",
+  "artifact_sha256": "399e5c8ec4819b8b3943583736543dc13c8ed19245b11bd7bb7cd760394b5d18",
+  "qualification_policy": "cross-provider",
+  "provider_families": [
+    "codex",
+    "opencode",
+    "pi"
+  ],
+  "limits": {
+    "required_friends": 5,
+    "max_rounds": 3,
+    "max_calls": 15,
+    "timeout_seconds": 600,
+    "max_wall_clock_seconds": 3000
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "usable": 5,
+      "required": 5
+    },
+    {
+      "round": 2,
+      "usable": 4,
+      "required": 5
+    },
+    {
+      "round": 3,
+      "usable": 4,
+      "required": 5
+    }
+  ],
+  "ledger": [
+    {
+      "advisory": false,
+      "claim": "CI provides green verification of the release implementation ('all eight jobs passed'; Linux '2,911 passed, 33 skipped'; hosted mutation '16 killed, zero survivors')",
+      "evidence": "By the artifact's own numbers, the two recorded-digest integrity tests \u2014 test_the_artifact_is_rebuilt_from_git_with_its_recorded_digest and test_an_artifact_that_no_longer_matches_its_digest_is_refused \u2014 never execute in CI: local shows 31 skips, CI shows 33, and the text confirms they 'require a historical spec commit absent from CI's shallow checkout.' These tests cover digest rebuild and digest-mismatch refusal, yet the audit dismisses them as 'not the new containment, mutation or publication-recovery checks' while elsewhere stating the 0.13.0 changelog 'covers the integration and enforcement changes.' Furthermore, if the hosted mutation probe's 16 mutants touched that digest code, 'zero survivors' is incompatible with these tests being skipped in CI; if they did not, calling it a 'Full hosted mutation probe' overstates probe coverage.",
+      "failure_scenario": "A regression in artifact-digest rebuild or digest-refusal enforcement ships in 0.13.0: every CI job is green and mutation shows zero survivors, but the only tests exercising those behaviors were skipped in all CI runs and executed solely on one developer's machine.",
+      "id": "c-0001@1",
+      "lens": "spec-vs-reality",
+      "location": "Verification evidence table; paragraph 'The local/Linux difference is two historical friend-eval provenance cases...'; header claim 'documentation head 5234def also passed all eight CI jobs'",
+      "origin": [
+        "opencode/spec-vs-reality@verda/kimi-k3"
+      ],
+      "round": 1,
+      "severity": "medium",
+      "suggested_fix": "Give CI a full-history checkout (e.g., fetch-depth: 0) or vendor the historical spec commit so both tests run in CI; clarify the mutation probe's scope relative to the digest module; annotate the table that artifact-integrity tests are skipped in CI rather than letting them be subsumed under 'passed.'",
+      "supersedes": null,
+      "type": "claim"
+    },
+    {
+      "advisory": false,
+      "claim": "The named files, tests, variables, commits, and CI runs exist and match this document's descriptions",
+      "evidence": "This review has no repository or network access, so none of these references could be opened; under the spec-versus-reality lens they are unverified, not confirmed. One issue is checkable from the text alone: the four startup override variables are cited only as the wildcard 'AF_STARTUP_*_VERSION', so the audit never enumerates the concrete variable names it claims 'remain optional overrides.'",
+      "failure_scenario": "The audit references a test, flag, or process document that does not exist or exists under a different name/signature, and a reader acts on the phantom reference \u2014 precisely the failure mode this audit's verification claims are meant to preclude.",
+      "id": "c-0002@1",
+      "lens": "spec-vs-reality",
+      "location": "Throughout: tests/test_friend_eval.py and its two test IDs; AF_STARTUP_*_VERSION; CHANGELOG.md; ../../release-process.md; 2026-10-29-release-process-review.md; 2026-10-29-live-testpypi.md; commits f153ec7 and 5234def; PR #9; workflow runs 40799404634, 40799953672, 40801742187; windows-startup-* artifacts; 'all eight CI jobs'; 'five required node IDs' (unnamed)",
+      "origin": [
+        "opencode/spec-vs-reality@verda/kimi-k3"
+      ],
+      "round": 1,
+      "severity": "medium",
+      "suggested_fix": "Verify each named path, test ID, commit, and variable against the repository and quote the matching line; replace the AF_STARTUP_*_VERSION wildcard with the four concrete variable names; commit or durably link the two referenced review documents.",
+      "supersedes": null,
+      "type": "claim"
+    },
+    {
+      "advisory": false,
+      "claim": "Local `make quality` at the corrected implementation: '2,913 passed, 31 skipped... 16 mutants killed, zero survivors/skips'",
+      "evidence": "The sole cited source for the local run is a file in a temp directory on one machine. It is not a CI artifact, committed file, or durable URL. Hosted CI corroborates the Linux matrix and hosted mutation numbers, but the local row \u2014 which is also the only evidence that the two digest tests 'run' anywhere \u2014 rests on an ephemeral log with no recorded worktree state.",
+      "failure_scenario": "The local-only results become unreproducible: if the run was executed on a dirty worktree or a commit other than f153ec7, the audit's 'verified through f153ec7' claim cannot be rechecked, and the digest tests' only passing evidence evaporates.",
+      "id": "c-0003@1",
+      "lens": "spec-vs-reality",
+      "location": "Verification evidence table, row 1, Source column: /tmp/afriend-process-crlf-quality.log",
+      "origin": [
+        "opencode/spec-vs-reality@verda/kimi-k3"
+      ],
+      "round": 1,
+      "severity": "low",
+      "suggested_fix": "Attach the log as a workflow artifact or commit it alongside the audit; record the exact commit and `git status` output next to the local result.",
+      "supersedes": null,
+      "type": "claim"
+    },
+    {
+      "advisory": false,
+      "claim": "Real Linux confinement: 'Five required node IDs passed setup/call/teardown; skip/deselection fault injections failed'",
+      "evidence": "The phrase 'skip/deselection fault injections failed' is ambiguous in a pass/fail audit table: it can be read as the fault-injection verification itself failing (bad) or as deliberate skip/deselection attempts failing to bypass the guard (the intended good outcome). An adversarial reader cannot tell which without the linked process review.",
+      "failure_scenario": "A release approver reads the row as a failing confinement check and blocks the release \u2014 or, worse, normalizes a genuinely failing fault-injection condition as expected \u2014 corrupting the go/no-go decision.",
+      "id": "c-0004@1",
+      "lens": "spec-vs-reality",
+      "location": "Verification evidence table, 'Real Linux confinement' row",
+      "origin": [
+        "opencode/spec-vs-reality@verda/kimi-k3"
+      ],
+      "round": 1,
+      "severity": "low",
+      "suggested_fix": "Reword to explicit expected-outcome language, e.g., 'skip/deselection fault injections were detected and failed closed (expected result)'; name the five required node IDs.",
+      "supersedes": null,
+      "type": "claim"
+    },
+    {
+      "advisory": false,
+      "claim": "This record 'supersedes earlier readiness wording' as the current 0.13.0 release audit, with a uniformly green verification table",
+      "evidence": "The same document lists two open gates \u2014 the replacement-roster cross-examination has not yet reported participation, rounds, or findings, and the most recent edits are unverified \u2014 so at issuance the audit's subject matter is not fully verified. The hedging appears only in the final paragraphs, below a headline table in which every row reads as passed.",
+      "failure_scenario": "A skimming reader treats this document as release clearance and proceeds to merge PR #9 or publish to production PyPI while the audit's own stated clearance prerequisites are outstanding.",
+      "id": "c-0005@1",
+      "lens": "spec-vs-reality",
+      "location": "Header; 'Live cross-examination and remaining limits' ('Its three-round cross-examination is in progress. It must report actual participation, rounds, findings... before clearance'); 'The latest live review and skill-guidance edits are still being verified'",
+      "origin": [
+        "opencode/spec-vs-reality@verda/kimi-k3"
+      ],
+      "round": 1,
+      "severity": "low",
+      "suggested_fix": "Add an explicit status banner at the top, above the verification table, e.g., 'Status: cross-examination in progress and latest edits unverified \u2014 this is not release clearance.'",
+      "supersedes": null,
+      "type": "claim"
+    },
+    {
+      "advisory": false,
+      "claim": "The release's only remaining gate \u2014 'Its three-round cross-examination is in progress. It must report actual participation, rounds, findings and any remaining access or model-output failures before clearance' \u2014 is a prose criterion whose trigger is paid model APIs, with no defined pass/fail test and no termination rule.",
+      "evidence": "The audit itself records the trigger failing twice for reasons no deterministic test can produce: Claude hit an 'individual account spend limit', then 'Pi/GLM then timed out during critique and returned invalid judging output', each requiring ad-hoc user approval of a replacement worker. Nothing defines what mechanically distinguishes 'actual participation' from a Codex worker returning plausible hollow critique \u2014 the runtime's completeness check (tests/test_report_completeness.py) only detects *failed* friends, not vacuous ones \u2014 and no maximum number of roster replacements or fallback disposition is stated, so the approve-a-fresh-worker loop has no convergence edge any test could exercise.",
+      "failure_scenario": "The replacement roster also degrades (another spend cap, another timeout, or shallow rubber-stamp critiques from the three Codex workers that all share one vendor). Because 'clearance' has no observable output or quorum rule at the process level, the decision collapses to whoever reads the run transcripts deciding it 'looks fine' \u2014 and there is no bound after which the release process must admit the gate cannot be satisfied, so it either blocks indefinitely or is waived by the same prose flexibility that created it.",
+      "id": "c-0006@1",
+      "lens": "testability",
+      "location": "Artifact, 'Live cross-examination and remaining limits' section; corroborated by Makefile lines 3-5 ('Live evals ... make real model calls on your own logins ... CI runs none') and docs/superpowers/reports/2026-10-29-friend-recovery.md",
+      "origin": [
+        "pi/testability@verda/kimi-k3+low"
+      ],
+      "round": 1,
+      "severity": "high",
+      "suggested_fix": "Define clearance as a machine-checkable artifact: a completed run directory with the required round count, per-friend answered status, and explicit failure list (the report's 'Review completeness' section already renders this), plus a stated cap on roster replacements and an explicit documented disposition (e.g., 'release notes declare live cross-exam inconclusive') if the cap is exhausted.",
+      "supersedes": null,
+      "type": "claim"
+    },
+    {
+      "advisory": false,
+      "claim": "'All four real installed npm CLI jobs passed, selecting latest without an override ... Every version/help probe exited 0; deliberate invalid values exited 1 or 2' \u2014 this evidence is non-reproducible and decays silently, because it is bound to whatever 'latest' resolved to at one moment and nothing ever re-triggers it.",
+      "evidence": "The startup jobs install $package@latest from the live npm registry; the artifact concedes 'Versions are observations, not pins' and records point-in-time versions (Claude 2.1.312, Codex 0.165.0, OpenCode 2.2.0, Pi 1.4.0), while check_launch rejection assertions pin exact diagnostic strings measured from those versions. ci.yml triggers only on push/PR to main \u2014 no schedule \u2014 so the only trigger for re-verifying real-CLI startup is an unrelated code change. The release gate (ci/verify_release_ci.py, exercised in tests/test_release_ci_gate.py) only confirms a *past* run of these jobs succeeded for the tagged SHA; it never re-runs them.",
+      "failure_scenario": "A provider ships a new latest that renames a parser diagnostic or a flag. No CI fires, the audit's startup paragraph continues to be cited as current evidence, and the first signal arrives weeks later as an unrelated red PR \u2014 or, worse, a tag cut in the interim passes verify_release_ci on the stale green run and publishes with startup behavior nobody has observed against current CLIs.",
+      "id": "c-0007@1",
+      "lens": "testability",
+      "location": "Artifact, 'Real Windows startup scope' section; .github/workflows/ci.yml windows-cli-startup job (AF_PROVIDER_VERSION: ${{ vars[...] || 'latest' }}); ci/provider_startup.py PROVIDERS rejection_regex entries",
+      "origin": [
+        "pi/testability@verda/kimi-k3+low"
+      ],
+      "round": 1,
+      "severity": "medium",
+      "suggested_fix": "Add a scheduled (cron) trigger for the startup matrix so evidence is re-validated continuously, or pin provider versions via the existing AF_STARTUP_*_VERSION overrides and bump them deliberately, making each audit run reproducible from the commit.",
+      "supersedes": null,
+      "type": "claim"
+    },
+    {
+      "advisory": false,
+      "claim": "'They run locally; they are not the new containment, mutation or publication-recovery checks' \u2014 i.e. the provenance-rebuild and digest-refusal behavior of scripts/friend_eval.py is verified by tests that are skip-by-construction in 100% of CI runs, with no gate asserting they ever execute anywhere.",
+      "evidence": "Confirmed in the checkout: ci.yml's checkout step sets no fetch-depth (default 1, shallow), and the only full clone (release.yml:22, fetch-depth: 0) belongs to a job that never runs pytest, so full git history never co-occurs with the test suite. The 2-test difference between local (31) and Linux CI (33) skips is exactly these two tests. The process review fixed this same 'a skip looks exactly like a pass' defect for the containment tests by adding ci/containment_gate.py + ci/assert_sandbox_tested.sh requiring five named node IDs \u2014 no equivalent exists for the provenance tests, and the mutation probe's 16 mutants touch only src/afriend/{envelopes,adapters,failures,rounds,models,judgebatch}.py, so scripts/friend_eval.py's materialize/digest path has no other coverage net either.",
+      "failure_scenario": "A refactor of scripts/friend_eval.py breaks the digest-refusal path (test_an_artifact_that_no_longer_matches_its_digest_is_refused). Every CI run stays green indefinitely because the test always skips; the audit's disclosed skip counts look identical before and after the regression; the defect surfaces only if a maintainer with a non-shallow local clone happens to run make quality.",
+      "id": "c-0008@1",
+      "lens": "testability",
+      "location": "Artifact, 'Verification evidence' prose; tests/test_friend_eval.py:282-317 (skipif not _history_has_the_artifact()); .github/workflows/ci.yml quality job (actions/checkout@v7 with no fetch-depth); ci/mutation_probe.py MUTATIONS list",
+      "origin": [
+        "pi/testability@verda/kimi-k3+low"
+      ],
+      "round": 1,
+      "severity": "medium",
+      "suggested_fix": "Give one CI quality job fetch-depth: 0 so the tests actually run, or extend the containment-gate pattern with an assertion that these two node IDs passed somewhere (e.g., in the release build's full-clone checkout, run just tests/test_friend_eval.py with a results gate) before publication.",
+      "supersedes": null,
+      "type": "claim"
+    },
+    {
+      "advisory": false,
+      "claim": "'Full hosted mutation probe \u2014 16 killed, zero survivors/skips' overstates what CI enforces; 'Full' describes a fixed, hand-picked 16-mutant list over 7 files, not mutation coverage of the changes being released.",
+      "evidence": "Every mutation anchors in src/afriend/envelopes.py, adapters.py, failures.py, rounds.py, models.py, or judgebatch.py. None touch the release-process code this audit is about (ci/prepare_publish.py, ci/verify_release_ci.py, scripts/friend_eval.py) or the crossexam/quorum/reporting logic. A test-suite regression letting any decision outside those 16 anchors pass-by-construction would leave this row green.",
+      "failure_scenario": "A reader of the audit concludes mutation analysis backs the release; meanwhile an assertion is weakened in, say, test_prepare_publish.py, and the 'zero survivors' row still passes because no mutant targets that module \u2014 the same failure shape the probe's own header warns about ('A survivor or a stale anchor fails the run: a probe that always exits 0 certifies whatever it is pointed at') but scoped one level up.",
+      "id": "c-0009@1",
+      "lens": "testability",
+      "location": "Artifact, verification evidence table rows 1 and 5; ci/mutation_probe.py docstring ('Not a general mutation runner: a fixed list of plausible wrong versions') and MUTATIONS entries",
+      "origin": [
+        "pi/testability@verda/kimi-k3+low"
+      ],
+      "round": 1,
+      "severity": "low",
+      "suggested_fix": "Rename the table entry to 'targeted mutation probe' and name the covered modules, so the evidentiary weight matches the actual coverage; optionally add mutants for the publish-retry and release-CI-gate decisions this release depends on.",
+      "supersedes": null,
+      "type": "claim"
+    },
+    {
+      "advisory": false,
+      "claim": "The headline result ('Local make quality ... 2,913 passed, 31 skipped, one existing warning; 16 mutants killed') is sourced to an ephemeral local file and an unidentified warning, so the audit's central evidence cannot be independently re-checked.",
+      "evidence": "/tmp files do not survive reboots and are outside the repository and outside any workflow artifact; the project's own live-TestPyPI record (docs/superpowers/reports/2026-10-29-live-testpypi.md) explicitly rejects this evidentiary standard for itself: 'The durable manifest records these hashes, rather than relying only on expiring workflow artifacts or local logs.' The 'one existing warning' is nowhere named, so no reviewer can determine whether it is benign or a defect being normalized.",
+      "failure_scenario": "A future dispute about whether 0.13.0's quality gate genuinely passed at f153ec7 cannot be settled: the log is gone, the warning's identity is unrecoverable, and the audit wording ('one existing warning') pressure-normalizes whatever it was without anyone having adjudicated it.",
+      "id": "c-0010@1",
+      "lens": "testability",
+      "location": "Artifact, first evidence-table row, source column: /tmp/afriend-process-crlf-quality.log; docs/superpowers/reports/2026-10-29-release-process-review.md cites four more /tmp logs",
+      "origin": [
+        "pi/testability@verda/kimi-k3+low"
+      ],
+      "round": 1,
+      "severity": "low",
+      "suggested_fix": "Attach the quality log as a retained workflow artifact (as is already done for the four windows-startup-* artifacts) or commit a digest manifest of it alongside the report, and name the warning text or its source test in the audit.",
+      "supersedes": null,
+      "type": "claim"
+    },
+    {
+      "amended_claim": "The configured shallow CI checkouts skip the two historical artifact rebuild/digest-refusal tests, leaving those specific friend-eval behaviors without their dedicated CI regression checks; the 16-mutant probe does not cover them.",
+      "claim_id": "c-0001@1",
+      "confidence": "high",
+      "counter_evidence": "ci/mutation_probe.py contains 16 mutations across six runtime modules and none in scripts/friend_eval.py. The audit explicitly discloses the two historical-test skips.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/security+low",
+      "reasoning": "The skipped provenance tests create a real coverage gap, but do not contradict green CI or zero survivors in a separate, explicitly targeted mutation probe.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "amended"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0002@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "unverifiable",
+      "judge": "codex/security+low",
+      "reasoning": "The named tests, reports, changelog, workflow configuration and concrete startup variables exist in the checkout. However, the checkout's Git metadata points to an unavailable worktree, and attempts to retrieve the three hosted runs failed. Thus the blanket assertion that every reference exists and matches cannot be established.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "unproven"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0003@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "unverifiable",
+      "judge": "codex/security+low",
+      "reasoning": "The audit cites the stated temporary log, but that file is unavailable here. The process review repeats the totals without supplying the underlying execution record. Neither the exact local result nor its worktree state can be independently verified.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "unproven"
+    },
+    {
+      "amended_claim": "The confinement table should clarify that skip/deselection fault injections caused the gate to reject the run with exit 1, which was the expected result; its current wording is ambiguous.",
+      "claim_id": "c-0004@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "confirmed",
+      "judge": "codex/security+low",
+      "reasoning": "The table's shorthand permits the stated ambiguity. The linked process review resolves it: deliberately skipped and deselected runs exit 1. ci/containment_gate.py requires all five named tests to pass setup, call and teardown.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "amended"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0005@1",
+      "confidence": "high",
+      "counter_evidence": "The opening paragraph, before the table, says the latest edits are still being verified, PR #9 remains draft, and no merge, production publication or release tag has occurred. The ending separately denies authorization to publish.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/security+low",
+      "reasoning": "The claim's premise that qualifications appear only below the table is false. Superseding earlier wording does not assert release clearance.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "refuted"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0006@1",
+      "confidence": "high",
+      "counter_evidence": "The audit also identifies unverified edits and separate production approval. docs/release-process.md and ci/verify_release_ci.py define exact-commit CI requirements and publication approval checks. The recovery report explicitly preserves roles and rounds and forbids combining partial runs to manufacture quorum.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/security+low",
+      "reasoning": "No replacement cap is stated, but the claim incorrectly describes this as the only remaining release gate and infers an enforceable security failure from subjective review quality. No path from hollow critique to bypassing publication controls is demonstrated.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "refuted"
+    },
+    {
+      "amended_claim": "Startup CI defaults to mutable latest versions and has no scheduled refresh; the release gate accepts successful exact-commit startup evidence without an age limit, so provider changes between CI and publication can remain untested.",
+      "claim_id": "c-0007@1",
+      "confidence": "high",
+      "counter_evidence": ".github/workflows/ci.yml triggers startup jobs on push and pull_request to main, records installed package metadata, and supports explicit version overrides. ci/verify_release_ci.py checks successful exact-commit CI without an age limit.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/security+low",
+      "reasoning": "The lack of scheduled refresh and freshness enforcement is real. However, 'nothing ever re-triggers it' is false: pushes and pull requests to main rerun the jobs. Recorded versions also make the evidence more specific than an unidentified latest installation.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "amended"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0008@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "confirmed",
+      "judge": "codex/security+low",
+      "reasoning": "Both cited tests skip when the historical artifact commit is unavailable. The pytest CI jobs use shallow checkout configuration, while the release build's full-history checkout does not run these tests. The containment gate covers only its five named tests, and the mutation list excludes scripts/friend_eval.py. A digest-refusal regression can therefore escape these configured CI checks. This concerns the historical evaluation helper, not general runtime artifact integrity.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "upheld"
+    },
+    {
+      "amended_claim": "The table's 'Full hosted mutation probe' means all 16 configured mutations across six runtime modules executed; it does not establish mutation coverage of publication, release-CI, or friend-eval code, and the table could state that scope explicitly.",
+      "claim_id": "c-0009@1",
+      "confidence": "high",
+      "counter_evidence": "ci/mutation_probe.py defines 16 mutations across six modules, not seven: envelopes, adapters, failures, rounds, models and judgebatch. Its documentation explicitly identifies a targeted probe.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/security+low",
+      "reasoning": "The probe's limited scope is confirmed, but the claim miscounts its files and treats 'full' as necessarily claiming release-wide mutation coverage. The process review uses 'full' for execution of the complete targeted list.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "amended"
+    },
+    {
+      "amended_claim": "The local make-quality result cannot be independently rechecked from the supplied evidence: its cited temporary log is unavailable here, and neither the audit nor the process review identifies the reported warning. This limitation applies to the local execution record.",
+      "claim_id": "c-0010@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "confirmed",
+      "judge": "codex/security+low",
+      "reasoning": "The local result cites an unavailable temporary log and leaves the warning unidentified. This limits independent verification of that local execution, but does not invalidate the separately cited hosted evidence or establish that the warning represented a defect.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "amended"
+    },
+    {
+      "amended_claim": "The configured shallow CI checkout leaves the two historical artifact rebuild and digest-refusal tests unexecuted, and the targeted mutation probe does not cover that evaluation-script path.",
+      "claim_id": "c-0001@1",
+      "confidence": "high",
+      "counter_evidence": "tests/test_friend_eval.py conditionally skips both tests when the historical artifact is unavailable. ci/mutation_probe.py explicitly defines a targeted probe over six runtime modules. The audit expressly discloses the skips.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/ops+low",
+      "reasoning": "The two history-dependent tests do skip in the configured shallow CI checkout. That does not contradict successful CI or the targeted mutation results: none of the 16 mutations targets scripts/friend_eval.py.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "amended"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0002@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "unverifiable",
+      "judge": "codex/ops+low",
+      "reasoning": "The cited tests, process reports, release procedure, and four concrete startup variables exist in the checkout. However, the GitHub run pages could not be fetched, and the checkout's unavailable external Git metadata prevented checking the commit references. The blanket assertion that every reference matches cannot be established.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "unproven"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0003@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "unverifiable",
+      "judge": "codex/ops+low",
+      "reasoning": "The audit cites the stated temporary log, but that file is unavailable. The process review repeats the totals without supplying the underlying log or worktree status. This establishes an evidence-access limitation, not whether the claimed local execution results are correct.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "unproven"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0004@1",
+      "confidence": "high",
+      "counter_evidence": "docs/superpowers/reports/2026-10-29-release-process-review.md states that the real sandbox gate passed and that actual all-skipped and deselected fault injections now exit 1.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/ops+low",
+      "reasoning": "The linked process review resolves the alleged ambiguity explicitly: the injected all-skipped and deselected runs exited 1 as expected. The cited evidence supports rejection of bypass attempts, rather than an unresolved failing confinement check.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "refuted"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0005@1",
+      "confidence": "high",
+      "counter_evidence": "Before the verification table, the artifact says the latest live review and skill-guidance edits are still being verified, PR #9 remains draft, and no merge, production publication, or release tag has occurred.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/ops+low",
+      "reasoning": "The assertion that qualification appears only below the table is directly contradicted by the opening paragraph. The audit distinguishes completed verification from outstanding work and expressly withholds publication authorization.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "refuted"
+    },
+    {
+      "amended_claim": "The audit's live cross-examination recovery process has no stated cap on fresh replacement rosters or explicit disposition if repeated provider failures prevent completion, leaving the overall recovery effort potentially open-ended.",
+      "claim_id": "c-0006@1",
+      "confidence": "high",
+      "counter_evidence": "The opening paragraph also leaves latest edits under verification. tests/test_report_completeness.py checks explicit answered counts and incomplete-review reporting; the friend-recovery report requires preserving roles and the three-round ceiling without combining runs to manufacture quorum.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/ops+low",
+      "reasoning": "The document does not define a maximum number of replacement rosters or an exhaustion disposition. However, cross-examination is not its only outstanding condition, and the cited completeness tests demonstrate observable participation reporting. Lack of a semantic quality oracle does not establish absence of all testable completion criteria.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "amended"
+    },
+    {
+      "amended_claim": "Windows startup verification follows moving provider versions without scheduled refreshes, while publication accepts successful exact-commit CI without an age limit; provider changes between that CI run and publication can therefore go untested.",
+      "claim_id": "c-0007@1",
+      "confidence": "high",
+      "counter_evidence": ".github/workflows/ci.yml triggers on push and pull_request to main and records installed package metadata. ci/verify_release_ci.py verifies the latest matching successful run but imposes no freshness limit. Concrete version overrides are documented in docs/release-process.md.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/ops+low",
+      "reasoning": "The workflow follows latest unless overridden, has no schedule, and the release gate checks historical exact-commit success without an age bound. But verification does retrigger on main pushes and pull requests, and the audit explicitly identifies the versions as point-in-time observations.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "amended"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0008@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "confirmed",
+      "judge": "codex/ops+low",
+      "reasoning": "Both cited tests require the historical artifact through _history_has_the_artifact(). CI test jobs use checkout without full history; the release workflow requests full history but does not run pytest. No corresponding execution gate is present, and the 16 mutation anchors exclude scripts/friend_eval.py. The disclosed coverage gap is real for the configured hosted CI.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "upheld"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0009@1",
+      "confidence": "high",
+      "counter_evidence": "ci/mutation_probe.py explicitly describes a fixed targeted probe and contains 16 mutations across six files, not seven. The process review describes the remediation as executing the complete probe in hosted CI.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/ops+low",
+      "reasoning": "The mutation probe is targeted, but running its full fixed set is accurately described as the full probe. The audit gives the exact count and does not claim mutation coverage of every release change. Absence of mutations in other modules does not contradict that result.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "refuted"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0010@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "confirmed",
+      "judge": "codex/ops+low",
+      "reasoning": "The local quality row cites only a temporary log, which is absent from this environment, and does not identify the warning. The process review repeats those results without preserving the log or naming the warning. The live TestPyPI report explicitly supplies durable hash evidence instead of relying only on local logs. The specific local result cannot be independently checked from the supplied evidence.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "upheld"
+    },
+    {
+      "amended_claim": "The release's cross-examination clearance gate \u2014 'Its three-round cross-examination is in progress. It must report actual participation, rounds, findings and any remaining access or model-output failures before clearance' \u2014 is a prose criterion whose trigger is paid model APIs, with no defined pass/fail test and no termination rule.",
+      "claim_id": "c-0006@1",
+      "confidence": "medium",
+      "counter_evidence": null,
+      "evidence_assessment": "confirmed",
+      "judge": "opencode/spec-vs-reality@verda/kimi-k3",
+      "reasoning": "The quoted clearance criterion is verbatim in the 'Live cross-examination and remaining limits' section, and the artifact itself documents the exact paid-API fragility the claim rests on: 'Claude's individual account spend limit', 'Pi/GLM then timed out during critique and returned invalid judging output', and two ad-hoc, user-approved Codex replacement workers, with the clearance condition stated only as a prose reporting requirement ('It must report actual participation, rounds, findings and any remaining access or model-output failures before clearance') and no pass/fail test, quorum rule, or cap on roster replacements anywhere in the document. However 'the release's ONLY remaining gate' is contradicted by the same document, which states 'The latest live review and skill-guidance edits are still being verified' and that 'Production release remains a separate integration/publication action' \u2014 other outstanding items exist. Amended to drop the 'only remaining' framing; the substantive defect stands on the artifact's own text. The external corroborations (Makefile lines 3-5, tests/test_report_completeness.py detecting only failed friends, the friend-recovery report) could not be read \u2014 no repository is available \u2014 but the amended claim does not depend on them.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "amended"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0007@1",
+      "confidence": "medium",
+      "counter_evidence": null,
+      "evidence_assessment": "unverifiable",
+      "judge": "opencode/spec-vs-reality@verda/kimi-k3",
+      "reasoning": "The uncontested half is confirmed in the artifact: the startup jobs select 'latest' without an override, 'Versions are observations, not pins', and the captured versions (Claude 2.1.312, Codex 0.165.0, OpenCode 2.2.0, Pi 1.4.0) are point-in-time; release builds also 'require successful exact-commit push-to-main CI', which is at least consistent with a gate that consumes a past push-triggered run. But the claim's decisive mechanisms \u2014 that ci.yml has no scheduled trigger, that ci/provider_startup.py rejection_regex entries pin exact diagnostic strings, and that ci/verify_release_ci.py 'never re-runs' the startup jobs \u2014 live entirely in repository files that are not available here. The artifact neither describes any periodic re-validation nor proves its absence, so the silent-decay mechanism cannot be established or ruled out from what I can see.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "unproven"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0008@1",
+      "confidence": "medium",
+      "counter_evidence": null,
+      "evidence_assessment": "confirmed",
+      "judge": "opencode/spec-vs-reality@verda/kimi-k3",
+      "reasoning": "The artifact itself establishes the core without needing the repository: it names the same two tests (test_the_artifact_is_rebuilt_from_git_with_its_recorded_digest, test_an_artifact_that_no_longer_matches_its_digest_is_refused), states they 'require a historical spec commit absent from CI's shallow checkout. They run locally', and its own skip arithmetic matches exactly \u2014 Linux CI 33 skipped vs local 31, a difference of precisely these two tests, while total collection is identical (2,944 = 2,911+33 = 2,913+31). The only execution gates the artifact enumerates cover confinement node IDs ('Five required node IDs passed setup/call/teardown; skip/deselection fault injections failed'), the mutation probe, and publication hashing \u2014 none asserts these provenance/digest-refusal tests ever execute. The claim's finer repo specifics (ci.yml's default depth-1 checkout, release.yml:22's full clone never running pytest, the mutant file list, and thus the 'no gate anywhere' negative) could not be independently read, so confidence is medium; but the artifact's own text and numbers say what the claim says.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "upheld"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0009@1",
+      "confidence": "medium",
+      "counter_evidence": null,
+      "evidence_assessment": "unverifiable",
+      "judge": "opencode/spec-vs-reality@verda/kimi-k3",
+      "reasoning": "The artifact shows only the row label 'Full hosted mutation probe \u2014 16 killed, zero survivors/skips on Python 3.13' (echoed in the local make quality row as '16 mutants killed, zero survivors/skips'). Whether those 16 mutants are a fixed, hand-picked list confined to src/afriend/{envelopes,adapters,failures,rounds,models,judgebatch}.py \u2014 and therefore blind to ci/prepare_publish.py, ci/verify_release_ci.py, scripts/friend_eval.py and the crossexam/quorum/reporting logic \u2014 can only be settled by reading ci/mutation_probe.py's docstring and MUTATIONS entries, which are not available. The claim's support is entirely that unreadable file; the artifact alone neither proves the scope limitation nor rules it out, so the overstatement charge cannot be established either way.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "unproven"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0010@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "confirmed",
+      "judge": "opencode/spec-vs-reality@verda/kimi-k3",
+      "reasoning": "The artifact's first evidence-table row cites '/tmp/afriend-process-crlf-quality.log' as the sole source for the headline local result ('2,913 passed, 31 skipped, one existing warning; 16 mutants killed'), and 'one existing warning' is never identified anywhere in the document \u2014 no reviewer facing this audit can locate a durable copy of the log or adjudicate the warning's significance. The same document demonstrates the durability standard the claim invokes: startup captures are retained as four windows-startup-* workflow artifacts and the live TestPyPI record includes 'six durable SHA256 digests', so the ephemeral /tmp sourcing of the headline row departs from the audit's own evidentiary practice. The quoted line from 2026-10-29-live-testpypi.md and the additional /tmp logs in the process-review document could not be read, but they are not needed: the located artifact evidence says what the claim says.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "upheld"
+    },
+    {
+      "amended_claim": "The configured shallow CI checkouts skip the two historical artifact rebuild and digest-refusal tests, leaving those behaviors without enforced CI execution despite the overall green checks.",
+      "claim_id": "c-0001@1",
+      "confidence": "high",
+      "counter_evidence": "ci/mutation_probe.py targets 16 decisions in six runtime modules, excluding scripts/friend_eval.py. Completing that probe is compatible with skipping the two historical-provenance tests.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/testability+low",
+      "reasoning": "The skipped provenance tests establish a specific CI coverage gap, but do not contradict green CI or the reported mutation results. The audit explicitly discloses the skips.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "amended"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0002@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "unverifiable",
+      "judge": "codex/testability+low",
+      "reasoning": "The cited local documents, tests, and four concrete startup variables exist. However, the hosted run URLs could not be retrieved, and this checkout's broken external Git-directory reference prevented commit verification. The reviewer's inability to inspect references does not establish that any reference is phantom.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "unproven"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0003@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "unverifiable",
+      "judge": "codex/testability+low",
+      "reasoning": "The reported local result cannot be independently established: /tmp/afriend-process-crlf-quality.log is absent. The committed process review repeats the totals but does not preserve the underlying log or worktree-state evidence. This supports the evidence-retention concern without proving or disproving the numerical claim.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "unproven"
+    },
+    {
+      "amended_claim": "The confinement table's phrase 'skip/deselection fault injections failed' leaves the expected outcome implicit; it should state that deliberately skipped or deselected required tests caused the gate to reject the run, as intended.",
+      "claim_id": "c-0004@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "confirmed",
+      "judge": "codex/testability+low",
+      "reasoning": "The table uses the quoted ambiguous wording. The linked process review resolves its meaning: actual all-skipped and deselected injections exited 1. ci/containment_gate.py explicitly rejects missing or nonpassing phases for five named tests.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "amended"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0005@1",
+      "confidence": "high",
+      "counter_evidence": "The opening paragraph states that the latest review and skill-guidance edits are still being verified, PR #9 remains draft, and no merge, production publication, or release tag has occurred. The closing paragraph additionally denies publication authorization.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/testability+low",
+      "reasoning": "The claim's premise that unfinished verification is disclosed only below the green table is false. The audit explicitly limits its verification scope before presenting the table.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "refuted"
+    },
+    {
+      "amended_claim": "Although individual review runs have observable completeness, quorum requirements, and round limits, the documented release-review recovery process specifies no maximum number of replacement runs or terminal disposition if replacements repeatedly fail; semantic critique adequacy also remains a human judgment.",
+      "claim_id": "c-0006@1",
+      "confidence": "high",
+      "counter_evidence": "tests/test_quota_wiring.py deterministically exercises quota failures. tests/test_report_completeness.py asserts observable incomplete-review output. The recovery guidance requires retaining --require-friends N and --max-rounds and prohibits combining runs to manufacture quorum. The audit also identifies unfinished edits and separate production actions, so cross-examination is not its only remaining gate.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/testability+low",
+      "reasoning": "The documents do not specify a cap or final disposition for repeated roster replacements. However, the claim overstates the absence of testable failure handling, quorum rules, and termination controls.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "amended"
+    },
+    {
+      "amended_claim": "Startup CI follows latest by default but has no scheduled revalidation, and the release gate imposes no freshness bound on successful exact-commit CI. Provider updates can therefore leave a previously green commit untested against the latest provider versions at publication time.",
+      "claim_id": "c-0007@1",
+      "confidence": "high",
+      "counter_evidence": ".github/workflows/ci.yml defines push/PR triggers and four version overrides and saves installed.json. ci/verify_release_ci.py checks prior exact-commit results without an age bound. The audit expressly describes versions as point-in-time observations.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/testability+low",
+      "reasoning": "The moving latest dependency and absence of scheduled revalidation are confirmed. Calling the evidence non-reproducible and saying nothing ever retriggers it overstates the finding: versions are recorded, overrides permit selecting them, and push/PR runs repeat the checks.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "amended"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0008@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "confirmed",
+      "judge": "codex/testability+low",
+      "reasoning": "Both named tests are guarded by _history_has_the_artifact(), which requires the historical Git object. CI test jobs configure no history fetch; the full-history release checkout does not run these tests. The containment gate requires only containment node IDs, and the mutation list excludes scripts/friend_eval.py. A digest-refusal regression can therefore escape the configured CI checks.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "upheld"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0009@1",
+      "confidence": "high",
+      "counter_evidence": "ci/mutation_probe.py defines 16 mutants over six files, not seven. The linked process review describes the repaired omission as failing to execute all 16 configured mutants in hosted CI. The current workflow executes make mutation-probe after pytest.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/testability+low",
+      "reasoning": "The probe is targeted, but the audit reports its explicit size of 16 mutants and does not claim comprehensive mutation coverage of the release. 'Full' accurately distinguishes executing the complete configured probe from merely testing its machinery.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "refuted"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0010@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "confirmed",
+      "judge": "codex/testability+low",
+      "reasoning": "The local quality row cites only the absent temporary log and does not identify its warning. The process review repeats those details without preserving the output. The live-TestPyPI report explicitly contrasts its durable manifest with reliance on local logs. Thus the specific local result and warning cannot be independently rechecked from the supplied evidence; this does not invalidate separately reported hosted checks.",
+      "round": 2,
+      "type": "verdict",
+      "verdict": "upheld"
+    },
+    {
+      "amended_claim": "The reported green CI leaves a disclosed coverage gap: the two historical friend-eval artifact rebuild and digest-mismatch tests are skipped when their source commit is unavailable. The targeted mutation probe does not cover that script or compensate for those skips.",
+      "claim_id": "c-0001@1",
+      "confidence": "high",
+      "counter_evidence": "ci/mutation_probe.py defines 16 mutations across six runtime modules, excluding scripts/friend_eval.py. The audit explicitly identifies the historical-test skips. Hosted execution totals could not be independently retrieved.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/ops+low",
+      "reasoning": "The two historical-provenance tests have the cited skip conditions, establishing the disclosed CI coverage gap. Their omission does not contradict successful execution of the configured mutation probe.",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "amended"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0002@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "unverifiable",
+      "judge": "codex/ops+low",
+      "reasoning": "The cited local reports, tests, changelog, release procedure and four concrete startup variables exist. However, the three hosted run URLs could not be retrieved, and the checkout references an unavailable external Git directory, preventing commit verification. The blanket assertion that every reference matches cannot be established.",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "unproven"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0003@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "unverifiable",
+      "judge": "codex/ops+low",
+      "reasoning": "/tmp/afriend-process-crlf-quality.log is absent. The process review repeats the totals without preserving the execution output or worktree state. This supports the retention concern but cannot establish or disprove the reported local result.",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "unproven"
+    },
+    {
+      "amended_claim": "The confinement row ambiguously says fault injections 'failed'; the linked review clarifies that skip/deselection injections were rejected with exit 1, the expected fail-closed outcome.",
+      "claim_id": "c-0004@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "confirmed",
+      "judge": "codex/ops+low",
+      "reasoning": "The table contains the quoted ambiguous shorthand. The linked process review clarifies that deliberately skipped and deselected runs exited 1; ci/containment_gate.py requires all five named tests to pass setup, call and teardown. The underlying historical execution logs were unavailable.",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "amended"
+    },
+    {
+      "amended_claim": "The live cross-examination recovery process documents quorum and per-run round limits but no overall cap on successive roster replacements or explicit inconclusive disposition after repeated provider failures. Consequently, this review prerequisite can remain unresolved despite bounded individual runs.",
+      "claim_id": "c-0006@1",
+      "confidence": "high",
+      "counter_evidence": "The recovery report preserves roles and rounds and prohibits combining partial runs to manufacture quorum. The troubleshooting guidance retains --require-friends N and --max-rounds. tests/test_quota_wiring.py exercises quota failures, and tests/test_report_completeness.py asserts incomplete-review output. The audit and docs/release-process.md identify separate verification and publication requirements.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/ops+low",
+      "reasoning": "The documented replacement procedure lacks an overall replacement cap or terminal inconclusive disposition. However, the claim overstates the absence of testable failure handling and quorum controls, and incorrectly calls cross-examination the only remaining release gate.",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "amended"
+    },
+    {
+      "amended_claim": "Windows startup evidence can become stale relative to provider latest releases: CI has no scheduled refresh, and the release gate accepts successful exact-commit CI without an age limit or rerunning startup probes. Pushes and pull requests refresh the checks, while recorded versions and overrides support repeating the observed version selections.",
+      "claim_id": "c-0007@1",
+      "confidence": "high",
+      "counter_evidence": ".github/workflows/ci.yml reruns startup checks on pushes and pull requests to main, supports four explicit version overrides and records installed.json. ci/verify_release_ci.py verifies prior exact-commit results without checking their age. The audit expressly labels versions as observations.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/ops+low",
+      "reasoning": "The moving latest dependency, absence of scheduled startup checks and lack of an age limit in the release CI gate are confirmed. Calling the observations non-reproducible and saying nothing retriggers verification is too broad.",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "amended"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0009@1",
+      "confidence": "high",
+      "counter_evidence": "ci/mutation_probe.py defines 16 mutants across six files, not seven. The process review identifies the repaired omission as hosted CI not executing the complete targeted probe; .github/workflows/ci.yml now runs make mutation-probe after pytest on Python 3.13.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/ops+low",
+      "reasoning": "The probe is explicitly targeted, but the audit reports its size and does not claim release-wide mutation coverage. In the linked process review, 'full' means executing all configured mutants rather than merely testing the probe machinery.",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "refuted"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0010@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "confirmed",
+      "judge": "codex/ops+low",
+      "reasoning": "The local quality row cites the absent temporary log and leaves its warning unidentified. The process review repeats the totals without preserving the output. The live-TestPyPI report explicitly favors a durable manifest over reliance on expiring artifacts or local logs. The specific local execution and warning therefore cannot be independently rechecked from the supplied evidence; this does not invalidate separately cited hosted checks.",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "upheld"
+    },
+    {
+      "amended_claim": "One of the release's remaining gates \u2014 'Its three-round cross-examination is in progress. It must report actual participation, rounds, findings and any remaining access or model-output failures before clearance' \u2014 is a prose clearance criterion whose trigger is paid model APIs: the audit records two ad-hoc, user-approved roster replacements (a Claude spend limit, then a Pi/GLM timeout returning invalid judging output) and states no cap on roster replacements and no termination or exhaustion disposition, so the audit describes no point at which the gate must be declared unsatisfiable.",
+      "claim_id": "c-0006@1",
+      "confidence": "high",
+      "counter_evidence": "The artifact also records other outstanding conditions: 'The latest live review and skill-guidance edits are still being verified' and 'Production release remains a separate integration/publication action', so cross-examination is not the only remaining gate; and clearance does have a stated (prose) criterion \u2014 the run 'must report actual participation, rounds, findings and any remaining access or model-output failures'.",
+      "evidence_assessment": "disputed",
+      "judge": "opencode/spec-vs-reality@verda/kimi-k3",
+      "reasoning": "The artifact confirms the quoted clearance sentence verbatim, confirms both ad-hoc replacement events the claim cites (Claude's 'individual account spend limit'; 'Pi/GLM then timed out during critique and returned invalid judging output'), each resolved by user approval of a fresh Codex worker, and states no cap on roster replacements or termination rule \u2014 that much of the claim is artifact-supported. But the claim as written says this is the release's 'only remaining gate', which the artifact itself contradicts: 'The latest live review and skill-guidance edits are still being verified', 'PR #9 remains draft', and 'Production release remains a separate integration/publication action'. The artifact also does define what the run must report before clearance (actual participation, rounds, findings, and any access/model-output failures), so 'no defined pass/fail test' overstates: there is a defined, if prose and not machine-checkable, reporting criterion. The claim's corroborating evidence about tests/test_report_completeness.py, Makefile lines 3-5, and docs/superpowers/reports/2026-10-29-friend-recovery.md requires repository files I cannot read, so those specifics are unverifiable; the amendment below rests only on what the artifact itself shows and preserves the claim's location, evidence, and failure scenario (an unbounded approve-a-fresh-worker loop with no stated exhaustion disposition).",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "amended"
+    },
+    {
+      "amended_claim": "The 'Real Windows startup scope' evidence is point-in-time: the audit itself states 'Versions are observations, not pins' and records a single observed set (Claude 2.1.312, Codex 0.165.0, OpenCode 2.2.0, Pi 1.4.0) resolved from whatever 'latest' meant at run time, while the artifact describes no scheduled re-validation or freshness rule that would re-check these jobs against future upstream CLI releases \u2014 so the evidence decays silently between CI runs, and a release decided in the gap would rely on startup observations no longer known to hold. The recorded versions and optional AF_STARTUP_*_VERSION overrides make a past configuration re-creatable, so the evidence is not strictly non-reproducible; the defect is the lack of any stated re-validation cadence, not the absence of any trigger.",
+      "claim_id": "c-0007@1",
+      "confidence": "medium",
+      "counter_evidence": null,
+      "evidence_assessment": "unverifiable",
+      "judge": "opencode/spec-vs-reality@verda/kimi-k3",
+      "reasoning": "The artifact-locatable parts of the claim's evidence are confirmed: the audit records point-in-time versions (Claude 2.1.312, Codex 0.165.0, OpenCode 2.2.0, Pi 1.4.0) and itself concedes 'Versions are observations, not pins', and describes the four AF_STARTUP_*_VERSION variables as 'optional overrides'. However, the decisive evidence \u2014 that ci.yml triggers only on push/PR with no schedule, that provider_startup.py pins exact rejection_regex diagnostics, and that ci/verify_release_ci.py never re-runs the jobs \u2014 lives in repository files I cannot read, so it is unverifiable from the artifact alone. Two elements of the claim are wrong as written even taking its own evidence at face value: 'non-reproducible' is overstated because the artifact records the exact observed versions and documents optional version overrides that make a given configuration re-creatable; and 'nothing ever re-triggers it' is internally inconsistent with the claim's own evidence that ci.yml fires on push/PR to main \u2014 the real defect is the absence of any scheduled or freshness-bounded re-validation, not the absence of any trigger. The amended wording keeps the claim's location, evidence, and failure scenario (a provider's new 'latest' silently invalidating cited startup evidence while a stale green run underpins a release decision) but scopes it to what is established.\n[evidence unverifiable, downgraded from 'amended' to 'unproven' per the evidence-symmetry rule]",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "unproven"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0009@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "unverifiable",
+      "judge": "opencode/spec-vs-reality@verda/kimi-k3",
+      "reasoning": "Everything substantive in this claim requires reading the repository: that the 16 mutants anchor only in envelopes.py, adapters.py, failures.py, rounds.py, models.py and judgebatch.py (the claim says 7 files but lists 6 module names, and prior verdicts assert 6 files \u2014 none of this is checkable here); that ci/mutation_probe.py's docstring says 'Not a general mutation runner: a fixed list of plausible wrong versions'; and that no mutant targets release-process code. I have no repository access, so I could not locate or evaluate any of that cited evidence. What I can verify from the artifact cuts neither way decisively: the table row reads 'Full hosted mutation probe \u2014 16 killed, zero survivors/skips on Python 3.13', an explicitly quantified statement that does not, on its face, assert mutation coverage of release-process code, so I also cannot confirm the 'overstates' charge. Whether 'Full' misleads depends entirely on what the probe is and how the audit's sources describe it \u2014 unverifiable from the artifact alone.",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "unproven"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0010@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "confirmed",
+      "judge": "opencode/spec-vs-reality@verda/kimi-k3",
+      "reasoning": "The claim's artifact-locatable evidence is present and says exactly what the claim says: the first evidence-table row sources 'Local make quality ... 2,913 passed, 31 skipped, one existing warning; 16 mutants killed' solely to '/tmp/afriend-process-crlf-quality.log' \u2014 a machine-local temporary path outside the repository, with no retained copy, digest, or manifest referenced anywhere in the audit \u2014 and the warning is described only as 'one existing warning' without naming its text, source test, or any adjudication of its benignity. No reviewer can re-check that specific local result or the warning's identity from what the audit provides. I could not verify the corroborating quote attributed to docs/superpowers/reports/2026-10-29-live-testpypi.md (repository file, not readable here) or the claim that the process review cites four more /tmp logs, but the claim stands on the artifact row alone, which I located and confirmed. The claim is scoped to this headline local row; it does not assert that the separately linked hosted CI evidence is unverifiable, so no overreach invalidates it.",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "upheld"
+    },
+    {
+      "amended_claim": "The configured shallow CI checkout skips the two historical friend-eval artifact rebuild and digest-mismatch tests, so green CI and the separate targeted mutation probe do not establish those behaviors.",
+      "claim_id": "c-0001@1",
+      "confidence": "high",
+      "counter_evidence": "ci/mutation_probe.py targets 16 decisions across six runtime modules, excluding scripts/friend_eval.py. The audit explicitly discloses the historical-test skips.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/testability+low",
+      "reasoning": "The two history-dependent tests have the cited skip conditions, leaving a disclosed CI coverage gap. Their omission does not contradict green CI or the separate mutation result.",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "amended"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0002@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "unverifiable",
+      "judge": "codex/testability+low",
+      "reasoning": "The named local tests, reports, changelog, release procedure, startup variables and containment node IDs exist. However, all three hosted run retrievals failed, and the checkout's Git metadata references an unavailable external worktree, preventing commit verification. The blanket assertion cannot be established.",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "unproven"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0003@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "unverifiable",
+      "judge": "codex/testability+low",
+      "reasoning": "The cited temporary log is absent. The process review repeats the totals but supplies neither the execution log nor worktree-state evidence. The exact local result cannot be independently verified.",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "unproven"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0004@1",
+      "confidence": "high",
+      "counter_evidence": "docs/superpowers/reports/2026-10-29-release-process-review.md says the real sandbox gate passed and actual all-skipped and deselected injections exited 1. ci/containment_gate.py requires all five named tests to pass setup, call and teardown.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/testability+low",
+      "reasoning": "The shorthand is clarified by its directly linked evidence: deliberate skip and deselection runs failed as intended. It does not establish an unresolved confinement-check failure.",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "refuted"
+    },
+    {
+      "amended_claim": "The live-review recovery process specifies preserved roles, a three-round ceiling and participation reporting, but neither the audit nor its cited recovery report defines a maximum number of replacement rosters or an explicit disposition when repeated replacements cannot complete the required review.",
+      "claim_id": "c-0006@1",
+      "confidence": "high",
+      "counter_evidence": "tests/test_report_completeness.py asserts answered counts and incomplete-review output. tests/test_quota_wiring.py exercises quota failures deterministically. The recovery report preserves five roles and a three-round ceiling and forbids combining runs to manufacture quorum. The audit separately leaves edits under verification and production publication outstanding.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/testability+low",
+      "reasoning": "The process leaves replacement exhaustion undefined, but the claim overstates the absence of observable completion criteria and deterministic failure testing. Cross-examination is also not the only outstanding release condition.",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "amended"
+    },
+    {
+      "amended_claim": "Startup CI follows latest unless overridden and has no scheduled refresh. The release gate accepts successful exact-commit CI without a freshness limit or a new startup run, so provider changes after that run can remain untested until another workflow execution.",
+      "claim_id": "c-0007@1",
+      "confidence": "high",
+      "counter_evidence": ".github/workflows/ci.yml triggers on pushes and pull requests to main, records installed package metadata and supports four version overrides. ci/verify_release_ci.py checks historical exact-commit success without an age bound or rerunning startup probes.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/testability+low",
+      "reasoning": "The absence of scheduled refresh and release-time freshness enforcement is confirmed. However, verification does retrigger on pushes and pull requests, and recorded versions plus optional overrides qualify the non-reproducibility assertion.",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "amended"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0009@1",
+      "confidence": "high",
+      "counter_evidence": "ci/mutation_probe.py explicitly defines a targeted list of 16 mutations across six files, not seven. It includes judgebatch.py ledger/judge-suppression decisions. The process review describes 'full' as hosting the complete targeted probe previously run locally.",
+      "evidence_assessment": "disputed",
+      "judge": "codex/testability+low",
+      "reasoning": "Executing the complete fixed probe supports the phrase 'Full hosted mutation probe.' The audit states its exact size and does not claim mutation coverage of every release change.",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "refuted"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0010@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "confirmed",
+      "judge": "codex/testability+low",
+      "reasoning": "The specific local quality result is sourced only to an unavailable temporary log, and the audit and process review leave the warning unidentified. The live TestPyPI report explicitly preserves durable hashes instead of relying only on local logs. This prevents independent rechecking of the local execution from the supplied evidence; it does not invalidate separate hosted results.",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "upheld"
+    },
+    {
+      "amended_claim": "The green hosted CI does not exercise the two artifact-digest integrity tests -- test_the_artifact_is_rebuilt_from_git_with_its_recorded_digest and test_an_artifact_that_no_longer_matches_its_digest_is_refused skip in CI's shallow checkout (CI 33 skips vs local 31) and run only locally; the targeted hosted mutation probe's 16 mutants do not touch scripts/friend_eval.py, so calling it a 'Full hosted mutation probe' overstates its scope. The audit discloses this, so CI green and 'zero survivors' are consistent -- but digest rebuild and mismatch-refusal enforcement are verified solely on one developer's machine, and the suggested fix (fetch-depth: 0 or vendoring the historical commit) would close the gap.",
+      "claim_id": "c-0001@1",
+      "confidence": "high",
+      "counter_evidence": "tests/test_friend_eval.py:290-294 and :308-311 (conditional skipif) and ci/mutation_probe.py MUTATIONS list (16 mutations in six runtime modules, none in scripts/friend_eval.py) make '16 killed, zero survivors' fully consistent with the CI skips; the audit text itself discloses both skips.",
+      "evidence_assessment": "confirmed",
+      "judge": "pi/testability@verda/kimi-k3+low",
+      "reasoning": "I verified the core facts: both tests are guarded by skipif on a shallow-clone history check, ci.yml's checkout sets no fetch-depth so they skip in every CI run, no other test exercises the digest rebuild or mismatch-refusal paths, and none of the 16 mutations in ci/mutation_probe.py touches scripts/friend_eval.py (its own docstring says 'Not a general mutation runner'). The coverage gap for digest rebuild/refusal resting on a single local run is real and verified. But the claim is wrongly worded in two places: (1) zero survivors is not 'incompatible' with the skips -- the probe simply never targets that module, so both branches are consistent, and the claim itself acknowledges this conditional; (2) 'dismisses' understates that the audit explicitly discloses the skips ('They run locally... a green suite does not mean zero skips') rather than hiding them. The 'Full hosted mutation probe' label in the table does overstate a targeted probe, which supports the narrower wording.",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "amended"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0002@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "unverifiable",
+      "judge": "pi/testability@verda/kimi-k3+low",
+      "reasoning": "Every in-repo reference I could check exists and matches: tests/test_friend_eval.py with both cited test IDs; the wildcard AF_STARTUP_*_VERSION resolves to exactly four concrete variables (AF_STARTUP_CLAUDE/CODEX/OPENCODE/PI_VERSION) in .github/workflows/ci.yml and docs; CHANGELOG.md has a 0.13.0 section; docs/release-process.md exists at the path the ../../release-process.md link resolves to from docs/superpowers/reports/; both dated review docs exist; the windows-startup-* artifact naming matches ci.yml's upload step. The claim's checkable sub-point is accurate: the artifact names only the wildcard, never the four concrete variables. However, the blanket assertion also covers commits f153ec7 and 5234def, PR #9, and three hosted workflow runs -- this checkout's .git is a pointer to an unavailable external worktree and no network access exists, so those cannot be confirmed or refuted. The claim as written cannot be established.",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "unproven"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0003@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "unverifiable",
+      "judge": "pi/testability@verda/kimi-k3+low",
+      "reasoning": "The cited source is literally a path in one machine's temp directory; it is not present in this checkout, is not a CI artifact, and has no durable URL. docs/superpowers/reports/2026-10-29-release-process-review.md repeats the exact totals ('2,913 passed, 31 skipped... all 16 mutants killed, zero survivors/skips') and lists the same /tmp log as evidence, but preserves neither the log nor any worktree state (commit, git status) for the local run. The claim's reproduction risk -- the local run constituting the only passing evidence for the two digest tests -- is consistent with what I verified for c-0001 (those tests skip in CI). Whether the stated numbers are accurate can be neither confirmed nor refuted.",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "unproven"
+    },
+    {
+      "amended_claim": null,
+      "claim_id": "c-0004@1",
+      "confidence": "high",
+      "counter_evidence": null,
+      "evidence_assessment": "confirmed",
+      "judge": "pi/testability@verda/kimi-k3+low",
+      "reasoning": "The row is quoted verbatim from the artifact, and the phrase 'skip/deselection fault injections failed' genuinely parses both ways in a pass/fail 'Result' column: the fault-injection checks failed (bad) or the injected skip/deselection attempts failed to bypass the gate (the intended good outcome). The claim acknowledges the linked process review resolves it, and it does: the review states 'actual all-skipped and deselected fault injections now exit 1', and ci/containment_gate.py enforces that five named node IDs must pass setup/call/teardown, failing otherwise. The factual claim -- that the table row alone is ambiguous and requires the external link to disambiguate -- is correct as written; the underlying outcome is the failed-closed one. Severity is appropriately low and the suggested rewording is sound.",
+      "round": 3,
+      "type": "verdict",
+      "verdict": "upheld"
+    }
+  ]
+}

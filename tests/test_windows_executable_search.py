@@ -47,14 +47,17 @@ def test_windows_capability_probe_protects_inherited_environment(monkeypatch, tm
 
 
 @pytest.fixture
-def native_node_shim(monkeypatch, tmp_path):
+def native_node_shim(monkeypatch, tmp_path, request):
     node = execresolve.safe_which("node")
     if node is None or Path(node).suffix.lower() != ".exe":
         if os.environ.get("CI"):
             pytest.fail("Windows executable-search regression requires Node.js on PATH")
         pytest.skip("native regression requires Node.js on PATH")
     node = Path(node).resolve()
-    prefix = tmp_path / "npm prefix & tools"
+    # npm's literal `SET dp0=%~dp0` does not quote shell metacharacters.
+    # Keep its standard-template control executable; the custom wrapper
+    # below deliberately quotes that assignment for its metacharacter path.
+    prefix = tmp_path / ("npm prefix & tools" if getattr(request, "param", False) else "npm prefix")
     checkout = tmp_path / "checkout"
     prefix.mkdir()
     checkout.mkdir()
@@ -79,13 +82,16 @@ def native_node_shim(monkeypatch, tmp_path):
 
     def make(command="pi", *, custom=False):
         shim = prefix / f"{command}.cmd"
+        set_dp0 = 'SET "dp0=%~dp0"\n' if custom else "SET dp0=%~dp0\n"
         # npm/cmd-shim's Node forwarding template, including endLocal, so the
         # test exercises its real shell parsing rather than a mock resolver.
         shim.write_text(
             "@ECHO off\n"
             + ('SET "SHIM_CUSTOM=yes"\n' if custom else "")
-            + "GOTO start\n:find_dp0\nSET dp0=%~dp0\nEXIT /b\n"
-            ":start\nSETLOCAL\nCALL :find_dp0\n" + '\nIF EXIST "%dp0%\\node.exe" (\n'
+            + "GOTO start\n:find_dp0\n"
+            + set_dp0
+            + "EXIT /b\n:start\nSETLOCAL\nCALL :find_dp0\n"
+            + '\nIF EXIST "%dp0%\\node.exe" (\n'
             '  SET "_prog=%dp0%\\node.exe"\n'
             ') ELSE (\n  SET "_prog=node"\n)\n\n'
             "endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "
@@ -135,6 +141,7 @@ def test_real_npm_shim_avoids_checkout_node(
 
 
 @pytest.mark.windows_only(reason="requires real cmd.exe and Windows Node executable search")
+@pytest.mark.parametrize("native_node_shim", [True], indirect=True)
 def test_real_custom_shim_and_sibling_node_keep_operator_selection(native_node_shim, monkeypatch):
     fixture = native_node_shim
     shim = fixture.make(custom=True)

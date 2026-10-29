@@ -56,7 +56,7 @@ OpenCode's document-only review scope is an access limitation, not proof that
 unseen source is wrong. Its unverified statements do not constitute refutation.
 
 Independent follow-up review found no concrete defect in the current fixes.
-Isolated `make quality` passed: **2,944 passed, 36 skipped**, one existing
+Isolated `make quality` passed: **2,948 passed, 36 skipped**, one existing
 warning; all **16 mutants killed**, zero survivors/skips. Static, sync, diagram,
 wheel and six-distribution checks passed. Native hosted CI remains pending. The five-worker cross-examination has not yet obtained five usable
 critiques because Pi/GLM timed out and returned invalid judging output. Failed
@@ -73,3 +73,19 @@ and independent review passed. A real latest image built successfully and ran
 Codex 0.165.0 without network or credentials: `--version` exited 0, deliberately
 invalid sandbox selection exited 2 with the expected parser diagnostic. No new
 login or authenticated eval-suite execution is claimed.
+
+## Final follow-ups
+
+Native CI found an invalid unsafe-control fixture: npm's unquoted `SET dp0`
+splits an ampersand-containing prefix before interpreter lookup. Standard npm
+cases now use spaces without ampersands; the separate custom-wrapper case keeps
+the ampersand and quotes its assignment. Attack/protection assertions are intact.
+
+Unsupported effort is now refused in final-roster setup before artifact creation
+or worker dispatch. Three real CLI-resolution routes were tested safely against
+a dispatch sentinel; 125 focused tests passed. The historical-provenance CI gap
+was repaired with full history and a required two-case JUnit pass check. Actual
+cases passed, and six corrupted/missing-result variants were rejected.
+
+The [three-round live result](2026-10-29-cross-examination.md) retains five usable
+critiques and two failed judging calls; its incompleteness has not been waived.
