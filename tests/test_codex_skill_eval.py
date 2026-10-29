@@ -330,7 +330,8 @@ def test_login_without_a_terminal_starts_docker_without_one(tmp_path):
     env, log = _docker(tmp_path)
 
     assert M.main(["login"], base_env=env) == 0
-    [call] = _calls(log)
+    build, call = _calls(log)
+    assert "--no-cache" in build["argv"]
     assert call["argv"][:3] == ["run", "--rm", "-i"]
     assert call["argv"][-3:] == ["codex", "login", "--device-auth"]
 
@@ -348,11 +349,11 @@ def test_the_plugin_ships_as_an_archive_of_this_checkout():
     assert {member.uid for member in members} == {M.CONTAINER_UID}
 
 
-def test_the_image_installs_the_codex_version_the_script_pins():
+def test_the_image_installs_the_requested_codex_version():
     dockerfile = (M.IMAGE_DIR / "Dockerfile").read_text()
 
     assert "\nFROM node@sha256:" in dockerfile
-    assert "\nARG CODEX_VERSION\n" in dockerfile
+    assert "\nARG CODEX_VERSION=latest\n" in dockerfile
     assert '"@openai/codex@${CODEX_VERSION}"' in dockerfile
     assert "\nUSER evaluser\n" in dockerfile
     # Codex verifies TLS against the system bundle, which the slim base omits;
@@ -370,6 +371,9 @@ args = sys.argv[1:]
 record = {{"argv": args}}
 if args[:2] == ["image", "inspect"]:
     code = int(os.environ.get("FAKE_IMAGE_EXIT", "0"))
+elif args[:1] == ["run"] and args[-2:] == ["codex", "--version"]:
+    sys.stdout.write(os.environ.get("FAKE_CODEX_VERSION", "codex-cli 9.8.7") + "\\n")
+    code = int(os.environ.get("FAKE_VERSION_EXIT", "0"))
 elif args[:1] == ["run"] and args[-3:] == ["codex", "login", "status"]:
     code = int(os.environ.get("FAKE_LOGIN_EXIT", "0"))
 elif args[:1] == ["run"] and args[-3:] == ["codex", "login", "--device-auth"]:
@@ -422,9 +426,11 @@ def test_a_run_through_the_container_passes_and_records_what_it_blocked(tmp_path
 
     assert _run(tmp_path, env, "--case", RESUME) == 0
 
-    image, login, run = _calls(log)
+    build, image, login, version, run = _calls(log)
+    assert "--no-cache" in build["argv"]
     assert image["argv"] == ["image", "inspect", M.IMAGE]
     assert login["argv"][-3:] == ["codex", "login", "status"]
+    assert version["argv"][-2:] == ["codex", "--version"]
     assert run["prompt"] == "afriend resume run-123"
     assert "plugins/afriend/skills/review/SKILL.md" in run["members"]
     [record] = json.loads((tmp_path / "out" / "summary.json").read_text())["results"]
@@ -505,3 +511,75 @@ def test_a_checkout_missing_the_marketplace_is_refused(tmp_path):
 
     with pytest.raises(M.Unreadable, match="json is missing from"):
         M.plugin_archive(tmp_path)
+
+
+@pytest.mark.posix_only(reason="fakes docker with a shell script on PATH")
+def test_build_refreshes_latest_instead_of_reusing_a_cached_install(tmp_path):
+    env, log = _docker(tmp_path)
+
+    assert M.main(["build"], base_env=env) == 0
+    [call] = _calls(log)
+    assert "CODEX_VERSION=latest" in call["argv"]
+    assert "afriend-codex-eval:latest" in call["argv"]
+    assert "--no-cache" in call["argv"]
+
+
+@pytest.mark.posix_only(reason="fakes docker with a shell script on PATH")
+def test_explicit_version_selects_the_same_image_for_build_login_and_run(tmp_path):
+    env, log = _docker(tmp_path)
+    override = ["--codex-version", "1.2.3-beta.1+build.2"]
+
+    assert M.main(["build", *override], base_env=env) == 0
+    assert M.main(["login", *override], base_env=env) == 0
+    assert _run(tmp_path, env, "--case", RESUME, *override) == 0
+
+    build, login, inspect, status, version, run = _calls(log)
+    image = "afriend-codex-eval:1.2.3-beta.1_build.2"
+    assert "CODEX_VERSION=1.2.3-beta.1+build.2" in build["argv"]
+    assert "--no-cache" not in build["argv"]
+    assert image in build["argv"]
+    assert image in login["argv"]
+    assert inspect["argv"] == ["image", "inspect", image]
+    for call in (status, version, run):
+        assert image in call["argv"]
+    summary = json.loads((tmp_path / "out" / "summary.json").read_text())
+    assert summary["image"] == image
+    assert summary["requested_codex_version"] == "1.2.3-beta.1+build.2"
+    assert summary["installed_codex_version"] == "codex-cli 9.8.7"
+
+
+@pytest.mark.parametrize(
+    "version",
+    [
+        "",
+        "../bad",
+        "latest; touch /tmp/x",
+        "--help",
+        "1.2.3/evil",
+        "v1.2.3",
+        "^1.2.3",
+        "1." + "2" * 128 + ".3",
+    ],
+)
+def test_invalid_version_is_refused_without_calling_docker(tmp_path, version):
+    env, log = _docker(tmp_path)
+
+    assert M.main(["build", "--codex-version=" + version], base_env=env) == 2
+    assert _calls(log) == []
+
+
+def test_override_dry_run_reports_the_selected_image_without_calling_docker(tmp_path, capsys):
+    env, log = _docker(tmp_path)
+
+    assert _run(tmp_path, env, "--dry-run", "--codex-version", "1.2.3") == 0
+    assert "afriend-codex-eval:1.2.3" in capsys.readouterr().out
+    assert _calls(log) == []
+
+
+@pytest.mark.posix_only(reason="fakes docker with a shell script on PATH")
+@pytest.mark.parametrize("overrides", [{"FAKE_VERSION_EXIT": "1"}, {"FAKE_CODEX_VERSION": ""}])
+def test_unreadable_installed_version_prevents_model_calls(tmp_path, overrides):
+    env, log = _docker(tmp_path, **overrides)
+
+    assert _run(tmp_path, env, "--case", RESUME) == 2
+    assert not any("EVAL_PROMPT" in call["argv"] for call in _calls(log))

@@ -13,7 +13,7 @@ so the first afriend skill file a run reads is the skill it selected, and a
 
 Codex runs in a container built from evals/codex/Dockerfile:
 
-    scripts/run_codex_skill_eval.py build           # once per Codex version
+    scripts/run_codex_skill_eval.py build           # refresh the latest Codex
     scripts/run_codex_skill_eval.py login           # once: the eval's own Codex login
     scripts/run_codex_skill_eval.py run --dry-run   # print the plan, call nothing
     scripts/run_codex_skill_eval.py run --runs 2
@@ -67,7 +67,7 @@ REPO = Path(__file__).resolve().parents[1]
 EVALS = REPO / "plugins" / "afriend" / "evals"
 EXPECTATIONS = EVALS / "expectations.json"
 IMAGE_DIR = REPO / "evals" / "codex"
-CODEX_VERSION = "0.154.0"
+CODEX_VERSION = "latest"
 IMAGE = f"afriend-codex-eval:{CODEX_VERSION}"
 VOLUME = "afriend-codex-eval-home"
 CONTAINER_PREFIX = "afriend-codex-eval-"
@@ -355,19 +355,36 @@ def plugin_archive(repo: Path = REPO) -> bytes:
     return buffer.getvalue()
 
 
-def build_argv() -> list[str]:
+def image_name(version: str = CODEX_VERSION) -> str:
+    # Restrict the npm selector to latest or an exact version: paths, ranges,
+    # URLs and shell syntax must never become install targets or image tags.
+    if version != "latest" and (
+        len(version) > 128
+        or not re.fullmatch(
+            r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?", version
+        )
+    ):
+        raise Unreadable(
+            "--codex-version must be latest or an exact npm version (up to 128 characters)"
+        )
+    # npm versions cannot contain underscores, so replacing + is collision-free.
+    return f"afriend-codex-eval:{version.replace('+', '_')}"
+
+
+def build_argv(version: str = CODEX_VERSION) -> list[str]:
     return [
         "docker",
         "build",
+        *(["--no-cache"] if version == "latest" else []),
         "--build-arg",
-        f"CODEX_VERSION={CODEX_VERSION}",
+        f"CODEX_VERSION={version}",
         "-t",
-        IMAGE,
+        image_name(version),
         str(IMAGE_DIR),
     ]
 
 
-def login_argv(tty: bool) -> list[str]:
+def login_argv(tty: bool, version: str = CODEX_VERSION) -> list[str]:
     # Docker refuses `-t` when stdin is not a terminal, which is how an editor's
     # shell escape (`! command`) runs it.
     interactive = "-it" if tty else "-i"
@@ -377,18 +394,18 @@ def login_argv(tty: bool) -> list[str]:
         "--rm",
         interactive,
         *CONTAINER,
-        IMAGE,
+        image_name(version),
         "codex",
         "login",
         "--device-auth",
     ]
 
 
-def login_status_argv() -> list[str]:
-    return ["docker", "run", "--rm", *CONTAINER, IMAGE, "codex", "login", "status"]
+def login_status_argv(version: str = CODEX_VERSION) -> list[str]:
+    return ["docker", "run", "--rm", *CONTAINER, image_name(version), "codex", "login", "status"]
 
 
-def run_argv(container: str) -> list[str]:
+def run_argv(container: str, version: str = CODEX_VERSION) -> list[str]:
     # `-e NAME` with no value: docker copies it from its own environment, which
     # is where the prompt goes.
     return [
@@ -401,22 +418,28 @@ def run_argv(container: str) -> list[str]:
         *CONTAINER,
         "-e",
         PROMPT_ENV,
-        IMAGE,
+        image_name(version),
         "sh",
         "-c",
         CONTAINER_SCRIPT,
     ]
 
 
-def preflight(env: Mapping[str, str]) -> None:
+def preflight(env: Mapping[str, str], version: str = CODEX_VERSION) -> str:
     """Refuse before any model call unless the image exists and its login works."""
+    selected_image = image_name(version)
     image = subprocess.run(
-        ["docker", "image", "inspect", IMAGE], env=dict(env), capture_output=True, check=False
+        ["docker", "image", "inspect", selected_image],
+        env=dict(env),
+        capture_output=True,
+        check=False,
     )
     if image.returncode != 0:
-        raise Unreadable(f"there is no {IMAGE} image; run `{Path(__file__).name} build` first")
+        raise Unreadable(
+            f"there is no {selected_image} image; run `{Path(__file__).name} build --codex-version {version}` first"
+        )
     status = subprocess.run(
-        login_status_argv(),
+        login_status_argv(version),
         env=dict(env),
         capture_output=True,
         text=True,
@@ -426,18 +449,32 @@ def preflight(env: Mapping[str, str]) -> None:
     if status.returncode != 0:
         raise Unreadable(
             f"the eval's Codex login in volume {VOLUME} is missing or expired; run "
-            f"`{Path(__file__).name} login`"
+            f"`{Path(__file__).name} login --codex-version {version}`"
         )
 
+    installed = subprocess.run(
+        ["docker", "run", "--rm", *CONTAINER, selected_image, "codex", "--version"],
+        env=dict(env),
+        capture_output=True,
+        text=True,
+        timeout=PREFLIGHT_TIMEOUT_S,
+        check=False,
+    )
+    if installed.returncode != 0 or not installed.stdout.strip():
+        raise Unreadable("cannot read the eval image's installed Codex version")
+    return installed.stdout.strip()
 
-def run_once(case: Case, run_dir: Path, archive: bytes, env: Mapping[str, str]) -> RunOutcome:
+
+def run_once(
+    case: Case, run_dir: Path, archive: bytes, env: Mapping[str, str], version: str = CODEX_VERSION
+) -> RunOutcome:
     run_dir.mkdir(parents=True)
     events = run_dir / "events.jsonl"
     container = f"{CONTAINER_PREFIX}{uuid.uuid4().hex[:12]}"
     timed_out = False
     with events.open("wb") as out, (run_dir / "stderr.txt").open("wb") as err:
         proc = subprocess.Popen(
-            run_argv(container),
+            run_argv(container, version),
             env={**env, PROMPT_ENV: case.prompt},
             stdin=subprocess.PIPE,
             stdout=out,
@@ -488,12 +525,15 @@ def _run(args: argparse.Namespace, env: Mapping[str, str]) -> int:
         raise Unreadable("--runs must be at least 1")
     cases = select(load_cases(), args.case, args.tag)
     if args.dry_run:
-        print(shlex.join(run_argv(f"{CONTAINER_PREFIX}<id>")))
+        if args.codex_version == "latest":
+            print(shlex.join(build_argv(args.codex_version)))
+        print(shlex.join(run_argv(f"{CONTAINER_PREFIX}<id>", args.codex_version)))
         for case in cases:
             print(f"{case.name} -> {case.expected or 'no afriend skill'}: {case.prompt}")
         return 0
     archive = plugin_archive()
-    preflight(env)
+    refresh_latest(args.codex_version, env)
+    installed_version = preflight(env, args.codex_version)
 
     out = args.out or Path(tempfile.mkdtemp(prefix=OUT_PREFIX))
     out.mkdir(parents=True, exist_ok=True)
@@ -504,7 +544,9 @@ def _run(args: argparse.Namespace, env: Mapping[str, str]) -> int:
         with _exit_on_sigterm():
             for case in cases:
                 for index in range(1, args.runs + 1):
-                    outcome = run_once(case, out / case.name / f"run-{index}", archive, env)
+                    outcome = run_once(
+                        case, out / case.name / f"run-{index}", archive, env, args.codex_version
+                    )
                     status, reason = judge(case, outcome)
                     label = f"{case.name} run {index} of {args.runs}"
                     print(
@@ -520,7 +562,13 @@ def _run(args: argparse.Namespace, env: Mapping[str, str]) -> int:
                     elif status == "untrusted":
                         untrusted.append(f"{label}: {reason}")
     finally:
-        summary = {"image": IMAGE, "runs": args.runs, "results": records}
+        summary = {
+            "image": image_name(args.codex_version),
+            "requested_codex_version": args.codex_version,
+            "installed_codex_version": installed_version,
+            "runs": args.runs,
+            "results": records,
+        }
         (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
         print(f"results: {out}", file=sys.stderr)
 
@@ -540,26 +588,47 @@ def _run(args: argparse.Namespace, env: Mapping[str, str]) -> int:
     return 0
 
 
+def refresh_latest(version: str, env: Mapping[str, str]) -> None:
+    # Resolve latest once per command, before any login or model call. A cached
+    # image named latest says nothing about the registry's current release.
+    if version == "latest":
+        built = subprocess.run(build_argv(version), env=dict(env), check=False)
+        if built.returncode != 0:
+            raise Unreadable("could not refresh the latest Codex eval image")
+
+
 def main(argv: Sequence[str], base_env: Mapping[str, str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Replay the afriend activation suite through Codex, in a container."
     )
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("build", help=f"build {IMAGE} from {IMAGE_DIR.relative_to(REPO)}")
-    commands.add_parser("login", help=f"log the eval's own Codex account into {VOLUME}, once")
+    build = commands.add_parser("build", help=f"build Codex from {IMAGE_DIR.relative_to(REPO)}")
+    login = commands.add_parser(
+        "login", help=f"log the eval's own Codex account into {VOLUME}, once"
+    )
     run = commands.add_parser("run", help="replay the suite")
     run.add_argument("--runs", type=int, default=DEFAULT_RUNS)
     run.add_argument("--case", action="append", default=[], help="repeatable")
     run.add_argument("--tag", action="append", default=[], help="repeatable")
     run.add_argument("--out", type=Path, help="results directory (default: a new temp dir)")
     run.add_argument("--dry-run", action="store_true", help="print the plan; call nothing")
+    for command in (build, login, run):
+        command.add_argument(
+            "--codex-version",
+            default=CODEX_VERSION,
+            help="latest (default), or an exact npm version override",
+        )
     args = parser.parse_args(argv)
     env = dict(os.environ if base_env is None else base_env)
     try:
+        image_name(args.codex_version)
         if args.command == "build":
-            return subprocess.run(build_argv(), env=env, check=False).returncode
+            return subprocess.run(build_argv(args.codex_version), env=env, check=False).returncode
         if args.command == "login":
-            return subprocess.run(login_argv(sys.stdin.isatty()), env=env, check=False).returncode
+            refresh_latest(args.codex_version, env)
+            return subprocess.run(
+                login_argv(sys.stdin.isatty(), args.codex_version), env=env, check=False
+            ).returncode
         return _run(args, env)
     except FileNotFoundError as exc:
         print(

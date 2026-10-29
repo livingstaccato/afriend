@@ -8,6 +8,7 @@ on:
 
 jobs:
   quality:
+    name: quality (${{ matrix.python-version }})
     runs-on: ubuntu-latest
     # A run takes about four minutes. Fail a hang well inside GitHub's
     # six-hour default; pytest's faulthandler_timeout names the stuck test.
@@ -120,6 +121,7 @@ jobs:
         run: ci/assert_sandbox_tested.sh
 
   windows:
+    name: windows
     # Separate from `quality` rather than added to its matrix: most of that
     # job's steps (plantuml, wheel-asset verification, bwrap containment) are
     # either Linux-sandbox-specific or already proven once on Linux, and
@@ -153,6 +155,10 @@ jobs:
 
       # Install dependencies
       - run: uv sync --all-extras
+
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: "lts/*"
 
       # Tests, one line per test as it finishes: a killed job never prints
       # pytest's failure summary, so this is the only record of what failed.

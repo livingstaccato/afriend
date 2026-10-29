@@ -50,6 +50,28 @@ artifacts before staging only missing files. TestPyPI uses the same recovery
 check. Real Twine loopback tests cover interrupted uploads and hash mismatches.
 
 
+**The review skill now gives an explicit failed-friend recovery procedure.**
+It distinguishes model quota from account spend limits, offers a concrete
+replacement without silently narrowing the roster, preserves the required
+count/lenses/rounds and prior failure evidence, and starts a new run when the
+roster changes. Existing replacement authorization is reused; external-tool
+grants are checked separately.
+
+
+**Windows npm interpreter lookup is protected as well as launcher lookup.**
+Filtered review/inventory environments and inherited capability-probe
+processes now force `NoDefaultCurrentDirectoryInExePath=1`, preventing a
+trusted Node shim from implicitly selecting a checkout's `node.exe`.
+Explicit PATH choices, custom wrappers and sibling Node selection remain intact.
+Native Windows tests include an unsafe control and protected subprocess checks.
+
+**Startup rejection accepts only a complete measured diagnostic envelope.**
+Unknown output before or after that diagnostic fails, including previously
+unrecognized runtime crashes. OpenCode may prepend only the exact help output
+already captured by the same run. Release CI job names are explicit and a
+configuration-derived test catches drift in required job/step names.
+
+
 **Final answer precedence follows event order.** JSON fences in an earlier
 progress answer can no longer override a later bare answer, including replacing
 real findings with a stale clean result. Malformed wrapped answers retain their

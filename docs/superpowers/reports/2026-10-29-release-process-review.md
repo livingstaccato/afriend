@@ -33,8 +33,10 @@ push run. Evidence: `/tmp/afriend-process-crlf-quality.log`,
 `/tmp/afriend-process-all-skipped-rejected.log`, and
 `/tmp/afriend-process-deselected.log`.
 
-Actual OIDC acceptance, public/TestPyPI uploads and authenticated provider reviews
-remain outside these checks. Runtime architecture diagrams are unchanged because
+Those local remediation checks did not exercise OIDC or public uploads. A
+subsequent [live TestPyPI rehearsal](2026-10-29-live-testpypi.md) successfully
+exercised TestPyPI OIDC publication, remote-byte verification, installation and
+retry. Production PyPI acceptance remains a separate, unperformed release action. Runtime architecture diagrams are unchanged because
 these fixes affect CI and release orchestration.
 
 ---

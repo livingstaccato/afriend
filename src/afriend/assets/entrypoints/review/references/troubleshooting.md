@@ -20,6 +20,40 @@ no longer wanted. A reachable Ollama server without a configured model is
 `reachable-unconfigured`, not ready; set one with `afriend providers
 set-model ollama MODEL` or name it in an explicit `--friend` value.
 
+## A friend fails after readiness passes
+
+`afriend doctor` checks dispatch readiness, not whether a real account can make
+a model call. Read the failing friend's `.raw`, `.err`, `.meta`, `report.md` and
+provider diagnostic. Authentication refusal, quota, timeout and invalid output
+are distinct failures; none counts as a usable critique or judging verdict.
+An active run can retain heartbeats while other friends are still working.
+
+For a model-specific allowance, inspect `afriend providers models NAME` before
+suggesting another listed model. An account-wide or individual spend-limit
+refusal needs restored allowance or a friend with separate credentials/allowance;
+changing models under that account does not establish a fix. Do not change
+billing, logins or persistent provider defaults to conceal the failure.
+
+Offer a concrete feasible replacement while preserving the requested worker
+count, lenses, mode and round limit. A fresh host-provider worker can use
+`--friend codex:security --host-provider codex --fresh-host-worker`; disclose
+its host-family correlation. Use a replacement already authorized by the user,
+or obtain their roster choice first. A different provider may require its own
+external-tool grant; the old provider's grant does not transfer automatically.
+
+A changed roster requires a new `afriend run`, a fresh output directory, and the
+complete repeated `--friend` roster, retaining `--require-friends N` and the
+requested `--max-rounds`. Fresh sessions still need unique
+CLI/lens/requested-model/effort ledger identities; identical entries are refused
+before calls. Use a distinct identity consistent with the user's approved roles
+and model choices, checking that global overrides do not make them identical.
+`--resume` continues saved run state, not a replacement
+roster. Preserve and cross-reference the original failed/interrupted run and its
+partial findings. Do not combine responses or verdicts from separate runs to
+claim quorum. Gracefully cancel a superseded active run before restarting with
+the revised roster. If the original account is repaired, a fresh retry can keep
+the original roster. Report actual rounds, failures and outcomes of both runs.
+
 ## A provider is policy-blocked for external tools
 
 External tools are denied by default, independently of the local sandbox. An

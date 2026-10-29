@@ -11,7 +11,7 @@ import subprocess
 import sys
 import threading
 
-from . import execresolve, http_transport, sandbox
+from . import childenv, execresolve, http_transport, sandbox
 from .adapters import Adapter
 from .authority import AuthorityPolicy, ExternalToolPolicy, enforce as enforce_authority
 from .errors import UsageError
@@ -89,6 +89,7 @@ def probe_deny_argv(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             start_new_session=True,
+            env=childenv.protect_executable_search(os.environ),
         )
     except OSError as exc:
         result = DenyProbeResult(False, f"deny-argv capability probe could not start: {exc}")

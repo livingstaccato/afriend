@@ -25,6 +25,10 @@ version. Do not rebuild a partially published version and assume its bytes will
 match, or enable blind duplicate skipping. An expired artifact or mismatch needs
 manual investigation rather than an automatic overwrite.
 
+Index metadata may lag a successful upload. If a retry encounters stale metadata
+or a duplicate rejection, wait for the index to expose the uploaded files and
+retry the same run; do not rebuild or enable blind duplicate skipping.
+
 The manually dispatched TestPyPI workflow uses the same hash-checked recovery
 with its own environments and original artifacts. It permits branch rehearsals;
 it does not require push-to-main CI. Neither local quality nor loopback Twine
@@ -36,3 +40,7 @@ default. Optional repository variables `AF_STARTUP_CLAUDE_VERSION`,
 `AF_STARTUP_PI_VERSION` select versions explicitly. These checks exercise native
 startup, canonical help and provider-specific invalid-value diagnostics without
 model credentials. They do not establish authenticated review behavior.
+
+The [live TestPyPI verification](superpowers/reports/2026-10-29-live-testpypi.md)
+records successful OIDC publication, remote-byte checks, isolated installation
+and completed-upload retry for the named source commit.

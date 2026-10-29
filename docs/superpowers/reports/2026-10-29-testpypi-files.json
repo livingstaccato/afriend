@@ -1,0 +1,38 @@
+{
+  "index": "https://test.pypi.org",
+  "version": "0.13.0",
+  "source_commit": "5234defbd35972094504b9191371f8acc9a9ffe6",
+  "workflow_run": 40801742187,
+  "files": [
+    {
+      "project": "afriend",
+      "filename": "afriend-0.13.0-py3-none-any.whl",
+      "sha256": "a92cabdec81474a10bed6904ef56583ba313faff2ebcd35e22e35322294967c3"
+    },
+    {
+      "project": "afriend",
+      "filename": "afriend-0.13.0.tar.gz",
+      "sha256": "709ac21ea0a905b696596711a378f08d4fc32f4989a8e2f2b50d57617a97f9ef"
+    },
+    {
+      "project": "adversarial-friends",
+      "filename": "adversarial_friends-0.13.0-py3-none-any.whl",
+      "sha256": "3f288259fa466df7fa998bec38fd9c09b8b67de84163c0e95ae624086de27303"
+    },
+    {
+      "project": "adversarial-friends",
+      "filename": "adversarial_friends-0.13.0.tar.gz",
+      "sha256": "4dcfb02da2ea19ee7b8f08f9854353419047b64bd9a9b3afb749a476e6a8920f"
+    },
+    {
+      "project": "afriends",
+      "filename": "afriends-0.13.0-py3-none-any.whl",
+      "sha256": "8b318c9a5d2cdc81189e09c044f4618618dee2eba6a4b10892d73d3596840046"
+    },
+    {
+      "project": "afriends",
+      "filename": "afriends-0.13.0.tar.gz",
+      "sha256": "db42c0309f5946d08a1c40127283ec3137caa00064025053881157e9d529aa9c"
+    }
+  ]
+}

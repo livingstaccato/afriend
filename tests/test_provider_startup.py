@@ -251,3 +251,47 @@ def test_advertised_options_accept_help_punctuation_and_equal_values():
     MODULE.require_advertised_options(
         ["pi", "--print", "--mode=json"], "-p, --print, --mode=<format>\n"
     )
+
+
+@pytest.mark.parametrize("provider,exit_code,stderr", REJECTIONS)
+@pytest.mark.parametrize(
+    "unexpected",
+    [
+        "panic: runtime error: invalid memory address\n",
+        "fatal error: internal failure\n",
+        "unexpected teardown failure\n",
+    ],
+)
+def test_matching_parser_diagnostic_with_extra_failure_output_is_rejected(
+    tmp_path, provider, exit_code, stderr, unexpected
+):
+    output = (stderr + unexpected).encode()
+    with pytest.raises(MODULE.StartupFailure):
+        launch(
+            tmp_path,
+            f"import sys; sys.stderr.buffer.write({output!r}); sys.exit({exit_code})",
+            expected="rejection",
+            diagnostic_regex=MODULE.PROVIDERS[provider]["rejection_regex"],
+        )
+
+
+def test_opencode_accepts_only_its_previously_measured_help_prefix(tmp_path):
+    prefix = "DESCRIPTION\n  Run OpenCode with a message\n\nUSAGE\n  opencode run [flags]\n"
+    diagnostic = REJECTIONS[2][2]
+    text = prefix + diagnostic
+    record = launch(
+        tmp_path,
+        f"import sys; sys.stderr.buffer.write({text.encode()!r}); sys.exit(1)",
+        expected="rejection",
+        diagnostic_regex=MODULE.PROVIDERS["opencode"]["rejection_regex"],
+        diagnostic_prefix=prefix,
+    )
+    assert record["stderr"] == text
+    with pytest.raises(MODULE.StartupFailure):
+        launch(
+            tmp_path,
+            f"import sys; sys.stderr.buffer.write({text.encode()!r}); sys.exit(1)",
+            expected="rejection",
+            diagnostic_regex=MODULE.PROVIDERS["opencode"]["rejection_regex"],
+            diagnostic_prefix="different unmeasured help",
+        )

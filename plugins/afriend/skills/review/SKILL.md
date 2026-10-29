@@ -185,6 +185,33 @@ next action is to inspect, resolve, resume, fix configuration, retry, or start
 another iteration. Do not call a failed, incomplete, downgraded, or
 single-friend run a completed independent review.
 
+### Recovering a failed friend
+
+If a dispatched friend fails, inspect its saved provider diagnostic and report
+what failed before suggesting a replacement. `doctor` readiness proves neither
+authentication nor available quota. Distinguish a model-specific allowance from
+an account-wide or individual spend limit: changing models is not evidence of a
+separate allowance for an account-level refusal. Do not repeatedly retry that
+refusal. Use the current model inventory before proposing a model-specific fix.
+
+Use an already authorized replacement; otherwise offer a named feasible worker,
+its lens and requested model, explain any provider/host-family correlation, and
+ask the user to choose. For example, a fresh Codex security worker uses
+`--friend codex:security --host-provider codex --fresh-host-worker`. Preserve
+the required worker count, explicitly required lenses, mode and round limit; explicitly rebuild the
+entire `--friend` roster and retain `--require-friends N`. Recheck qualification
+and external-tool authority. CLI/lens/requested-model/effort identities must be
+unique: another fresh process with all four equal is a duplicate, not another
+friend. Choose a feasible distinct identity while honoring the approved roles;
+do not invent a model or let a global effort override collapse two identities.
+Do not silently add workers or narrow the review.
+
+A changed roster starts a **new run**, not `--resume`. Preserve and cross-reference
+the failed run, including partial findings; do not transplant successful rows or
+verdicts to make the replacement run pass. Cancel an active superseded run
+gracefully when changing its roster. Account repair permits a fresh retry of the
+original roster. See [runtime recovery](references/troubleshooting.md#a-friend-fails-after-readiness-passes).
+
 ## Running it
 
 ```bash

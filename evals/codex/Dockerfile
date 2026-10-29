@@ -1,7 +1,8 @@
 # The only place the Codex activation eval runs Codex: an image holding Codex
 # and no other model CLI, so a prompt that goes looking for `afriend`, `agy`,
 # `claude` or `opencode` finds nothing to run. Built and run by
-# scripts/run_codex_skill_eval.py, which passes CODEX_VERSION.
+# scripts/run_codex_skill_eval.py, which passes CODEX_VERSION and disables
+# the build cache for latest. Direct latest builds also need --no-cache.
 #
 # Pinned by digest: a moving tag would change what the eval runs in without a
 # commit saying so.
@@ -14,7 +15,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-ARG CODEX_VERSION
+ARG CODEX_VERSION=latest
 RUN test -n "$CODEX_VERSION" \
     && npm install -g "@openai/codex@${CODEX_VERSION}" \
     && npm cache clean --force

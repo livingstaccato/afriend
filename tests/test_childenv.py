@@ -68,7 +68,9 @@ def test_withheld_reports_names_only():
 
 
 def test_withheld_and_kept_partition_the_environment():
-    kept = set(childenv.build(environ=SHELL))
+    # Windows also injects executable-search protection, independently of
+    # whether the parent set it. Partition the parent's variables only.
+    kept = set(childenv.build(environ=SHELL)) & set(SHELL)
     dropped = set(childenv.withheld(environ=SHELL))
     assert kept | dropped == set(SHELL)
     assert not (kept & dropped)

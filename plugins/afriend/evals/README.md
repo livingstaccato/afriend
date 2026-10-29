@@ -91,12 +91,32 @@ frontmatter, so the same cases are replayed through `codex exec --json`, in a
 container:
 
 ```bash
-scripts/run_codex_skill_eval.py build              # once per Codex version
+scripts/run_codex_skill_eval.py build              # refresh the latest Codex
 scripts/run_codex_skill_eval.py login              # once: the eval's own Codex login
 scripts/run_codex_skill_eval.py run --dry-run      # print the plan, call nothing
 scripts/run_codex_skill_eval.py run --runs 2       # all 18 cases, twice each
 scripts/run_codex_skill_eval.py run --tag narrow --runs 1
 ```
+
+`build`, `login`, and `run` default to the latest published Codex. `login`
+and `run` rebuild that image once before proceeding, with Docker's build cache
+disabled so an old `latest` image cannot silently keep an old CLI. Dry runs
+print the refresh and run commands without calling Docker. The Node base image
+remains pinned by digest.
+
+For a reproducible comparison, pass the same explicit npm version to every
+command (including prerelease/build suffixes if needed):
+
+```bash
+scripts/run_codex_skill_eval.py build --codex-version 1.2.3
+scripts/run_codex_skill_eval.py login --codex-version 1.2.3
+scripts/run_codex_skill_eval.py run --codex-version 1.2.3 --runs 2
+```
+
+Explicit versions use separate image tags and can reuse Docker's build cache.
+`summary.json` records the image, requested version, and actual installed
+`codex --version` output, read before any model call. This does not select or
+change the Codex model.
 
 Each run is a real Codex call on the account `login` signed in. That login is
 separate from yours on the host and lives in the Docker volume
@@ -123,7 +143,8 @@ anything. Nothing was written, but a hidden binary is still a binary, and Codex
 0.154 no longer accepts the approval policy that would have refused it.
 
 `evals/codex/Dockerfile` builds an image holding Codex and nothing else that
-can call a model, pinned by digest and by Codex version. Each run starts a
+can call a model. Its base is pinned by digest; Codex defaults to latest, with
+an optional explicit version override. Each run starts a
 container with a read-only root filesystem, every capability dropped,
 `no-new-privileges`, a PID limit, tmpfs for home and `/tmp`, and one mount: the
 login volume. No host directory is mounted. Codex's own sandbox needs user

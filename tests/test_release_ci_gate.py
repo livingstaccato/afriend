@@ -214,3 +214,35 @@ def test_cli_missing_token_never_attempts_network(monkeypatch, capsys):
     monkeypatch.setattr(MODULE, "verify", lambda *args: pytest.fail("unexpected network"))
     assert MODULE.main(["--repository", "owner/repo", "--sha", SHA]) == 1
     assert "actions:read" in capsys.readouterr().err
+
+
+def test_required_ci_evidence_names_match_actual_workflow_configuration():
+    """A display-name refactor must fail locally rather than first at tag time."""
+    import ast
+    import re
+
+    text = (Path(__file__).resolve().parents[1] / ".github/workflows/ci.yml").read_text()
+    blocks = dict(re.findall(r"^  ([\w-]+):\n(.*?)(?=^  [\w-]+:|\Z)", text, re.M | re.S))
+    expanded = {}
+    for key in ("quality", "windows", "windows-cli-startup"):
+        block = blocks[key]
+        display = re.search(r"^    name: (.+)$", block, re.M)
+        assert display, f"{key} needs an explicit display name for release evidence"
+        template = display.group(1)
+        steps = re.findall(r"^      - name: (.+)$", block, re.M)
+        if key == "quality":
+            versions = ast.literal_eval(re.search(r"python-version: (\[.*\])", block)[1])
+            names = [template.replace("${{ matrix.python-version }}", v) for v in versions]
+        elif key == "windows-cli-startup":
+            providers = re.findall(r"^          - provider: (\w+)$", block, re.M)
+            assert providers
+            names = [template.replace("${{ matrix.provider }}", p) for p in providers]
+        else:
+            names = [template]
+        for name in names:
+            assert name not in expanded
+            expanded[name] = steps
+    assert set(MODULE.REQUIRED_STEPS) == set(expanded)
+    for name, required in MODULE.REQUIRED_STEPS.items():
+        for step in required:
+            assert expanded[name].count(step) == 1, (name, step)

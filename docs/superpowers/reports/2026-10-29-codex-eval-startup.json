@@ -1,0 +1,59 @@
+{
+  "requested_version": "latest",
+  "image": "afriend-codex-eval:latest",
+  "model_calls": false,
+  "probes": {
+    "version": {
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
+        "--pids-limit",
+        "256",
+        "--tmpfs",
+        "/tmp",
+        "afriend-codex-eval:latest",
+        "codex",
+        "--version"
+      ],
+      "exit_code": 0,
+      "stdout": "codex-cli 0.165.0\n",
+      "stderr": "WARNING: proceeding, even though we could not create PATH aliases: Read-only file system (os error 30)\n"
+    },
+    "invalid-sandbox": {
+      "argv": [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
+        "--pids-limit",
+        "256",
+        "--tmpfs",
+        "/tmp",
+        "afriend-codex-eval:latest",
+        "codex",
+        "exec",
+        "--sandbox",
+        "afriend-startup-invalid",
+        "--skip-git-repo-check",
+        "--json"
+      ],
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "WARNING: proceeding, even though we could not create PATH aliases: Read-only file system (os error 30)\nerror: invalid value 'afriend-startup-invalid' for '--sandbox <SANDBOX_MODE>'\n  [possible values: read-only, workspace-write, danger-full-access]\n\nFor more information, try '--help'.\n"
+    }
+  }
+}

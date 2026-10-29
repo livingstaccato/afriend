@@ -30,6 +30,7 @@ def check_launch(
     *,
     expected: str,
     diagnostic_regex: str | None = None,
+    diagnostic_prefix: str | None = None,
     timeout_s: float = 30,
     stdin_text: str | None = None,
 ) -> dict[str, Any]:
@@ -60,19 +61,18 @@ def check_launch(
     if expected == "success":
         failed |= result.exit_code != 0
     elif expected == "rejection":
+        # A known diagnostic followed by any unknown failure output is not a
+        # clean parser rejection. OpenCode may prepend the exact help output
+        # already measured by this run; no other extra output is accepted.
+        rejection_text = text.strip()
+        if diagnostic_prefix:
+            prefix = diagnostic_prefix.replace("\r\n", "\n").strip()
+            if prefix and rejection_text.startswith(prefix):
+                rejection_text = rejection_text[len(prefix) :].strip()
         failed |= (
             result.exit_code not in {1, 2}
             or not diagnostic_regex
-            or re.search(diagnostic_regex, text, re.MULTILINE) is None
-            or re.search(
-                r"^Traceback \(most recent call last\):"
-                r"|^[ \t]+at \S"
-                r"|^-* ?Native stack trace"
-                r"|^thread .+ panicked at ",
-                text,
-                re.MULTILINE,
-            )
-            is not None
+            or re.fullmatch(diagnostic_regex, rejection_text, re.MULTILINE) is None
         )
     else:
         raise ValueError(f"unknown startup expectation: {expected}")
@@ -185,6 +185,12 @@ def main(argv: list[str] | None = None) -> int:
                     env,
                     expected=expected,
                     diagnostic_regex=diagnostic,
+                    diagnostic_prefix=(
+                        report["checks"]["canonical-help"]["stdout"]
+                        + report["checks"]["canonical-help"]["stderr"]
+                        if name == "invalid-value" and args.provider == "opencode"
+                        else None
+                    ),
                     stdin_text=stdin_text if name != "version" else None,
                 )
             except StartupFailure as exc:
@@ -233,14 +239,15 @@ PROVIDERS = {
         "invalid_option": "--sandbox",
         "rejection_regex": (
             r"^error: invalid value 'afriend-startup-invalid' for '--sandbox <SANDBOX_MODE>'\n"
-            r"[ \t]+\[possible values: read-only, workspace-write, danger-full-access\]$"
+            r"[ \t]+\[possible values: read-only, workspace-write, danger-full-access\]"
+            r"(?:\n\nFor more information, try '--help'\.)?$"
         ),
     },
     "opencode": {
         "package": "@opencode/cli",
         "invalid_option": "--format",
         "rejection_regex": (
-            r'^  Invalid value for flag --format: "afriend-startup-invalid"\. '
+            r'^ERROR\n[ \t]+Invalid value for flag --format: "afriend-startup-invalid"\. '
             r'Expected: "default" \| "json"$'
         ),
     },

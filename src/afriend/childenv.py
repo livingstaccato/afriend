@@ -27,6 +27,7 @@ this project does not.
 from collections.abc import Mapping
 import os
 from pathlib import Path
+import sys
 
 from .secureio import secure_mkdir
 
@@ -34,6 +35,7 @@ from .secureio import secure_mkdir
 # carries a credential; each was included because dropping it changes
 # behaviour rather than exposure.
 BASE_PASS = (
+    "NoDefaultCurrentDirectoryInExePath",
     "PATH",
     "HOME",
     "USER",
@@ -148,6 +150,21 @@ def private_dirs(private_root: Path) -> dict[str, str]:
     }
 
 
+def protect_executable_search(environ: Mapping[str, str]) -> dict[str, str]:
+    """Stop Windows batch launchers searching the untrusted working directory.
+
+    Resolving the launcher itself is insufficient: npm shims can invoke bare
+    ``node``. cmd.exe honors this variable for its own executable search. Keep
+    explicit PATH entries (including ``.``) and sibling interpreter selection.
+    """
+    result = dict(environ)
+    if sys.platform == "win32":
+        name = "NoDefaultCurrentDirectoryInExePath"
+        result = {key: value for key, value in result.items() if key.upper() != name.upper()}
+        result[name] = "1"
+    return result
+
+
 def build(
     adapter_pass: tuple[str, ...] = (),
     operator_pass: tuple[str, ...] = (),
@@ -155,7 +172,8 @@ def build(
 ) -> dict[str, str]:
     """The filtered environment an executable friend process receives.
 
-    Only variables that are BOTH allowed and actually set are returned:
+    Only variables that are BOTH allowed and actually set are returned,
+    plus the Windows executable-search protection:
     exporting an empty value for an unset variable would tell a CLI that a
     setting exists when it does not, which is its own source of confusing
     failures.
@@ -175,7 +193,9 @@ def build(
     """
     source = os.environ if environ is None else environ
     allowed = {name.upper() for name in (*BASE_PASS, *adapter_pass, *operator_pass)}
-    return {name: value for name, value in source.items() if name.upper() in allowed}
+    return protect_executable_search(
+        {name: value for name, value in source.items() if name.upper() in allowed}
+    )
 
 
 def withheld(
