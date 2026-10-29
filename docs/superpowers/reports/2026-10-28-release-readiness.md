@@ -1,21 +1,28 @@
 # afriend 0.13.0 release audit
 
 Updated on 2026-10-29 UTC (2026-10-28 Pacific). This record supersedes earlier
-readiness wording. The runtime and release-process implementation is verified
-through `f153ec7`; documentation head `5234def` also passed all eight CI jobs.
-**Status: final CI and live-review disposition pending; this is not release clearance.**
+readiness wording. **Status: implementation CI passed; live-review disposition
+remains pending. This is not release clearance.**
 
-The current live-follow-up candidate passed isolated `make quality`: **2,948
-passed, 36 skipped**, one existing warning; **16 mutants killed**, zero
-survivors/skips. It collects **2,984 tests**. Native Windows CI and the revised
-live cross-examination are still pending.
+Implementation commit `b707327` passed all eight hosted CI jobs. Linux Python
+3.11/3.12/3.13 each passed **2,948 tests, 36 skipped**. Native Windows passed
+**2,839 tests, 145 skipped**, including all five native interpreter-search
+regressions. The targeted mutation set killed all 16 mutants, with zero
+survivors/skips. Isolated `make quality` also passed **2,948 tests, 36 skipped**,
+with one existing warning. The repository collects **2,984 tests**.
+
 PR #9 remains draft. No merge, production PyPI publication or release tag has
-been made. TestPyPI publication and recovery have now been exercised successfully.
+been made. TestPyPI publication and recovery were exercised successfully at the
+earlier source commit recorded below. The five-worker, three-round live review
+returned five critiques but two judging failures left its result incomplete.
 
 ## Verification evidence
 
 | Check | Result | Source |
 | --- | --- | --- |
+| Current implementation `b707327` | All eight jobs passed; Linux each 2,948 passed / 36 skipped; Windows 2,839 passed / 145 skipped | [CI run 40811065894](https://github.com/livingstaccato/afriend/actions/runs/40811065894); [retained job/step evidence](2026-10-29-hosted-ci.json) |
+| Real Windows interpreter-search regression | Four unsafe-control/protected npm cases and one custom/sibling-interpreter case passed | Same current CI |
+| Historical friend-eval provenance | Both named cases passed with no skips; required structured check passed | Same current CI, Python 3.13 |
 | Local `make quality` at corrected implementation | 2,913 passed, 31 skipped, one existing warning; 16 mutants killed, zero survivors/skips | `/tmp/afriend-process-crlf-quality.log` |
 | Linux Python 3.11/3.12/3.13 | Each 2,911 passed, 33 skipped | [Implementation CI](https://github.com/livingstaccato/afriend/actions/runs/40799404634) |
 | Native Windows suite | 2,803 passed, 141 skipped | Same implementation CI |
@@ -50,11 +57,12 @@ those runtime diagrams.
 ## Real Windows startup scope
 
 All four real installed npm CLI jobs passed, selecting `latest` without an
-override. Captured implementation-run versions were Claude 2.1.312, Codex
+override. Captured current-run versions were Claude 2.1.312, Codex
 0.165.0, OpenCode 2.2.0 and Pi 1.4.0. Every version/help probe exited 0; deliberate
 invalid values exited 1 or 2 with the provider-specific parser diagnostic.
 No probe timed out or reported suspected orphans. Startup captures are retained
-as four `windows-startup-*` workflow artifacts. The quoting repair for native
+as four `windows-startup-*` workflow artifacts and a
+[durable raw-check record](2026-10-29-windows-startup.json). The quoting repair for native
 npm launchers preserves inline JSON, custom profiles and arguments.
 
 Versions are observations, not pins. The four documented `AF_STARTUP_*_VERSION`
@@ -75,7 +83,7 @@ only missing files. Canonical and aliases have separate jobs. The
 `CHANGELOG.md` covers the integration and enforcement changes. Version 0.13.0
 is synchronized across package/plugin/marketplace metadata and both aliases;
 each alias requires exactly `afriend==0.13.0`. TestPyPI's published bytes belong
-to `5234def`; later skill/documentation edits are not claimed as already uploaded.
+to `5234def`; later runtime, skill and documentation edits are not claimed as already uploaded.
 The live TestPyPI record includes six durable SHA256 digests and verifies an
 installation outside the checkout. Production PyPI's separate publisher
 identities and approval environment are not proven by TestPyPI acceptance.

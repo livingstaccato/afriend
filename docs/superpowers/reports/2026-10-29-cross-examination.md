@@ -82,5 +82,7 @@ identifies a dirty candidate.
 The single warning was a Python `DeprecationWarning` from
 `tests/test_providerconfig.py::test_locked_update_rereads_changes_made_before_it_acquires`:
 `multiprocessing` used `os.fork()` in a multithreaded process. It did not fail the
-test. The final hosted candidate still needs its fresh CI result, including the
-corrected real Windows unsafe-control/protected-interpreter regression.
+test. The subsequent implementation `b707327` passed all eight hosted jobs, including
+all five real Windows interpreter-search regressions.
+[Retained evidence](2026-10-29-hosted-ci.json) records exact job and step results.
+This deterministic verification does not change the incomplete live verdict.

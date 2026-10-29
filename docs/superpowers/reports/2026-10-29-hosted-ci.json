@@ -1,0 +1,1157 @@
+{
+  "source_commit": "b70732736e23a24e194406fcf5f314577994818d",
+  "workflow_run": 40811065894,
+  "event": "pull_request",
+  "release_push_to_main_requirement_satisfied": false,
+  "jobs": [
+    {
+      "id": 123241233067,
+      "run_id": 40811065894,
+      "run_attempt": 1,
+      "head_sha": "b70732736e23a24e194406fcf5f314577994818d",
+      "name": "windows",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/livingstaccato/afriend/actions/runs/40811065894/job/123241233067",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-10-29T03:15:06Z",
+          "completed_at": "2026-10-29T03:15:07Z"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-10-29T03:15:07Z",
+          "completed_at": "2026-10-29T03:15:13Z"
+        },
+        {
+          "name": "Run astral-sh/setup-uv@v10.0.1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-10-29T03:15:13Z",
+          "completed_at": "2026-10-29T03:15:16Z"
+        },
+        {
+          "name": "Run uv sync --all-extras",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-10-29T03:15:16Z",
+          "completed_at": "2026-10-29T03:15:20Z"
+        },
+        {
+          "name": "Run actions/setup-node@v7.1.0",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-10-29T03:15:20Z",
+          "completed_at": "2026-10-29T03:15:26Z"
+        },
+        {
+          "name": "pytest",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-10-29T03:15:26Z",
+          "completed_at": "2026-10-29T03:18:43Z"
+        },
+        {
+          "name": "Post Run actions/setup-node@v7.1.0",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10,
+          "started_at": "2026-10-29T03:18:43Z",
+          "completed_at": "2026-10-29T03:18:44Z"
+        },
+        {
+          "name": "Post Run astral-sh/setup-uv@v10.0.1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11,
+          "started_at": "2026-10-29T03:18:44Z",
+          "completed_at": "2026-10-29T03:18:44Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12,
+          "started_at": "2026-10-29T03:18:44Z",
+          "completed_at": "2026-10-29T03:18:46Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-10-29T03:18:46Z",
+          "completed_at": "2026-10-29T03:18:47Z"
+        }
+      ]
+    },
+    {
+      "id": 123241233290,
+      "run_id": 40811065894,
+      "run_attempt": 1,
+      "head_sha": "b70732736e23a24e194406fcf5f314577994818d",
+      "name": "Windows startup (opencode)",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/livingstaccato/afriend/actions/runs/40811065894/job/123241233290",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-10-29T03:15:06Z",
+          "completed_at": "2026-10-29T03:15:07Z"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-10-29T03:15:07Z",
+          "completed_at": "2026-10-29T03:15:13Z"
+        },
+        {
+          "name": "Run astral-sh/setup-uv@v10.0.1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-10-29T03:15:13Z",
+          "completed_at": "2026-10-29T03:15:16Z"
+        },
+        {
+          "name": "Run actions/setup-node@v7.1.0",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-10-29T03:15:16Z",
+          "completed_at": "2026-10-29T03:15:22Z"
+        },
+        {
+          "name": "Run uv sync --all-extras",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-10-29T03:15:22Z",
+          "completed_at": "2026-10-29T03:15:26Z"
+        },
+        {
+          "name": "Install real reviewer CLI",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-10-29T03:15:26Z",
+          "completed_at": "2026-10-29T03:15:46Z"
+        },
+        {
+          "name": "Exercise native startup and expected rejection",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-10-29T03:15:46Z",
+          "completed_at": "2026-10-29T03:15:48Z"
+        },
+        {
+          "name": "Upload startup evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-10-29T03:15:48Z",
+          "completed_at": "2026-10-29T03:15:49Z"
+        },
+        {
+          "name": "Post Run actions/setup-node@v7.1.0",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-10-29T03:15:49Z",
+          "completed_at": "2026-10-29T03:15:49Z"
+        },
+        {
+          "name": "Post Run astral-sh/setup-uv@v10.0.1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15,
+          "started_at": "2026-10-29T03:15:49Z",
+          "completed_at": "2026-10-29T03:15:49Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16,
+          "started_at": "2026-10-29T03:15:49Z",
+          "completed_at": "2026-10-29T03:15:52Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17,
+          "started_at": "2026-10-29T03:15:52Z",
+          "completed_at": "2026-10-29T03:15:52Z"
+        }
+      ]
+    },
+    {
+      "id": 123241233309,
+      "run_id": 40811065894,
+      "run_attempt": 1,
+      "head_sha": "b70732736e23a24e194406fcf5f314577994818d",
+      "name": "Windows startup (claude)",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/livingstaccato/afriend/actions/runs/40811065894/job/123241233309",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-10-29T03:15:06Z",
+          "completed_at": "2026-10-29T03:15:07Z"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-10-29T03:15:07Z",
+          "completed_at": "2026-10-29T03:15:12Z"
+        },
+        {
+          "name": "Run astral-sh/setup-uv@v10.0.1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-10-29T03:15:12Z",
+          "completed_at": "2026-10-29T03:15:15Z"
+        },
+        {
+          "name": "Run actions/setup-node@v7.1.0",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-10-29T03:15:15Z",
+          "completed_at": "2026-10-29T03:15:21Z"
+        },
+        {
+          "name": "Run uv sync --all-extras",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-10-29T03:15:21Z",
+          "completed_at": "2026-10-29T03:15:24Z"
+        },
+        {
+          "name": "Install real reviewer CLI",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-10-29T03:15:24Z",
+          "completed_at": "2026-10-29T03:15:31Z"
+        },
+        {
+          "name": "Exercise native startup and expected rejection",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-10-29T03:15:31Z",
+          "completed_at": "2026-10-29T03:15:32Z"
+        },
+        {
+          "name": "Upload startup evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-10-29T03:15:32Z",
+          "completed_at": "2026-10-29T03:15:34Z"
+        },
+        {
+          "name": "Post Run actions/setup-node@v7.1.0",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-10-29T03:15:34Z",
+          "completed_at": "2026-10-29T03:15:34Z"
+        },
+        {
+          "name": "Post Run astral-sh/setup-uv@v10.0.1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15,
+          "started_at": "2026-10-29T03:15:34Z",
+          "completed_at": "2026-10-29T03:15:34Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16,
+          "started_at": "2026-10-29T03:15:34Z",
+          "completed_at": "2026-10-29T03:15:36Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17,
+          "started_at": "2026-10-29T03:15:36Z",
+          "completed_at": "2026-10-29T03:15:36Z"
+        }
+      ]
+    },
+    {
+      "id": 123241233382,
+      "run_id": 40811065894,
+      "run_attempt": 1,
+      "head_sha": "b70732736e23a24e194406fcf5f314577994818d",
+      "name": "quality (3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/livingstaccato/afriend/actions/runs/40811065894/job/123241233382",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-10-29T03:15:06Z",
+          "completed_at": "2026-10-29T03:15:07Z"
+        },
+        {
+          "name": "act compat \u2014 prepare JS action runtime",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 2,
+          "started_at": "2026-10-29T03:15:07Z",
+          "completed_at": "2026-10-29T03:15:07Z"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-10-29T03:15:07Z",
+          "completed_at": "2026-10-29T03:15:08Z"
+        },
+        {
+          "name": "Run astral-sh/setup-uv@v10.0.1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-10-29T03:15:08Z",
+          "completed_at": "2026-10-29T03:15:10Z"
+        },
+        {
+          "name": "Run uv sync --all-extras",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-10-29T03:15:10Z",
+          "completed_at": "2026-10-29T03:15:12Z"
+        },
+        {
+          "name": "ruff format",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-10-29T03:15:12Z",
+          "completed_at": "2026-10-29T03:15:12Z"
+        },
+        {
+          "name": "ruff lint",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-10-29T03:15:12Z",
+          "completed_at": "2026-10-29T03:15:12Z"
+        },
+        {
+          "name": "mypy",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-10-29T03:15:12Z",
+          "completed_at": "2026-10-29T03:15:15Z"
+        },
+        {
+          "name": "max-loc",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-10-29T03:15:15Z",
+          "completed_at": "2026-10-29T03:15:15Z"
+        },
+        {
+          "name": "plugin-sync",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10,
+          "started_at": "2026-10-29T03:15:15Z",
+          "completed_at": "2026-10-29T03:15:15Z"
+        },
+        {
+          "name": "version-sync",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11,
+          "started_at": "2026-10-29T03:15:15Z",
+          "completed_at": "2026-10-29T03:15:15Z"
+        },
+        {
+          "name": "install plantuml",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12,
+          "started_at": "2026-10-29T03:15:15Z",
+          "completed_at": "2026-10-29T03:15:29Z"
+        },
+        {
+          "name": "diagrams-check",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-10-29T03:15:29Z",
+          "completed_at": "2026-10-29T03:15:31Z"
+        },
+        {
+          "name": "build wheel and verify assets",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-10-29T03:15:31Z",
+          "completed_at": "2026-10-29T03:15:32Z"
+        },
+        {
+          "name": "install wheel and run it",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15,
+          "started_at": "2026-10-29T03:15:32Z",
+          "completed_at": "2026-10-29T03:15:34Z"
+        },
+        {
+          "name": "install sandbox mechanism",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16,
+          "started_at": "2026-10-29T03:15:34Z",
+          "completed_at": "2026-10-29T03:15:35Z"
+        },
+        {
+          "name": "pytest",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17,
+          "started_at": "2026-10-29T03:15:35Z",
+          "completed_at": "2026-10-29T03:17:26Z"
+        },
+        {
+          "name": "friend-eval provenance",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 18,
+          "started_at": "2026-10-29T03:17:26Z",
+          "completed_at": "2026-10-29T03:17:26Z"
+        },
+        {
+          "name": "mutation-probe",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 19,
+          "started_at": "2026-10-29T03:17:26Z",
+          "completed_at": "2026-10-29T03:17:26Z"
+        },
+        {
+          "name": "assert containment tests ran",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 20,
+          "started_at": "2026-10-29T03:17:26Z",
+          "completed_at": "2026-10-29T03:17:27Z"
+        },
+        {
+          "name": "Post Run astral-sh/setup-uv@v10.0.1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 39,
+          "started_at": "2026-10-29T03:17:27Z",
+          "completed_at": "2026-10-29T03:17:27Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 40,
+          "started_at": "2026-10-29T03:17:27Z",
+          "completed_at": "2026-10-29T03:17:28Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 41,
+          "started_at": "2026-10-29T03:17:28Z",
+          "completed_at": "2026-10-29T03:17:28Z"
+        }
+      ]
+    },
+    {
+      "id": 123241233446,
+      "run_id": 40811065894,
+      "run_attempt": 1,
+      "head_sha": "b70732736e23a24e194406fcf5f314577994818d",
+      "name": "quality (3.13)",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/livingstaccato/afriend/actions/runs/40811065894/job/123241233446",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-10-29T03:15:06Z",
+          "completed_at": "2026-10-29T03:15:07Z"
+        },
+        {
+          "name": "act compat \u2014 prepare JS action runtime",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 2,
+          "started_at": "2026-10-29T03:15:07Z",
+          "completed_at": "2026-10-29T03:15:07Z"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-10-29T03:15:07Z",
+          "completed_at": "2026-10-29T03:15:08Z"
+        },
+        {
+          "name": "Run astral-sh/setup-uv@v10.0.1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-10-29T03:15:08Z",
+          "completed_at": "2026-10-29T03:15:10Z"
+        },
+        {
+          "name": "Run uv sync --all-extras",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-10-29T03:15:10Z",
+          "completed_at": "2026-10-29T03:15:12Z"
+        },
+        {
+          "name": "ruff format",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-10-29T03:15:12Z",
+          "completed_at": "2026-10-29T03:15:12Z"
+        },
+        {
+          "name": "ruff lint",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-10-29T03:15:12Z",
+          "completed_at": "2026-10-29T03:15:12Z"
+        },
+        {
+          "name": "mypy",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-10-29T03:15:12Z",
+          "completed_at": "2026-10-29T03:15:14Z"
+        },
+        {
+          "name": "max-loc",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-10-29T03:15:14Z",
+          "completed_at": "2026-10-29T03:15:14Z"
+        },
+        {
+          "name": "plugin-sync",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10,
+          "started_at": "2026-10-29T03:15:14Z",
+          "completed_at": "2026-10-29T03:15:14Z"
+        },
+        {
+          "name": "version-sync",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11,
+          "started_at": "2026-10-29T03:15:14Z",
+          "completed_at": "2026-10-29T03:15:14Z"
+        },
+        {
+          "name": "install plantuml",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12,
+          "started_at": "2026-10-29T03:15:14Z",
+          "completed_at": "2026-10-29T03:15:27Z"
+        },
+        {
+          "name": "diagrams-check",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-10-29T03:15:27Z",
+          "completed_at": "2026-10-29T03:15:28Z"
+        },
+        {
+          "name": "build wheel and verify assets",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-10-29T03:15:28Z",
+          "completed_at": "2026-10-29T03:15:29Z"
+        },
+        {
+          "name": "install wheel and run it",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15,
+          "started_at": "2026-10-29T03:15:29Z",
+          "completed_at": "2026-10-29T03:15:30Z"
+        },
+        {
+          "name": "install sandbox mechanism",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16,
+          "started_at": "2026-10-29T03:15:30Z",
+          "completed_at": "2026-10-29T03:15:31Z"
+        },
+        {
+          "name": "pytest",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17,
+          "started_at": "2026-10-29T03:15:31Z",
+          "completed_at": "2026-10-29T03:16:43Z"
+        },
+        {
+          "name": "friend-eval provenance",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 18,
+          "started_at": "2026-10-29T03:16:43Z",
+          "completed_at": "2026-10-29T03:16:43Z"
+        },
+        {
+          "name": "mutation-probe",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 19,
+          "started_at": "2026-10-29T03:16:43Z",
+          "completed_at": "2026-10-29T03:16:59Z"
+        },
+        {
+          "name": "assert containment tests ran",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 20,
+          "started_at": "2026-10-29T03:16:59Z",
+          "completed_at": "2026-10-29T03:17:00Z"
+        },
+        {
+          "name": "Post Run astral-sh/setup-uv@v10.0.1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 39,
+          "started_at": "2026-10-29T03:17:00Z",
+          "completed_at": "2026-10-29T03:17:00Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 40,
+          "started_at": "2026-10-29T03:17:00Z",
+          "completed_at": "2026-10-29T03:17:00Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 41,
+          "started_at": "2026-10-29T03:17:00Z",
+          "completed_at": "2026-10-29T03:17:00Z"
+        }
+      ]
+    },
+    {
+      "id": 123241233474,
+      "run_id": 40811065894,
+      "run_attempt": 1,
+      "head_sha": "b70732736e23a24e194406fcf5f314577994818d",
+      "name": "Windows startup (pi)",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/livingstaccato/afriend/actions/runs/40811065894/job/123241233474",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-10-29T03:15:06Z",
+          "completed_at": "2026-10-29T03:15:07Z"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-10-29T03:15:07Z",
+          "completed_at": "2026-10-29T03:15:13Z"
+        },
+        {
+          "name": "Run astral-sh/setup-uv@v10.0.1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-10-29T03:15:13Z",
+          "completed_at": "2026-10-29T03:15:16Z"
+        },
+        {
+          "name": "Run actions/setup-node@v7.1.0",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-10-29T03:15:16Z",
+          "completed_at": "2026-10-29T03:15:22Z"
+        },
+        {
+          "name": "Run uv sync --all-extras",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-10-29T03:15:22Z",
+          "completed_at": "2026-10-29T03:15:25Z"
+        },
+        {
+          "name": "Install real reviewer CLI",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-10-29T03:15:25Z",
+          "completed_at": "2026-10-29T03:15:45Z"
+        },
+        {
+          "name": "Exercise native startup and expected rejection",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-10-29T03:15:45Z",
+          "completed_at": "2026-10-29T03:15:47Z"
+        },
+        {
+          "name": "Upload startup evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-10-29T03:15:47Z",
+          "completed_at": "2026-10-29T03:15:48Z"
+        },
+        {
+          "name": "Post Run actions/setup-node@v7.1.0",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-10-29T03:15:48Z",
+          "completed_at": "2026-10-29T03:15:48Z"
+        },
+        {
+          "name": "Post Run astral-sh/setup-uv@v10.0.1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15,
+          "started_at": "2026-10-29T03:15:48Z",
+          "completed_at": "2026-10-29T03:15:49Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16,
+          "started_at": "2026-10-29T03:15:49Z",
+          "completed_at": "2026-10-29T03:15:51Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17,
+          "started_at": "2026-10-29T03:15:51Z",
+          "completed_at": "2026-10-29T03:15:51Z"
+        }
+      ]
+    },
+    {
+      "id": 123241233528,
+      "run_id": 40811065894,
+      "run_attempt": 1,
+      "head_sha": "b70732736e23a24e194406fcf5f314577994818d",
+      "name": "quality (3.11)",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/livingstaccato/afriend/actions/runs/40811065894/job/123241233528",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-10-29T03:15:07Z",
+          "completed_at": "2026-10-29T03:15:08Z"
+        },
+        {
+          "name": "act compat \u2014 prepare JS action runtime",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 2,
+          "started_at": "2026-10-29T03:15:08Z",
+          "completed_at": "2026-10-29T03:15:08Z"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-10-29T03:15:08Z",
+          "completed_at": "2026-10-29T03:15:09Z"
+        },
+        {
+          "name": "Run astral-sh/setup-uv@v10.0.1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-10-29T03:15:09Z",
+          "completed_at": "2026-10-29T03:15:12Z"
+        },
+        {
+          "name": "Run uv sync --all-extras",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-10-29T03:15:12Z",
+          "completed_at": "2026-10-29T03:15:14Z"
+        },
+        {
+          "name": "ruff format",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-10-29T03:15:14Z",
+          "completed_at": "2026-10-29T03:15:15Z"
+        },
+        {
+          "name": "ruff lint",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-10-29T03:15:15Z",
+          "completed_at": "2026-10-29T03:15:15Z"
+        },
+        {
+          "name": "mypy",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-10-29T03:15:15Z",
+          "completed_at": "2026-10-29T03:15:17Z"
+        },
+        {
+          "name": "max-loc",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-10-29T03:15:17Z",
+          "completed_at": "2026-10-29T03:15:17Z"
+        },
+        {
+          "name": "plugin-sync",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10,
+          "started_at": "2026-10-29T03:15:17Z",
+          "completed_at": "2026-10-29T03:15:17Z"
+        },
+        {
+          "name": "version-sync",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11,
+          "started_at": "2026-10-29T03:15:17Z",
+          "completed_at": "2026-10-29T03:15:18Z"
+        },
+        {
+          "name": "install plantuml",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12,
+          "started_at": "2026-10-29T03:15:18Z",
+          "completed_at": "2026-10-29T03:15:32Z"
+        },
+        {
+          "name": "diagrams-check",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-10-29T03:15:32Z",
+          "completed_at": "2026-10-29T03:15:34Z"
+        },
+        {
+          "name": "build wheel and verify assets",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-10-29T03:15:34Z",
+          "completed_at": "2026-10-29T03:15:35Z"
+        },
+        {
+          "name": "install wheel and run it",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15,
+          "started_at": "2026-10-29T03:15:35Z",
+          "completed_at": "2026-10-29T03:15:37Z"
+        },
+        {
+          "name": "install sandbox mechanism",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16,
+          "started_at": "2026-10-29T03:15:37Z",
+          "completed_at": "2026-10-29T03:15:38Z"
+        },
+        {
+          "name": "pytest",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17,
+          "started_at": "2026-10-29T03:15:38Z",
+          "completed_at": "2026-10-29T03:17:32Z"
+        },
+        {
+          "name": "friend-eval provenance",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 18,
+          "started_at": "2026-10-29T03:17:32Z",
+          "completed_at": "2026-10-29T03:17:32Z"
+        },
+        {
+          "name": "mutation-probe",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 19,
+          "started_at": "2026-10-29T03:17:32Z",
+          "completed_at": "2026-10-29T03:17:32Z"
+        },
+        {
+          "name": "assert containment tests ran",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 20,
+          "started_at": "2026-10-29T03:17:32Z",
+          "completed_at": "2026-10-29T03:17:32Z"
+        },
+        {
+          "name": "Post Run astral-sh/setup-uv@v10.0.1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 39,
+          "started_at": "2026-10-29T03:17:32Z",
+          "completed_at": "2026-10-29T03:17:32Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 40,
+          "started_at": "2026-10-29T03:17:32Z",
+          "completed_at": "2026-10-29T03:17:33Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 41,
+          "started_at": "2026-10-29T03:17:33Z",
+          "completed_at": "2026-10-29T03:17:33Z"
+        }
+      ]
+    },
+    {
+      "id": 123241233533,
+      "run_id": 40811065894,
+      "run_attempt": 1,
+      "head_sha": "b70732736e23a24e194406fcf5f314577994818d",
+      "name": "Windows startup (codex)",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/livingstaccato/afriend/actions/runs/40811065894/job/123241233533",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-10-29T03:15:06Z",
+          "completed_at": "2026-10-29T03:15:07Z"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-10-29T03:15:07Z",
+          "completed_at": "2026-10-29T03:15:14Z"
+        },
+        {
+          "name": "Run astral-sh/setup-uv@v10.0.1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-10-29T03:15:14Z",
+          "completed_at": "2026-10-29T03:15:16Z"
+        },
+        {
+          "name": "Run actions/setup-node@v7.1.0",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-10-29T03:15:16Z",
+          "completed_at": "2026-10-29T03:15:23Z"
+        },
+        {
+          "name": "Run uv sync --all-extras",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-10-29T03:15:23Z",
+          "completed_at": "2026-10-29T03:15:26Z"
+        },
+        {
+          "name": "Install real reviewer CLI",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-10-29T03:15:26Z",
+          "completed_at": "2026-10-29T03:15:38Z"
+        },
+        {
+          "name": "Exercise native startup and expected rejection",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-10-29T03:15:38Z",
+          "completed_at": "2026-10-29T03:15:39Z"
+        },
+        {
+          "name": "Upload startup evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-10-29T03:15:39Z",
+          "completed_at": "2026-10-29T03:15:40Z"
+        },
+        {
+          "name": "Post Run actions/setup-node@v7.1.0",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-10-29T03:15:40Z",
+          "completed_at": "2026-10-29T03:15:40Z"
+        },
+        {
+          "name": "Post Run astral-sh/setup-uv@v10.0.1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15,
+          "started_at": "2026-10-29T03:15:40Z",
+          "completed_at": "2026-10-29T03:15:41Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16,
+          "started_at": "2026-10-29T03:15:41Z",
+          "completed_at": "2026-10-29T03:15:43Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17,
+          "started_at": "2026-10-29T03:15:43Z",
+          "completed_at": "2026-10-29T03:15:43Z"
+        }
+      ]
+    }
+  ],
+  "suite_results": {
+    "quality (3.11)": {
+      "passed": 2948,
+      "skipped": 36
+    },
+    "quality (3.12)": {
+      "passed": 2948,
+      "skipped": 36,
+      "warnings": 1
+    },
+    "quality (3.13)": {
+      "passed": 2948,
+      "skipped": 36,
+      "warnings": 1
+    },
+    "windows": {
+      "passed": 2839,
+      "skipped": 145
+    }
+  },
+  "targeted_mutation": {
+    "killed": 16,
+    "survived": 0,
+    "skipped": 0
+  },
+  "historical_provenance": {
+    "required": 2,
+    "passed": 2,
+    "skipped": 0
+  },
+  "native_interpreter_regressions": [
+    "test_windows_executable_search.py::test_real_npm_shim_avoids_checkout_node[pi-False]",
+    "test_windows_executable_search.py::test_real_npm_shim_avoids_checkout_node[pi-True]",
+    "test_windows_executable_search.py::test_real_npm_shim_avoids_checkout_node[codex-False]",
+    "test_windows_executable_search.py::test_real_npm_shim_avoids_checkout_node[codex-True]",
+    "test_windows_executable_search.py::test_real_custom_shim_and_sibling_node_keep_operator_selection[True]"
+  ]
+}

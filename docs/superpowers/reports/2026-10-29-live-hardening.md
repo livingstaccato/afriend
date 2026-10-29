@@ -2,7 +2,8 @@
 
 The revised live review raised a confirmed Windows interpreter-search exposure,
 two gate-hardening issues, and documentation/evidence concerns. This record
-tracks remediation; native Windows and final hosted verification are pending.
+tracks remediation; native Windows and all eight hosted jobs passed at
+`b707327`. The live judging result remains incomplete.
 
 ## Windows npm Node search — true positive
 
@@ -24,7 +25,8 @@ environments and inherited readiness probes. It preserves explicit PATH
 entries, wrappers and sibling interpreter selection. New native tests run an
 unsafe control selecting a harmless checkout copy of real `node.exe`, then
 exercise protected inventory/probes and custom wrappers/sibling Node. They fail
-in CI if required Node is missing. Native CI must pass before this fix is proven.
+in CI if required Node is missing. All four real npm cases and the custom/sibling-interpreter case passed in
+[native CI](https://github.com/livingstaccato/afriend/actions/runs/40811065894).
 
 ## Rejection-envelope false green — reproduced and fixed
 
@@ -58,9 +60,10 @@ unseen source is wrong. Its unverified statements do not constitute refutation.
 Independent follow-up review found no concrete defect in the current fixes.
 Isolated `make quality` passed: **2,948 passed, 36 skipped**, one existing
 warning; all **16 mutants killed**, zero survivors/skips. Static, sync, diagram,
-wheel and six-distribution checks passed. Native hosted CI remains pending. The five-worker cross-examination has not yet obtained five usable
-critiques because Pi/GLM timed out and returned invalid judging output. Failed
-and cancelled runs are retained, and no combined quorum is claimed.
+wheel and six-distribution checks passed. All eight hosted CI jobs passed. The final approved five-worker roster returned
+five usable critiques, but Pi/Kimi timed out in judging and a Codex judging call
+hit model capacity. All three rounds were attempted; 13 of 15 responses were
+usable. Failed and cancelled runs are retained, and no combined quorum is claimed.
 
 ## Latest eval harness
 
@@ -89,3 +92,14 @@ cases passed, and six corrupted/missing-result variants were rejected.
 
 The [three-round live result](2026-10-29-cross-examination.md) retains five usable
 critiques and two failed judging calls; its incompleteness has not been waived.
+
+The next native run passed all four real npm unsafe-control/protection cases,
+but stopped the custom-wrapper test at a case-sensitive comparison of `pi.CMD`
+with `pi.cmd`. The assertion now uses filesystem identity (`Path.samefile`),
+preserving the interpreter and argument checks that follow it.
+
+The corrected native test passed: Windows finished with 2,839 passed / 145
+skipped. All three Linux versions finished with 2,948 passed / 36 skipped;
+the two-case provenance check and targeted 16-mutant probe passed.
+[Exact job/step evidence](2026-10-29-hosted-ci.json) and
+[real latest startup captures](2026-10-29-windows-startup.json) are retained.

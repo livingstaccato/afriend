@@ -1,0 +1,343 @@
+{
+  "workflow_run": 40811065894,
+  "source_commit": "b70732736e23a24e194406fcf5f314577994818d",
+  "scope": "Native Windows CLI startup and parser rejection; no authenticated model calls.",
+  "providers": {
+    "claude": {
+      "requested_version": "latest",
+      "installed": {
+        "name": "afriend-reviewer-cli",
+        "dependencies": {
+          "@anthropic-ai/claude-code": {
+            "version": "2.1.312",
+            "overridden": false
+          }
+        }
+      },
+      "passed": true,
+      "checks": {
+        "version": {
+          "argv": [
+            "D:\\a\\_temp\\afriend-reviewer-cli\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe",
+            "--version"
+          ],
+          "exit_code": 0,
+          "stdout": "2.1.312 (Claude Code)\n",
+          "stderr": "",
+          "timed_out": false,
+          "orphans_suspected": false,
+          "duration_s": 0.06299999999998818,
+          "failure_reason": "output contained no parseable JSON object",
+          "output_truncated": false
+        },
+        "canonical-help": {
+          "argv": [
+            "D:\\a\\_temp\\afriend-reviewer-cli\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe",
+            "--print",
+            "--output-format",
+            "json",
+            "--tools",
+            "Read,Grep,Glob",
+            "--json-schema",
+            "{\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"required\": [\n    \"no_findings\",\n    \"findings\"\n  ],\n  \"properties\": {\n    \"no_findings\": {\n      \"type\": [\n        \"boolean\",\n        \"null\"\n      ]\n    },\n    \"findings\": {\n      \"type\": [\n        \"array\",\n        \"null\"\n      ],\n      \"items\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"required\": [\n          \"severity\",\n          \"claim\",\n          \"evidence\",\n          \"failure_scenario\",\n          \"suggested_fix\",\n          \"location\"\n        ],\n        \"properties\": {\n          \"severity\": {\n            \"type\": \"string\",\n            \"enum\": [\n              \"high\",\n              \"medium\",\n              \"low\"\n            ]\n          },\n          \"claim\": {\n            \"type\": \"string\"\n          },\n          \"location\": {\n            \"type\": [\n              \"string\",\n              \"null\"\n            ]\n          },\n          \"evidence\": {\n            \"type\": \"string\"\n          },\n          \"failure_scenario\": {\n            \"type\": \"string\"\n          },\n          \"suggested_fix\": {\n            \"type\": \"string\"\n          }\n        }\n      }\n    }\n  }\n}",
+            "--safe-mode",
+            "--restricted",
+            "--strict-mcp-config",
+            "--tools",
+            "",
+            "--disable-slash-commands",
+            "--no-chrome",
+            "--help"
+          ],
+          "exit_code": 0,
+          "stdout": "Usage: claude [options] [prompt]\n\nClaude Code - starts an interactive session by default, use -p/--print for\nnon-interactive output\n\nArguments:\n  prompt                                Your prompt\n\nOptions:\n  --add-dir <directories...>            Additional directories to allow tool\n                                        access to\n  --agent <agent>                       Agent for the current session. Overrides\n                                        the 'agent' setting.\n  --agents <json-or-file>               JSON object defining custom agents, or\n                                        with --print the path to a file that\n                                        holds one (e.g. '{\"reviewer\":\n                                        {\"description\": \"Reviews code\",\n                                        \"prompt\": \"You are a code reviewer\"}}')\n  --allow-dangerously-skip-permissions  Enable bypassing all permission checks\n                                        as an option, without it being enabled\n                                        by default. Recommended only for\n                                        sandboxes with no internet access.\n  --allowedTools, --allowed-tools <tools...>\n      Comma or space-separated list of tool names to allow (e.g. \"Bash(git *)\n      Edit\")\n  --append-system-prompt <prompt>       Append a system prompt to the default\n                                        system prompt\n  --autocompact <auto|tokens>           Auto-compact window size (auto, or\n                                        100k\u20131M tokens)\n  --ax-screen-reader                    Render screen-reader friendly output\n                                        (flat text, no decorative borders or\n                                        animations).\n  --bg, --background                    Start the session in the background and\n                                        return immediately. Prints the id that\n                                        `claude attach`, `logs`, `stop` and `rm`\n                                        take; `claude agents` lists them. With\n                                        --resume <session-id>, continues that\n                                        session in the background under the same\n                                        ID, or starts a copy and says so when\n                                        the session is already running\n  --bare                                Minimal mode: skip hooks (those defined\n                                        in settings and by installed plugins;\n                                        features built into Claude Code are\n                                        unaffected), LSP, plugin sync,\n                                        attribution, auto-memory, background\n                                        prefetches, keychain reads, and\n                                        CLAUDE.md auto-discovery. Sets\n                                        CLAUDE_CODE_SIMPLE=1. Anthropic auth is\n                                        strictly ANTHROPIC_API_KEY or\n                                        apiKeyHelper via --settings (OAuth and\n                                        keychain are never read). 3P providers\n                                        (Bedrock/Vertex/Foundry) use their own\n                                        credentials. Skills still resolve via\n                                        /skill-name. Explicitly provide context\n                                        via: --system-prompt[-file],\n                                        --append-system-prompt[-file], --add-dir\n                                        (CLAUDE.md dirs), --mcp-config,\n                                        --settings, --agents, --plugin-dir.\n  --betas <betas...>                    Beta headers to include in API requests\n                                        (API key users only)\n  --brief                               Enable SendUserMessage tool for\n                                        agent-to-user communication\n  --chrome                              Enable Claude in Chrome integration\n  --cloud [description|session_id|url]  Create a cloud session with the given\n                                        description, or attach to an existing\n                                        one by session ID or claude.ai/code URL\n  -c, --continue                        Continue the most recent conversation in\n                                        the current directory\n  --dangerously-skip-permissions        Bypass all permission checks.\n                                        Recommended only for sandboxes with no\n                                        internet access.\n  -d, --debug [filter]                  Enable debug mode with optional category\n                                        filtering (e.g., --debug=hooks,mcp or\n                                        --debug='!hooks,!mcp')\n  --debug-file <path>                   Write debug logs to a specific file path\n                                        (implicitly enables debug mode)\n  --desktop                             Open in the Claude Desktop app instead\n                                        of the terminal (with --continue or\n                                        --resume <id> to pick the session)\n  --disable-slash-commands              Disable all skills and commands\n  --disallowedTools, --disallowed-tools <tools...>\n      Comma or space-separated list of tool names to deny (e.g. \"Bash(git *)\n      Edit\")\n  --effort <level>                      Effort level for the current session\n                                        (low, medium, high, xhigh, max)\n  --environment <environment_id>        Create a new cloud session that runs on\n                                        the given self-hosted environment\n                                        (ccpool_...).\n  --exclude-dynamic-system-prompt-sections\n      Move per-machine sections (cwd, env info, memory paths, git status) from\n      the system prompt into the first user message. Improves cross-user\n      prompt-cache reuse. Only applies with the default system prompt (ignored\n      with --system-prompt). (default: false)\n  --fallback-model <model>              Enable automatic fallback to specified\n                                        model(s) when the default model is\n                                        overloaded or not available. Accepts a\n                                        comma-separated list to try each in\n                                        order. Re-tries the primary at the start\n                                        of each user turn.\n  --file <specs...>                     File resources to download at startup.\n                                        Format: file_id:relative_path (e.g.,\n                                        --file file_abc:doc.txt\n                                        file_def:img.png)\n  --fork-session                        When resuming, create a new session ID\n                                        instead of reusing the original (use\n                                        with --resume or --continue)\n  --forward-subagent-text               Forward subagent text and thinking\n                                        blocks as assistant/user messages with\n                                        parent_tool_use_id set (only works with\n                                        --print and --output-format=stream-json)\n  --from-pr [value]                     Resume a session linked to a PR by PR\n                                        number/URL, or open interactive picker\n                                        with optional search term\n  -h, --help                            Display help for command\n  --ide                                 Automatically connect to IDE on startup\n                                        if exactly one valid IDE is available\n  --include-hook-events                 Include all hook lifecycle events in the\n                                        output stream (only works with\n                                        --output-format=stream-json)\n  --include-partial-messages            Include partial message chunks as they\n                                        arrive (only works with --print and\n                                        --output-format=stream-json)\n  --input-format <format>               Input format (only works with --print):\n                                        \"text\" (default), or \"stream-json\"\n                                        (realtime streaming input) (choices:\n                                        \"text\", \"stream-json\")\n  --json-schema <schema>                JSON Schema for structured output\n                                        validation (only works with --print).\n                                        Example:\n                                        {\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}},\"required\":[\"name\"]}\n  --max-budget-usd <amount>             Maximum dollar amount to spend on API\n                                        calls (only works with --print)\n  --mcp-config <configs...>             Load MCP servers from JSON files or\n                                        strings (space-separated)\n  --model <model>                       Model for the current session. Provide\n                                        an alias for the latest model (e.g.\n                                        'fable', 'opus', or 'sonnet') or a\n                                        model's full name.\n  -n, --name <name>                     Set a display name for this session\n                                        (shown in the prompt box, /resume\n                                        picker, and terminal title)\n  --no-chrome                           Disable Claude in Chrome integration\n  --no-session-persistence              Disable session persistence - sessions\n                                        will not be saved to disk and cannot be\n                                        resumed (only works with --print)\n  --output-format <format>              Output format (only works with --print):\n                                        \"text\" (default), \"json\" (single\n                                        result), or \"stream-json\" (realtime\n                                        streaming) (choices: \"text\", \"json\",\n                                        \"stream-json\")\n  --permission-mode <mode>              Permission mode to use for the session\n                                        (choices: \"acceptEdits\", \"auto\",\n                                        \"bypassPermissions\", \"manual\",\n                                        \"dontAsk\", \"plan\")\n  --permission-prompts <target>         Who answers permission prompts with\n                                        --print: \"host\" (the SDK host or\n                                        --permission-prompt-tool) or \"none\"\n                                        (nobody: anything that would prompt is\n                                        denied automatically; the permission\n                                        mode still decides everything else)\n                                        (choices: \"host\", \"none\", default:\n                                        \"host\")\n  --plugin-dir <path>                   Load a plugin from a directory or .zip\n                                        for this session only; a folder of\n                                        plugins loads each child (repeatable:\n                                        --plugin-dir A --plugin-dir B.zip)\n                                        (default: [])\n  --plugin-url <url>                    Fetch a plugin .zip from a URL for this\n                                        session only (repeatable: --plugin-url A\n                                        --plugin-url B) (default: [])\n  -p, --print                           Print response and exit (useful for\n                                        pipes). Note: The workspace trust dialog\n                                        is skipped when Claude is run in\n                                        non-interactive mode (via -p, or when\n                                        stdout is not a TTY, e.g. piped or\n                                        redirected output). Only use this in\n                                        directories you trust. Settings files\n                                        that fail validation are silently\n                                        ignored in this mode (no error dialog is\n                                        shown).\n  --prompt-suggestions [value]          Enable prompt suggestions. In print/SDK\n                                        mode, emits a prompt_suggestion message\n                                        after each turn with a predicted next\n                                        user prompt (choices: \"true\", \"false\",\n                                        \"1\", \"0\", \"yes\", \"no\", \"on\", \"off\",\n                                        preset: \"true\")\n  --remote-control [name]               Start an interactive session with Remote\n                                        Control enabled (optionally named)\n  --remote-control-session-name-prefix <prefix>\n      Prefix for auto-generated Remote Control session names (default: hostname)\n  --replay-user-messages                Re-emit user messages from stdin back on\n                                        stdout for acknowledgment (only works\n                                        with --input-format=stream-json and\n                                        --output-format=stream-json)\n  --restricted                          Restricted mode: removes the built-in\n                                        tools that run commands or code (Bash,\n                                        PowerShell and the other code-running\n                                        tools) and WebFetch unless --tools names\n                                        them, and ignores user, project and\n                                        local settings files (managed settings\n                                        and --settings still apply; add\n                                        --strict-mcp-config to skip MCP servers\n                                        too). Also confines the file tools to\n                                        the working directories (--add-dir\n                                        included), refuses bypassPermissions,\n                                        and lets only a person or the configured\n                                        permission handler approve writes to\n                                        settings, git and tool-configuration\n                                        files.\n  -r, --resume [value]                  Resume a conversation by session ID or\n                                        name, or open interactive picker with\n                                        optional search term\n  --safe-mode                           Start with all customizations\n                                        (CLAUDE.md, skills, installed plugins,\n                                        hooks, MCP servers, custom commands and\n                                        agents, output styles, workflows, custom\n                                        themes, keybindings, and more) disabled\n                                        \u2014 useful for troubleshooting a broken\n                                        configuration. Admin-managed (policy)\n                                        settings still apply. Auth, model\n                                        selection, built-in tools and plugins,\n                                        and permissions work normally. Sets\n                                        CLAUDE_CODE_SAFE_MODE=1.\n  --session-id <uuid>                   Use a specific session ID for the\n                                        conversation (must be a valid UUID)\n  --setting-sources <sources>           Comma-separated list of setting sources\n                                        to load (user, project, local).\n  --settings <file-or-json>             Path to a settings JSON file or a JSON\n                                        string to load additional settings from\n  --strict-mcp-config                   Only use MCP servers from --mcp-config,\n                                        ignoring all other MCP configurations\n  --system-prompt <prompt>              System prompt to use for the session\n  --system-prompt-snapshot <on|off>     Record the system prompt once per\n                                        conversation and reuse it verbatim on\n                                        every request and resume. on (the\n                                        default, except under --bare outside\n                                        cloud and background sessions): the\n                                        prompt is rendered on the conversation's\n                                        first request \u2014 a --system-prompt or\n                                        --append-system-prompt included \u2014 sent,\n                                        and recorded; every later request and\n                                        resume sends the record as-is, even when\n                                        a later launch passes different text,\n                                        until the conversation is compacted.\n                                        off: never record; the prompt is\n                                        rendered fresh every request (for\n                                        iterating on prompt text). (choices:\n                                        \"on\", \"off\")\n  --teleport [session]                  Resume a teleport session, optionally\n                                        specify session ID\n  --tmux                                Create a tmux session for the worktree\n                                        (requires --worktree). Uses iTerm2\n                                        native panes when available; use\n                                        --tmux=classic for traditional tmux.\n  --tools <tools...>                    Specify the list of available tools from\n                                        the built-in set. Use \"\" to disable all\n                                        tools, \"default\" to use the default set,\n                                        or specify tool names (e.g.\n                                        \"Bash,Edit,Read\").\n  --verbose                             Override verbose mode setting from\n                                        config\n  -v, --version                         Output the version number\n  -w, --worktree [name]                 Create a new git worktree for this\n                                        session (optionally specify a name)\n",
+          "stderr": "",
+          "timed_out": false,
+          "orphans_suspected": false,
+          "duration_s": 0.1560000000000059,
+          "failure_reason": "payload has neither 'findings' array nor no_findings marker",
+          "output_truncated": false
+        },
+        "invalid-value": {
+          "argv": [
+            "D:\\a\\_temp\\afriend-reviewer-cli\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe",
+            "--print",
+            "--output-format",
+            "afriend-startup-invalid",
+            "--tools",
+            "Read,Grep,Glob",
+            "--json-schema",
+            "{\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"required\": [\n    \"no_findings\",\n    \"findings\"\n  ],\n  \"properties\": {\n    \"no_findings\": {\n      \"type\": [\n        \"boolean\",\n        \"null\"\n      ]\n    },\n    \"findings\": {\n      \"type\": [\n        \"array\",\n        \"null\"\n      ],\n      \"items\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"required\": [\n          \"severity\",\n          \"claim\",\n          \"evidence\",\n          \"failure_scenario\",\n          \"suggested_fix\",\n          \"location\"\n        ],\n        \"properties\": {\n          \"severity\": {\n            \"type\": \"string\",\n            \"enum\": [\n              \"high\",\n              \"medium\",\n              \"low\"\n            ]\n          },\n          \"claim\": {\n            \"type\": \"string\"\n          },\n          \"location\": {\n            \"type\": [\n              \"string\",\n              \"null\"\n            ]\n          },\n          \"evidence\": {\n            \"type\": \"string\"\n          },\n          \"failure_scenario\": {\n            \"type\": \"string\"\n          },\n          \"suggested_fix\": {\n            \"type\": \"string\"\n          }\n        }\n      }\n    }\n  }\n}",
+            "--safe-mode",
+            "--restricted",
+            "--strict-mcp-config",
+            "--tools",
+            "",
+            "--disable-slash-commands",
+            "--no-chrome"
+          ],
+          "exit_code": 1,
+          "stdout": "",
+          "stderr": "error: option '--output-format <format>' argument 'afriend-startup-invalid' is invalid. Allowed choices are text, json, stream-json.\n",
+          "timed_out": false,
+          "orphans_suspected": false,
+          "duration_s": 0.1560000000000059,
+          "failure_reason": "exit 1",
+          "output_truncated": false
+        }
+      },
+      "startup_artifact_sha256": "005056fd754f3fcda8151ec1ca0d49eeac61b5c168ff4210eb5a29513a5363e5"
+    },
+    "codex": {
+      "requested_version": "latest",
+      "installed": {
+        "name": "afriend-reviewer-cli",
+        "dependencies": {
+          "@openai/codex": {
+            "version": "0.165.0",
+            "overridden": false
+          }
+        }
+      },
+      "passed": true,
+      "checks": {
+        "version": {
+          "argv": [
+            "D:\\a\\_temp\\afriend-reviewer-cli\\codex.CMD",
+            "--version"
+          ],
+          "exit_code": 0,
+          "stdout": "codex-cli 0.165.0\n",
+          "stderr": "",
+          "timed_out": false,
+          "orphans_suspected": false,
+          "duration_s": 0.20300000000000296,
+          "failure_reason": "output contained no parseable JSON object",
+          "output_truncated": false
+        },
+        "canonical-help": {
+          "argv": [
+            "D:\\a\\_temp\\afriend-reviewer-cli\\codex.CMD",
+            "exec",
+            "--json",
+            "--sandbox",
+            "danger-full-access",
+            "--skip-git-repo-check",
+            "--output-schema",
+            "D:\\a\\afriend\\afriend\\artifacts\\startup-codex\\work\\claim-output.schema.json",
+            "--ignore-user-config",
+            "--disable",
+            "apps",
+            "--disable",
+            "plugins",
+            "--disable",
+            "browser_use",
+            "--disable",
+            "browser_use_external",
+            "--disable",
+            "computer_use",
+            "--disable",
+            "in_app_browser",
+            "--disable",
+            "standalone_web_search",
+            "--help"
+          ],
+          "exit_code": 0,
+          "stdout": "Run Codex non-interactively\n\nUsage: codex exec [OPTIONS] [PROMPT]\n       codex exec [OPTIONS] <COMMAND> [ARGS]\n\nCommands:\n  resume  Resume a previous session by id or pick the most recent with --last\n  fork    Fork a previous session by id into a new session\n  review  Run a code review against the current repository\n  help    Print this message or the help of the given subcommand(s)\n\nArguments:\n  [PROMPT]\n          Initial instructions for the agent. If not provided as an argument (or if `-` is used),\n          instructions are read from stdin. If stdin is piped and a prompt is also provided, stdin\n          is appended as a `<stdin>` block\n\nOptions:\n  -c, --config <key=value>\n          Override a configuration value that would otherwise be loaded from `~/.codex/config.toml`.\n          Use a dotted path (`foo.bar.baz`) to override nested values. The `value` portion is parsed\n          as TOML. If it fails to parse as TOML, the raw string is used as a literal.\n          \n          Examples: - `-c model=\"o3\"` - `-c 'sandbox_permissions=[\"disk-full-read-access\"]'` - `-c\n          shell_environment_policy.inherit=all`\n\n      --enable <FEATURE>\n          Enable a feature (repeatable). Equivalent to `-c features.<name>=true`\n\n      --disable <FEATURE>\n          Disable a feature (repeatable). Equivalent to `-c features.<name>=false`\n\n      --strict-config\n          Error out when config.toml contains fields that are not recognized by this version of\n          Codex\n\n  -i, --image <FILE>...\n          Optional image(s) to attach to the initial prompt\n\n  -m, --model <MODEL>\n          Model the agent should use\n\n      --oss\n          Use open-source provider\n\n      --local-provider <OSS_PROVIDER>\n          Specify which local provider to use (lmstudio or ollama). If not specified with --oss,\n          will use config default or show selection\n\n  -p, --profile <CONFIG_PROFILE_V2>\n          Layer $CODEX_HOME/<name>.config.toml on top of the base user config\n\n  -s, --sandbox <SANDBOX_MODE>\n          Select the sandbox policy to use when executing model-generated shell commands\n          \n          [possible values: read-only, workspace-write, danger-full-access]\n\n      --approve-for-me\n          Route approval requests through automatic review using the workspace-write sandbox\n\n      --dangerously-bypass-approvals-and-sandbox\n          Skip all confirmation prompts and execute commands without sandboxing. EXTREMELY\n          DANGEROUS. Intended solely for running in environments that are externally sandboxed\n\n      --dangerously-bypass-hook-trust\n          Run enabled hooks without requiring persisted hook trust for this invocation. DANGEROUS.\n          Intended only for automation that already vets hook sources\n\n  -C, --cd <DIR>\n          Tell the agent to use the specified directory as its working root\n\n      --worktree\n          Run the session in a new managed Git worktree\n\n      --add-dir <DIR>\n          Additional directories that should be writable alongside the primary workspace\n\n      --thread-source <SOURCE>\n          Source classification for newly created or forked threads\n\n      --cyber-access-program <PROGRAM>\n          Request an experimental Cyber access program for this turn (OpenAI provider only). Omit to\n          use server defaults. Not supported with review; fork requires a prompt\n          \n          [possible values: standard, daybreak_blue, daybreak_red]\n\n      --skip-git-repo-check\n          Allow running Codex outside a Git repository\n\n      --ephemeral\n          Run without persisting session files to disk\n\n      --ignore-user-config\n          Do not load `$CODEX_HOME/config.toml`; auth still uses `CODEX_HOME`\n\n      --ignore-rules\n          Do not load user or project execpolicy `.rules` files\n\n      --output-schema <FILE>\n          Path to a JSON Schema file describing the model's final response shape\n\n      --color <COLOR>\n          Specifies color settings for use in the output\n          \n          [default: auto]\n          [possible values: always, never, auto]\n\n      --json\n          Print events to stdout as JSONL\n\n  -o, --output-last-message <FILE>\n          Specifies file where the last message from the agent should be written\n\n  -h, --help\n          Print help (see a summary with '-h')\n\n  -V, --version\n          Print version\n",
+          "stderr": "",
+          "timed_out": false,
+          "orphans_suspected": false,
+          "duration_s": 0.10899999999998045,
+          "failure_reason": "output contained no parseable JSON object",
+          "output_truncated": false
+        },
+        "invalid-value": {
+          "argv": [
+            "D:\\a\\_temp\\afriend-reviewer-cli\\codex.CMD",
+            "exec",
+            "--json",
+            "--sandbox",
+            "afriend-startup-invalid",
+            "--skip-git-repo-check",
+            "--output-schema",
+            "D:\\a\\afriend\\afriend\\artifacts\\startup-codex\\work\\claim-output.schema.json",
+            "--ignore-user-config",
+            "--disable",
+            "apps",
+            "--disable",
+            "plugins",
+            "--disable",
+            "browser_use",
+            "--disable",
+            "browser_use_external",
+            "--disable",
+            "computer_use",
+            "--disable",
+            "in_app_browser",
+            "--disable",
+            "standalone_web_search"
+          ],
+          "exit_code": 2,
+          "stdout": "",
+          "stderr": "error: invalid value 'afriend-startup-invalid' for '--sandbox <SANDBOX_MODE>'\n  [possible values: read-only, workspace-write, danger-full-access]\n\nFor more information, try '--help'.\n",
+          "timed_out": false,
+          "orphans_suspected": false,
+          "duration_s": 0.1570000000000107,
+          "failure_reason": "exit 2",
+          "output_truncated": false
+        }
+      },
+      "startup_artifact_sha256": "9df448ceacc84941c36ccc1c5a8a37a617ff48f28069e498ce305d5487afde11"
+    },
+    "opencode": {
+      "requested_version": "latest",
+      "installed": {
+        "name": "afriend-reviewer-cli",
+        "dependencies": {
+          "@opencode/cli": {
+            "version": "2.2.0",
+            "overridden": false
+          }
+        }
+      },
+      "passed": true,
+      "checks": {
+        "version": {
+          "argv": [
+            "D:\\a\\_temp\\afriend-reviewer-cli\\node_modules\\@opencode\\cli\\bin\\opencode.exe",
+            "--version"
+          ],
+          "exit_code": 0,
+          "stdout": "opencode v2.2.0\n",
+          "stderr": "",
+          "timed_out": false,
+          "orphans_suspected": false,
+          "duration_s": 0.15699999999998226,
+          "failure_reason": "output contained no parseable JSON object",
+          "output_truncated": false
+        },
+        "canonical-help": {
+          "argv": [
+            "D:\\a\\_temp\\afriend-reviewer-cli\\node_modules\\@opencode\\cli\\bin\\opencode.exe",
+            "run",
+            "--standalone",
+            "--format",
+            "json",
+            "--help"
+          ],
+          "exit_code": 0,
+          "stdout": "DESCRIPTION\n  Run OpenCode with a message\n\nUSAGE\n  opencode run [flags] [<message...>]\n\nARGUMENTS\n  message... string    Message to send (optional)\n\nFLAGS\n  --continue, -c          Continue the last session\n  --session, -s string    Session ID to continue, or to create if it does not exist\n  --fork                  Fork the session before continuing\n  --model, -m string      Model to use in the format provider/model#variant\n  --agent string          Agent to use\n  --format choice         Output format (choices: default, json)\n  --file, -f string       File to attach to the message\n  --title string          Session title\n  --thinking              Show thinking blocks\n  --auto                  Auto-approve permissions that are not explicitly denied\n\nGLOBAL FLAGS\n  --help, -h                                                          Show help information\n  --version, -v                                                       Show version information\n  --wizard                                                            Start wizard mode for a command\n  --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)\n  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)\n  --print-logs                                                        Print logs to stderr (server logs require --standalone)\n  --standalone                                                        Run with a private server instead of the background service\n  --server string                                                     Connect to a server URL instead of the background service\n",
+          "stderr": "",
+          "timed_out": false,
+          "orphans_suspected": false,
+          "duration_s": 0.20299999999997453,
+          "failure_reason": "output contained no parseable JSON object",
+          "output_truncated": false
+        },
+        "invalid-value": {
+          "argv": [
+            "D:\\a\\_temp\\afriend-reviewer-cli\\node_modules\\@opencode\\cli\\bin\\opencode.exe",
+            "run",
+            "--standalone",
+            "--format",
+            "afriend-startup-invalid"
+          ],
+          "exit_code": 1,
+          "stdout": "DESCRIPTION\n  Run OpenCode with a message\n\nUSAGE\n  opencode run [flags] [<message...>]\n\nARGUMENTS\n  message... string    Message to send (optional)\n\nFLAGS\n  --continue, -c          Continue the last session\n  --session, -s string    Session ID to continue, or to create if it does not exist\n  --fork                  Fork the session before continuing\n  --model, -m string      Model to use in the format provider/model#variant\n  --agent string          Agent to use\n  --format choice         Output format (choices: default, json)\n  --file, -f string       File to attach to the message\n  --title string          Session title\n  --thinking              Show thinking blocks\n  --auto                  Auto-approve permissions that are not explicitly denied\n\nGLOBAL FLAGS\n  --help, -h                                                          Show help information\n  --version, -v                                                       Show version information\n  --wizard                                                            Start wizard mode for a command\n  --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)\n  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)\n  --print-logs                                                        Print logs to stderr (server logs require --standalone)\n  --standalone                                                        Run with a private server instead of the background service\n  --server string                                                     Connect to a server URL instead of the background service\n",
+          "stderr": "\nERROR\n  Invalid value for flag --format: \"afriend-startup-invalid\". Expected: \"default\" | \"json\"\n",
+          "timed_out": false,
+          "orphans_suspected": false,
+          "duration_s": 0.1560000000000059,
+          "failure_reason": "exit 1",
+          "output_truncated": false
+        }
+      },
+      "startup_artifact_sha256": "bae0650e620c0c4831159c990b5cf80ceaead03a3b0cb24bc9c1a5520358119c"
+    },
+    "pi": {
+      "requested_version": "latest",
+      "installed": {
+        "name": "afriend-reviewer-cli",
+        "dependencies": {
+          "@earendil-works/pi-coding-agent": {
+            "version": "1.4.0",
+            "overridden": false
+          }
+        }
+      },
+      "passed": true,
+      "checks": {
+        "version": {
+          "argv": [
+            "D:\\a\\_temp\\afriend-reviewer-cli\\pi.CMD",
+            "--version"
+          ],
+          "exit_code": 0,
+          "stdout": "1.4.0\n",
+          "stderr": "",
+          "timed_out": false,
+          "orphans_suspected": false,
+          "duration_s": 0.5620000000000118,
+          "failure_reason": "output contained no parseable JSON object",
+          "output_truncated": false
+        },
+        "canonical-help": {
+          "argv": [
+            "D:\\a\\_temp\\afriend-reviewer-cli\\pi.CMD",
+            "--print",
+            "--mode",
+            "json",
+            "--no-session",
+            "--offline",
+            "--no-approve",
+            "--tools",
+            "read,grep,find,ls",
+            "--no-extensions",
+            "--no-mcp",
+            "--no-skills",
+            "--no-prompt-templates",
+            "--no-themes",
+            "--no-context-files",
+            "--help"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": "pi - AI coding assistant with read, bash, edit, write tools\n\nUsage:\n  pi [options] [--] [@files...] [messages...]\n\nCommands:\n  pi install <source> [-l]     Install extension source and add to settings\n  pi remove <source> [-l]      Remove extension source from settings\n  pi uninstall <source> [-l]   Alias for remove\n  pi update [source|self|pi]   Update pi, extensions, or model catalogs\n  pi list                      List installed extensions from settings\n  pi config [-l]               Open TUI to enable/disable package resources (Tab switches scope)\n  pi auth <command>            Print credentials or check provider readiness\n  pi mcp <command>             Check MCP servers, sign in to or out of OAuth servers\n  pi <command> --help          Show help for install/remove/uninstall/update/list/config/auth/mcp\n\nOptions:\n  --provider <name>              Provider to search for --model (requires --model)\n  --model <pattern>              Model pattern or ID (supports \"provider/id\" and optional \":<thinking>\")\n  --api-key <key>                API key (defaults to env vars)\n  --system-prompt <text>         System prompt (default: coding assistant prompt)\n  --append-system-prompt <text>  Append text or file contents to the system prompt (can be used multiple times)\n  --mode <mode>                  Output mode: text (default), json, or rpc\n  --print, -p                    Non-interactive mode: process prompt and exit\n  --continue, -c                 Continue previous session\n  --resume, -r                   Select a session to resume\n  --session <path|id>            Use specific session file or partial UUID\n  --session-id <id>              Use exact project session ID, creating it if missing\n  --fork <path|id>               Fork specific session file or partial UUID into a new session\n  --session-dir <dir>            Directory for session storage and lookup\n  --no-session                   Don't save session (ephemeral)\n  --name, -n <name>              Set session display name\n  --models <patterns>            Comma-separated model patterns for Ctrl+P cycling\n                                 Supports globs (anthropic/*, *sonnet*) and fuzzy matching\n  --no-tools, -nt                Disable all tools by default (built-in and extension)\n  --no-builtin-tools, -nbt       Disable built-in tools by default but keep extension/custom tools enabled\n  --tools, -t <tools>            Comma-separated allowlist of tool names or patterns (*) to enable\n                                 Keeps MCP tools unless an entry starts with mcp__\n                                 Only +name/-name entries add to or remove from the defaults\n  --exclude-tools, -xt <tools>   Comma-separated denylist of tool names or patterns (*) to disable\n                                 Applies to all tools, MCP tools included\n  --thinking <level>             Set thinking level: off, minimal, low, medium, high, xhigh, max\n  --extension, -e <path>         Load an extension file or builtin:<name> (can be used multiple times)\n  --no-extensions, -ne           Disable extension discovery and built-in extensions (explicit -e paths still work)\n  --no-mcp                       Disable built-in MCP support: no servers connect and no MCP tools\n  --skill <path>                 Load a skill file or directory (can be used multiple times)\n  --no-skills, -ns               Disable skills discovery and loading\n  --prompt-template <path>       Load a prompt template file or directory (can be used multiple times)\n  --no-prompt-templates, -np     Disable prompt template discovery and loading\n  --theme <path>                 Load a theme file or directory (can be used multiple times)\n  --use-theme <name[/name]>      Set the initial interactive theme for this run\n  --no-themes                    Disable theme discovery and loading\n  --no-context-files, -nc        Disable AGENTS.md and CLAUDE.md discovery and loading\n  --export <file>                Export session file to HTML and exit\n  --list-models [search]         List available models (with optional fuzzy search)\n  --verbose                      Force verbose startup (overrides quietStartup setting)\n  --tui-mode <mode>              TUI mode: fullscreen (default) or regular\n  --approve, -a                  Trust project-local files for this run\n  --no-approve, -na              Ignore project-local files for this run\n  --offline                      Disable startup network operations (same as PI_OFFLINE=1)\n  --                             End option parsing; treat remaining arguments as messages/files\n  --help, -h                     Show this help\n  --version, -v                  Show version number\n\nExtensions can register additional flags (e.g., --plan from plan-mode extension).\n\nExamples:\n  # Print a provider API key for an external client\n  pi auth print-api-key --provider openai\n\n  # Print an OAuth bearer token for an external client (refreshes if expired)\n  pi auth print-bearer-token --provider openai-codex\n\n  # Interactive mode\n  pi\n\n  # Interactive mode with initial prompt\n  pi \"List all .ts files in src/\"\n\n  # Include files in initial message\n  pi @prompt.md @image.png \"What color is the sky?\"\n\n  # Non-interactive mode (process and exit)\n  pi -p \"List all .ts files in src/\"\n\n  # Prompt beginning with a dash\n  pi -p -- \"- Summarize these points\"\n\n  # Multiple messages (interactive)\n  pi \"Read package.json\" \"What dependencies do we have?\"\n\n  # Continue previous session\n  pi --continue \"What did we discuss?\"\n\n  # Start a named session\n  pi --name \"Refactor auth module\"\n\n  # Use different model\n  pi --provider openai --model gpt-4o-mini \"Help me refactor this code\"\n\n  # Use model with provider prefix (no --provider needed)\n  pi --model openai/gpt-4o \"Help me refactor this code\"\n\n  # Use model with thinking level shorthand\n  pi --model sonnet:high \"Solve this complex problem\"\n\n  # Limit model cycling to specific models\n  pi --models claude-sonnet,claude-haiku,gpt-4o\n\n  # Limit to a specific provider with glob pattern\n  pi --models \"github-copilot/*\"\n\n  # Cycle models with fixed thinking levels\n  pi --models sonnet:high,haiku:low\n\n  # Start with a specific thinking level\n  pi --thinking high \"Solve this complex problem\"\n\n  # Read-only mode (no file modifications possible)\n  pi --tools read,grep,find,ls -p \"Review the code in src/\"\n\n  # Add codemode to the default tools\n  pi --tools +codemode\n\n  # Codemode with only the tools of one MCP server\n  pi --tools read,bash,codemode,'mcp__radius__*'\n\n  # Disable one tool while keeping the rest available\n  pi --exclude-tools ask_question\n\n  # Export a session file to HTML\n  pi --export ~/.pi/agent/sessions/--path--/session.jsonl\n  pi --export session.jsonl output.html\n\nEnvironment Variables:\n  ANTHROPIC_AUTH_TOKEN             - Anthropic bearer auth token\n  ANTHROPIC_API_KEY                - Anthropic Claude API key\n  ANTHROPIC_OAUTH_TOKEN            - Anthropic OAuth token (alternative to API key)\n  ANT_LING_API_KEY                 - Ant Ling API key\n  OPENAI_API_KEY                   - OpenAI GPT API key\n  AZURE_OPENAI_API_KEY             - Azure OpenAI API key\n  AZURE_OPENAI_BASE_URL            - Azure OpenAI/Cognitive Services base URL (e.g. https://{resource}.openai.azure.com)\n  AZURE_OPENAI_RESOURCE_NAME       - Azure OpenAI resource name (alternative to base URL)\n  AZURE_OPENAI_API_VERSION         - Azure OpenAI API version (default: v1)\n  AZURE_OPENAI_DEPLOYMENT_NAME_MAP - Azure OpenAI model=deployment map (comma-separated)\n  DEEPSEEK_API_KEY                 - DeepSeek API key\n  NVIDIA_API_KEY                   - NVIDIA NIM API key\n  GEMINI_API_KEY                   - Google Gemini API key\n  GROQ_API_KEY                     - Groq API key\n  CEREBRAS_API_KEY                 - Cerebras API key\n  XAI_API_KEY                      - xAI Grok API key\n  FIREWORKS_API_KEY                - Fireworks API key\n  TOGETHER_API_KEY                 - Together AI API key\n  BASETEN_API_KEY                  - Baseten API key\n  OPENROUTER_API_KEY               - OpenRouter API key\n  AI_GATEWAY_API_KEY               - Vercel AI Gateway API key\n  ZAI_API_KEY                      - ZAI Coding Plan API key (Global)\n  ZAI_CODING_CN_API_KEY            - ZAI Coding Plan API key (China)\n  MISTRAL_API_KEY                  - Mistral API key\n  MINIMAX_API_KEY                  - MiniMax API key\n  MOONSHOT_API_KEY                 - Moonshot AI API key\n  OPENCODE_API_KEY                 - OpenCode Zen/OpenCode Go API key\n  KIMI_API_KEY                     - Kimi For Coding API key\n  META_API_KEY                     - Meta Model API key\n  CLOUDFLARE_API_KEY               - Cloudflare API token (Workers AI and AI Gateway)\n  CLOUDFLARE_ACCOUNT_ID            - Cloudflare account id (required for both)\n  CLOUDFLARE_GATEWAY_ID            - Cloudflare AI Gateway slug (required for AI Gateway)\n  QWEN_TOKEN_PLAN_API_KEY          - Qwen Token Plan API key (international region)\n  QWEN_TOKEN_PLAN_CN_API_KEY       - Qwen Token Plan API key (China region)\n  XIAOMI_API_KEY                   - Xiaomi MiMo API key (api.xiaomimimo.com billing)\n  XIAOMI_TOKEN_PLAN_CN_API_KEY     - Xiaomi MiMo Token Plan API key (China region)\n  XIAOMI_TOKEN_PLAN_AMS_API_KEY    - Xiaomi MiMo Token Plan API key (Amsterdam region)\n  XIAOMI_TOKEN_PLAN_SGP_API_KEY    - Xiaomi MiMo Token Plan API key (Singapore region)\n  AWS_PROFILE                      - AWS profile for Amazon Bedrock\n  AWS_ACCESS_KEY_ID                - AWS access key for Amazon Bedrock\n  AWS_SECRET_ACCESS_KEY            - AWS secret key for Amazon Bedrock\n  AWS_BEARER_TOKEN_BEDROCK         - Bedrock API key (bearer token)\n  AWS_REGION                       - AWS region for Amazon Bedrock (e.g., us-east-1)\n  PI_CODING_AGENT_DIR              - Config directory (default: ~/.pi/agent)\n  PI_CODING_AGENT_SESSION_DIR      - Session storage directory (overridden by --session-dir)\n  PI_PACKAGE_DIR                   - Override package directory (for Nix/Guix store paths)\n  PI_OFFLINE                       - Disable startup network operations when set to 1/true/yes\n  PI_TELEMETRY                     - Override install telemetry when set to 1/true/yes or 0/false/no\n  PI_SHARE_VIEWER_URL              - Base URL for /share command (default: https://pi.dev/session/)\n\nBuilt-in Tool Names:\n  read       - Read file contents\n  bash       - Execute bash commands\n  powershell - Execute PowerShell commands on Windows\n  edit       - Edit files with find/replace\n  write      - Write files (creates/overwrites)\n  grep       - Search file contents (read-only, off by default)\n  find       - Find files by glob pattern (read-only, off by default)\n  ls         - List directory contents (read-only, off by default)\n\n",
+          "timed_out": false,
+          "orphans_suspected": false,
+          "duration_s": 0.40699999999998226,
+          "failure_reason": "output contained no parseable JSON object",
+          "output_truncated": false
+        },
+        "invalid-value": {
+          "argv": [
+            "D:\\a\\_temp\\afriend-reviewer-cli\\pi.CMD",
+            "--print",
+            "--mode",
+            "afriend-startup-invalid",
+            "--no-session",
+            "--offline",
+            "--no-approve",
+            "--tools",
+            "read,grep,find,ls",
+            "--no-extensions",
+            "--no-mcp",
+            "--no-skills",
+            "--no-prompt-templates",
+            "--no-themes",
+            "--no-context-files"
+          ],
+          "exit_code": 1,
+          "stdout": "",
+          "stderr": "Error: Invalid mode \"afriend-startup-invalid\". Valid values: text, json, rpc\n",
+          "timed_out": false,
+          "orphans_suspected": false,
+          "duration_s": 0.3590000000000373,
+          "failure_reason": "exit 1",
+          "output_truncated": false
+        }
+      },
+      "startup_artifact_sha256": "562e2a5ff16d7a285fb401a9ff7797f776bdab814de0d5b9455d8207314c1aad"
+    }
+  }
+}
