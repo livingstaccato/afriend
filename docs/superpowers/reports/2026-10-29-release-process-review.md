@@ -2,9 +2,13 @@
 
 The review below records the original findings at `75ba1f8`; its open-finding
 status and statement that no changes were made describe that review only.
-The current candidate implements all five fixes. Integrated `make quality` passed: **2,909 passed, 31 skipped**, one existing
+The current candidate implements all five fixes. Integrated `make quality` passed: **2,913 passed, 31 skipped**, one existing
 warning; all16 mutants killed, zero survivors/skips. Static, diagram, wheel and
-isolated six-distribution checks passed. Hosted CI is pending.
+isolated six-distribution checks passed. Hosted CI remains pending for the final fix. Initial candidate `0c8fdef` passed
+all three Linux jobs (including mutation/containment) and four real Windows
+startup jobs; the Windows unit suite exposed CRLF diagnostic matching failures.
+Four explicit CRLF subprocess cases reproduced failure locally before matching
+normalization was added; original captured output remains unmodified.
 
 | Finding | Implemented remediation | Regression evidence |
 | --- | --- | --- |
@@ -20,7 +24,7 @@ after it; the reviewer reran the actual Node exception and confirmed rejection.
 All four captured valid provider diagnostics remain accepted. The real sandbox
 gate passed; actual all-skipped and deselected fault injections now exit1.
 Read-only GitHub verification rejected this PR commit because it has no main
-push run. Evidence: `/tmp/afriend-process-remediation-quality.log`,
+push run. Evidence: `/tmp/afriend-process-crlf-quality.log`,
 `/tmp/afriend-process-real-containment.log`,
 `/tmp/afriend-process-all-skipped-rejected.log`, and
 `/tmp/afriend-process-deselected.log`.

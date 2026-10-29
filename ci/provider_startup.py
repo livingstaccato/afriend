@@ -46,7 +46,9 @@ def check_launch(
         "failure_reason": result.failure_reason,
         "output_truncated": result.output_truncated,
     }
-    text = result.stdout + result.stderr
+    # Match diagnostics consistently across native LF and Windows CRLF output;
+    # keep the original streams above for exact artifact evidence.
+    text = (result.stdout + result.stderr).replace("\r\n", "\n")
     failed = (
         result.timed_out
         or result.output_truncated

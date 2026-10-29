@@ -2,7 +2,7 @@
 
 A subsequent adversarial process audit found five release-enforcement gaps.
 All five are addressed in the current remediation candidate. Integrated local
-`make quality` passed: **2,909 passed, 31 skipped**, one existing warning, and
+`make quality` passed: **2,913 passed, 31 skipped**, one existing warning, and
 **16 mutation probes killed, zero survivors/skips**. All portable static, diagram,
 package and isolated-install gates passed. Hosted CI for this candidate is pending. The earlier measurements below
 remain historical evidence, not clearance of the revised release process. See

@@ -53,13 +53,15 @@ REJECTIONS = [
 ]
 
 
+@pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
 @pytest.mark.parametrize("provider,exit_code,stderr", REJECTIONS)
 def test_expected_rejection_accepts_measured_provider_diagnostic(
-    tmp_path, provider, exit_code, stderr
+    tmp_path, provider, exit_code, stderr, newline
 ):
+    stderr = stderr.replace("\n", newline)
     result = launch(
         tmp_path,
-        f"import sys; sys.stderr.write({stderr!r}); sys.exit({exit_code})",
+        f"import sys; sys.stderr.buffer.write({stderr.encode()!r}); sys.exit({exit_code})",
         expected="rejection",
         diagnostic_regex=MODULE.PROVIDERS[provider]["rejection_regex"],
     )

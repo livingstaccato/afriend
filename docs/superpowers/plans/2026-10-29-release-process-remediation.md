@@ -26,7 +26,7 @@ integration, documentation, and real local publication-retry simulations.
 No agent or coordinator may publish, tag, merge, change publisher policy or
 forward model credentials as part of this remediation.
 
-Local quality passed: 2,909 tests passed,31 skipped; all16 mutation probes killed.
+Local quality passed: 2,913 tests passed,31 skipped; all16 mutation probes killed.
 Independent integrated review finding (Node crash) repaired and reverified.
-Documentation and changelog reconciled; version remains0.13.0,2,940 collected
+Documentation and changelog reconciled; version remains0.13.0,2,944 collected
 tests. Final checklist stays open until the pushed commit completes hosted CI.
