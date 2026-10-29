@@ -40,6 +40,16 @@ The gate exposed a Windows npm-shim quoting bug: recognized native Claude and
 OpenCode targets now launch directly, preserving inline JSON arguments.
 
 
+**Release gates now verify evidence and recover interrupted uploads.** Production
+release builds and each approved publication job require successful main CI for
+the exact tagged commit, including the full mutation probe. Named real
+containment cases must pass every pytest phase; startup rejection requires the
+provider-specific parser diagnostic. Canonical and alias uploads have separate
+jobs, and retries verify existing SHA256 hashes against the original run
+artifacts before staging only missing files. TestPyPI uses the same recovery
+check. Real Twine loopback tests cover interrupted uploads and hash mismatches.
+
+
 **Final answer precedence follows event order.** JSON fences in an earlier
 progress answer can no longer override a later bare answer, including replacing
 real findings with a stale clean result. Malformed wrapped answers retain their

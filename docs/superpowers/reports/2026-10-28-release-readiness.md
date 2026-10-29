@@ -1,5 +1,16 @@
 # afriend 0.13.0 release audit
 
+A subsequent adversarial process audit found five release-enforcement gaps.
+All five are addressed in the current remediation candidate. Integrated local
+`make quality` passed: **2,909 passed, 31 skipped**, one existing warning, and
+**16 mutation probes killed, zero survivors/skips**. All portable static, diagram,
+package and isolated-install gates passed. Hosted CI for this candidate is pending. The earlier measurements below
+remain historical evidence, not clearance of the revised release process. See
+[process review](2026-10-29-release-process-review.md) and the
+[release procedure](../../release-process.md). No publication has been performed.
+
+## Earlier implementation verification
+
 The implementation through `960ffc3` is verified for review and merge under the
 agreed startup/rejection validation scope. PR #9 remains draft and mergeable.
 It has not been merged, tagged or published; this audit does not authorize those

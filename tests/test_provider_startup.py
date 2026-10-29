@@ -24,15 +24,126 @@ def test_startup_records_actual_child_output(tmp_path):
     assert result["stdout"].splitlines() == ["startup version 1.2.3"]
 
 
-def test_expected_rejection_requires_the_declared_diagnostic(tmp_path):
+# Diagnostic lines captured from real Windows CLI startup probes (2026-10-28).
+REJECTIONS = [
+    (
+        "claude",
+        1,
+        "error: option '--output-format <format>' argument 'afriend-startup-invalid' "
+        "is invalid. Allowed choices are text, json, stream-json.\n",
+    ),
+    (
+        "codex",
+        2,
+        "error: invalid value 'afriend-startup-invalid' for '--sandbox <SANDBOX_MODE>'\n"
+        "  [possible values: read-only, workspace-write, danger-full-access]\n"
+        "\nFor more information, try '--help'.\n",
+    ),
+    (
+        "opencode",
+        1,
+        '\nERROR\n  Invalid value for flag --format: "afriend-startup-invalid". '
+        'Expected: "default" | "json"\n',
+    ),
+    (
+        "pi",
+        1,
+        'Error: Invalid mode "afriend-startup-invalid". Valid values: text, json, rpc\n',
+    ),
+]
+
+
+@pytest.mark.parametrize("provider,exit_code,stderr", REJECTIONS)
+def test_expected_rejection_accepts_measured_provider_diagnostic(
+    tmp_path, provider, exit_code, stderr
+):
     result = launch(
         tmp_path,
-        "import sys; print('invalid choice: afriend-invalid', file=sys.stderr); sys.exit(2)",
+        f"import sys; sys.stderr.write({stderr!r}); sys.exit({exit_code})",
         expected="rejection",
-        diagnostic="afriend-invalid",
+        diagnostic_regex=MODULE.PROVIDERS[provider]["rejection_regex"],
     )
-    assert result["exit_code"] == 2
-    assert "afriend-invalid" in result["stderr"]
+    assert result["exit_code"] == exit_code
+    assert result["stderr"] == stderr
+
+
+@pytest.mark.parametrize(
+    "provider,text",
+    [
+        ("claude", "error: invalid value afriend-startup-invalid for --model"),
+        ("codex", "error: invalid value 'afriend-startup-invalid' for '--model <MODEL>'"),
+        ("opencode", 'Invalid value for flag --model: "afriend-startup-invalid".'),
+        ("pi", 'Error: Invalid model "afriend-startup-invalid". Valid values: text, json, rpc'),
+        ("pi", "argv: --mode afriend-startup-invalid\nError: no credentials"),
+        ("codex", "--sandbox <SANDBOX_MODE>\n[examples: afriend-startup-invalid]"),
+        (
+            "claude",
+            "afriend-startup-invalid\nerror: option '--output-format <format>' "
+            "argument 'other' is invalid. Allowed choices are text, json, stream-json.",
+        ),
+    ],
+)
+def test_unrelated_or_misleading_diagnostics_fail_the_gate(tmp_path, provider, text):
+    with pytest.raises(MODULE.StartupFailure):
+        launch(
+            tmp_path,
+            f"import sys; sys.stderr.write({text!r}); sys.exit(1)",
+            expected="rejection",
+            diagnostic_regex=MODULE.PROVIDERS[provider]["rejection_regex"],
+        )
+
+
+@pytest.mark.parametrize("provider,exit_code,stderr", REJECTIONS)
+def test_valid_diagnostic_followed_by_unhandled_crash_fails(tmp_path, provider, exit_code, stderr):
+    with pytest.raises(MODULE.StartupFailure):
+        launch(
+            tmp_path,
+            f"import sys; sys.stderr.write({stderr!r}); raise RuntimeError('startup failed')",
+            expected="rejection",
+            diagnostic_regex=MODULE.PROVIDERS[provider]["rejection_regex"],
+        )
+
+
+@pytest.mark.parametrize(
+    "stack",
+    [
+        "    at [eval]:1:7\n    at node:internal/main/eval_string:74:3\n\nNode.js v22.0.0\n",
+        "----- Native stack trace -----\n 1: 00007FF612345678 node::Abort()\n",
+        "thread 'main' panicked at src/main.rs:42:5:\nstack backtrace:\n",
+    ],
+)
+def test_matching_diagnostic_with_unhandled_stack_fails(tmp_path, stack):
+    stderr = (
+        'Error: Invalid mode "afriend-startup-invalid". Valid values: text, json, rpc\n' + stack
+    )
+    with pytest.raises(MODULE.StartupFailure):
+        launch(
+            tmp_path,
+            f"import sys; sys.stderr.write({stderr!r}); sys.exit(1)",
+            expected="rejection",
+            diagnostic_regex=MODULE.PROVIDERS["pi"]["rejection_regex"],
+        )
+
+
+def test_real_node_unhandled_enum_error_is_not_a_parser_rejection(tmp_path):
+    from afriend.execresolve import safe_which
+
+    node = safe_which("node")
+    if node is None:
+        pytest.skip("Node.js is not installed")
+    with pytest.raises(MODULE.StartupFailure):
+        MODULE.check_launch(
+            [
+                node,
+                "-e",
+                'throw new Error(\'Invalid mode "afriend-startup-invalid". '
+                "Valid values: text, json, rpc')",
+            ],
+            tmp_path,
+            dict(os.environ),
+            expected="rejection",
+            diagnostic_regex=MODULE.PROVIDERS["pi"]["rejection_regex"],
+        )
 
 
 @pytest.mark.parametrize(
@@ -56,7 +167,7 @@ def test_expected_rejection_requires_the_declared_diagnostic(tmp_path):
 )
 def test_unexpected_results_fail_the_gate(tmp_path, code, expected, diagnostic):
     with pytest.raises(RuntimeError):
-        launch(tmp_path, code, expected=expected, diagnostic=diagnostic)
+        launch(tmp_path, code, expected=expected, diagnostic_regex=diagnostic)
 
 
 def test_missing_binary_is_not_an_expected_provider_rejection(tmp_path):
@@ -66,7 +177,7 @@ def test_missing_binary_is_not_an_expected_provider_rejection(tmp_path):
             tmp_path,
             dict(os.environ),
             expected="rejection",
-            diagnostic="afriend-invalid",
+            diagnostic_regex="afriend-invalid",
         )
 
 
@@ -76,8 +187,18 @@ def test_timeout_is_not_an_expected_provider_rejection(tmp_path):
             tmp_path,
             "import time; time.sleep(30)",
             expected="rejection",
-            diagnostic="afriend-invalid",
+            diagnostic_regex="afriend-invalid",
             timeout_s=0.1,
+        )
+
+
+def test_unhandled_exception_echoing_probe_arguments_is_not_a_parser_rejection(tmp_path):
+    with pytest.raises(MODULE.StartupFailure):
+        launch(
+            tmp_path,
+            "raise RuntimeError(['--mode', 'afriend-startup-invalid'])",
+            expected="rejection",
+            diagnostic_regex=MODULE.PROVIDERS["pi"]["rejection_regex"],
         )
 
 

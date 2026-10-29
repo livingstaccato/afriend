@@ -11,10 +11,14 @@ jobs:
   build:
     name: Build and verify distributions
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     steps:
       - name: Check out the tagged source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -26,6 +30,11 @@ jobs:
           test "${GITHUB_REF_NAME}" = "v${version}"
           git fetch --no-tags origin main
           git merge-base --is-ancestor "${GITHUB_SHA}" "origin/main"
+
+      - name: Require successful CI for tagged commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 ci/verify_release_ci.py --repository "$GITHUB_REPOSITORY" --sha "$(git rev-parse "${GITHUB_SHA}^{commit}")"
 
       - name: Extract and verify release notes
         shell: bash
@@ -85,41 +94,79 @@ jobs:
       name: pypi
       url: https://pypi.org/p/afriend
     permissions:
+      contents: read
+      actions: read
       id-token: write
     steps:
+      - name: Check out verified release helpers
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Recheck CI after approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 ci/verify_release_ci.py --repository "$GITHUB_REPOSITORY" --sha "$(git rev-parse "${GITHUB_SHA}^{commit}")"
+
       - name: Download release distributions
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: python-package-distributions
           path: dist/
 
-      - name: Stage afriend distribution
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p publish/afriend
-          cp dist/afriend-* publish/afriend/
+      - name: Verify existing afriend files and stage missing distributions
+        id: prepare
+        run: python3 ci/prepare_publish.py --project afriend --version "$(cat VERSION)" --dist dist --stage publish/afriend --index-url https://pypi.org --github-output "$GITHUB_OUTPUT"
 
       - name: Publish afriend to PyPI
+        if: steps.prepare.outputs.pending == 'true'
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: publish/afriend/
 
-      - name: Stage adversarial-friends distribution
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p publish/adversarial-friends
-          cp dist/adversarial_friends-* publish/adversarial-friends/
+  publish-adversarial-friends:
+    name: Publish adversarial-friends compatibility distribution to PyPI
+    needs: publish
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/adversarial-friends
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    steps:
+      - name: Check out verified release helpers
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Recheck CI after approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 ci/verify_release_ci.py --repository "$GITHUB_REPOSITORY" --sha "$(git rev-parse "${GITHUB_SHA}^{commit}")"
+
+      - name: Download release distributions
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Verify existing adversarial-friends files and stage missing distributions
+        id: prepare
+        run: python3 ci/prepare_publish.py --project adversarial-friends --version "$(cat VERSION)" --dist dist --stage publish/adversarial-friends --index-url https://pypi.org --github-output "$GITHUB_OUTPUT"
 
       - name: Publish adversarial-friends to PyPI
+        if: steps.prepare.outputs.pending == 'true'
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: publish/adversarial-friends/
 
   publish-afriends:
     name: Publish afriends compatibility distribution to PyPI
-    needs: publish
+    needs: publish-adversarial-friends
     runs-on: ubuntu-latest
     # PyPI requires a pending publisher's OIDC identity to be unique. This
     # distinct environment reserves the typo alias without broadening the
@@ -128,22 +175,33 @@ jobs:
       name: pypi-afriends
       url: https://pypi.org/p/afriends
     permissions:
+      contents: read
+      actions: read
       id-token: write
     steps:
+      - name: Check out verified release helpers
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Recheck CI after approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 ci/verify_release_ci.py --repository "$GITHUB_REPOSITORY" --sha "$(git rev-parse "${GITHUB_SHA}^{commit}")"
+
       - name: Download release distributions
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: python-package-distributions
           path: dist/
 
-      - name: Stage afriends distribution
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p publish/afriends
-          cp dist/afriends-* publish/afriends/
+      - name: Verify existing afriends files and stage missing distributions
+        id: prepare
+        run: python3 ci/prepare_publish.py --project afriends --version "$(cat VERSION)" --dist dist --stage publish/afriends --index-url https://pypi.org --github-output "$GITHUB_OUTPUT"
 
       - name: Publish afriends to PyPI
+        if: steps.prepare.outputs.pending == 'true'
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: publish/afriends/

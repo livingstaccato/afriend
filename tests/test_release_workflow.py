@@ -86,6 +86,14 @@ def test_release_workflow_rejects_mismatched_or_unmerged_tags():
     assert "fetch-depth: 0" in build
 
 
+def test_release_requires_exact_commit_quality_evidence_before_building():
+    build = job_block("build")
+    gate = build.index("Require successful CI for tagged commit")
+    assert gate < build.index("Build and verify six release artifacts")
+    assert 'ci/verify_release_ci.py --repository "$GITHUB_REPOSITORY" --sha' in build
+    assert "actions: read" in build
+
+
 def test_current_version_has_nonempty_changelog_section():
     version = VERSION.read_text(encoding="utf-8").strip()
     changelog = CHANGELOG.read_text(encoding="utf-8")
@@ -140,7 +148,7 @@ def test_release_workflow_keeps_publish_identity_out_of_build_job():
     release = job_block("github-release")
 
     assert "permissions:\n  contents: read" in text
-    assert text.count("id-token: write") == 2
+    assert text.count("id-token: write") == 3
     assert "id-token: write" not in build
     assert "id-token: write" not in release
     assert "needs: build" in publish
@@ -149,7 +157,7 @@ def test_release_workflow_keeps_publish_identity_out_of_build_job():
     assert "pypa/gh-action-pypi-publish@" in publish
     assert "password:" not in publish
     assert "skip-existing:" not in publish
-    assert "needs: publish" in alias
+    assert "needs: publish-adversarial-friends" in alias
     assert "name: pypi-afriends" in alias
     assert "id-token: write" in alias
     assert "password:" not in alias
@@ -158,15 +166,18 @@ def test_release_workflow_keeps_publish_identity_out_of_build_job():
 
 def test_release_workflow_publishes_canonical_before_compatibility_distributions():
     publish = job_block("publish")
+    former = job_block("publish-adversarial-friends")
     alias = job_block("publish-afriends")
 
-    canonical = publish.index("Publish afriend to PyPI")
-    former_name = publish.index("Publish adversarial-friends to PyPI")
-    assert canonical < former_name
-    assert publish.count("pypa/gh-action-pypi-publish@") == 2
+    assert "Publish afriend to PyPI" in publish
+    assert "Publish adversarial-friends to PyPI" in former
+    assert "needs: publish" in former
+    assert "needs: publish-adversarial-friends" in alias
+    assert publish.count("pypa/gh-action-pypi-publish@") == 1
+    assert former.count("pypa/gh-action-pypi-publish@") == 1
     assert alias.count("pypa/gh-action-pypi-publish@") == 1
     assert "publish/afriend" in publish
-    assert "publish/adversarial-friends" in publish
+    assert "publish/adversarial-friends" in former
     assert "publish/afriends" in alias
 
 
@@ -174,7 +185,7 @@ def test_github_release_uses_published_artifact_and_changelog():
     text = workflow_text()
     release = job_block("github-release")
 
-    assert text.count("name: python-package-distributions") == 4
+    assert text.count("name: python-package-distributions") == 5
     assert "needs: publish-afriends" in release
     assert "contents: write" in release
     assert "CHANGELOG.md" in release
@@ -182,6 +193,29 @@ def test_github_release_uses_published_artifact_and_changelog():
     assert "dist/*" in release
     assert release.count('--title "${GITHUB_REF_NAME}"') == 2
     assert 'title "afriend ${version}"' not in release
+
+
+def test_retries_verify_existing_bytes_before_skipping_an_upload():
+    for name in ("publish", "publish-adversarial-friends", "publish-afriends"):
+        block = job_block(name)
+        assert block.index("Recheck CI after approval") < block.index("ci/prepare_publish.py")
+        assert "actions: read" in block
+        assert block.index("ci/prepare_publish.py") < block.index("pypa/gh-action-pypi-publish@")
+        assert "steps.prepare.outputs.pending == 'true'" in block
+        assert "--index-url https://pypi.org" in block
+        assert "skip-existing:" not in block
+        assert "persist-credentials: false" in block
+    test = read_test_workflow()
+    assert test.count("ci/prepare_publish.py") == 3
+    assert test.count("steps.prepare.outputs.pending == 'true'") == 3
+    assert test.count("--index-url https://test.pypi.org") == 3
+
+
+def test_linux_ci_executes_the_full_mutation_gate():
+    text = (ROOT / ".github/workflows/ci.yml").read_text()
+    mutation = text.index("name: mutation-probe")
+    assert text.index("name: pytest") < mutation < text.index("name: assert containment tests ran")
+    assert "run: make mutation-probe" in text
 
 
 def test_every_action_is_pinned_to_a_full_commit_sha():

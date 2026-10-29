@@ -29,7 +29,7 @@ def check_launch(
     env: dict[str, str],
     *,
     expected: str,
-    diagnostic: str | None = None,
+    diagnostic_regex: str | None = None,
     timeout_s: float = 30,
     stdin_text: str | None = None,
 ) -> dict[str, Any]:
@@ -58,7 +58,20 @@ def check_launch(
     if expected == "success":
         failed |= result.exit_code != 0
     elif expected == "rejection":
-        failed |= result.exit_code not in {1, 2} or not diagnostic or diagnostic not in text
+        failed |= (
+            result.exit_code not in {1, 2}
+            or not diagnostic_regex
+            or re.search(diagnostic_regex, text, re.MULTILINE) is None
+            or re.search(
+                r"^Traceback \(most recent call last\):"
+                r"|^[ \t]+at \S"
+                r"|^-* ?Native stack trace"
+                r"|^thread .+ panicked at ",
+                text,
+                re.MULTILINE,
+            )
+            is not None
+        )
     else:
         raise ValueError(f"unknown startup expectation: {expected}")
     if failed:
@@ -159,7 +172,7 @@ def main(argv: list[str] | None = None) -> int:
             "invalid-value": (
                 rejection_argv(canonical, PROVIDERS[args.provider]["invalid_option"]),
                 "rejection",
-                "afriend-startup-invalid",
+                PROVIDERS[args.provider]["rejection_regex"],
             ),
         }
         for name, (command, expected, diagnostic) in cases.items():
@@ -169,7 +182,7 @@ def main(argv: list[str] | None = None) -> int:
                     work,
                     env,
                     expected=expected,
-                    diagnostic=diagnostic,
+                    diagnostic_regex=diagnostic,
                     stdin_text=stdin_text if name != "version" else None,
                 )
             except StartupFailure as exc:
@@ -202,22 +215,39 @@ def main(argv: list[str] | None = None) -> int:
     return 0 if report.get("passed") else 1
 
 
+# Match measured enum-parser diagnostics, including the rejected option and choices.
+# A sentinel echoed by a startup crash or help text is not evidence of rejection.
 PROVIDERS = {
     "claude": {
         "package": "@anthropic-ai/claude-code",
         "invalid_option": "--output-format",
+        "rejection_regex": (
+            r"^error: option '--output-format <format>' argument 'afriend-startup-invalid' "
+            r"is invalid\. Allowed choices are text, json, stream-json\.$"
+        ),
     },
     "codex": {
         "package": "@openai/codex",
         "invalid_option": "--sandbox",
+        "rejection_regex": (
+            r"^error: invalid value 'afriend-startup-invalid' for '--sandbox <SANDBOX_MODE>'\n"
+            r"[ \t]+\[possible values: read-only, workspace-write, danger-full-access\]$"
+        ),
     },
     "opencode": {
         "package": "@opencode/cli",
         "invalid_option": "--format",
+        "rejection_regex": (
+            r'^  Invalid value for flag --format: "afriend-startup-invalid"\. '
+            r'Expected: "default" \| "json"$'
+        ),
     },
     "pi": {
         "package": "@earendil-works/pi-coding-agent",
         "invalid_option": "--mode",
+        "rejection_regex": (
+            r'^Error: Invalid mode "afriend-startup-invalid"\. Valid values: text, json, rpc$'
+        ),
     },
 }
 

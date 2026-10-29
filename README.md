@@ -10,7 +10,7 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 [![Dependencies](https://img.shields.io/badge/runtime%20deps-none-brightgreen)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-2848-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2940-brightgreen)](tests/)
 
 It automates a workflow you may already do by hand: run a review, paste the
 findings into a different model, ask whether they hold up, carry the argument
@@ -620,6 +620,7 @@ A ceiling outranks everything below it, so a CI wrapper can read `11` as
 | [configure](src/afriend/assets/entrypoints/configure/SKILL.md) | Explicit provider-default changes |
 | [resolve](src/afriend/assets/entrypoints/resolve/SKILL.md) | Named-run claim resolutions |
 | [modes](src/afriend/assets/entrypoints/review/references/modes.md) | `report`, `crossexam`, `gate`, and `loop` |
+| [release checks](docs/release-process.md) | Exact-commit CI, publication gates and interrupted-upload recovery |
 | [architecture/](docs/architecture/README.md) | Diagrams and their sources |
 | [design spec](docs/superpowers/specs/2026-08-22-adversarial-friends-design.md) | The full design, including the adversarial review that produced it |
 

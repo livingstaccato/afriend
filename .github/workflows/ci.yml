@@ -108,6 +108,12 @@ jobs:
       - name: pytest
         run: uv run pytest -n 4
 
+      # Run source-mutating probes only after pytest has finished in this
+      # checkout, once on the newest supported Python rather than in parallel.
+      - name: mutation-probe
+        if: matrix.python-version == '3.13'
+        run: make mutation-probe
+
       # Fail if the containment tests silently skipped -- the whole point of
       # installing bwrap above is that this path is actually exercised.
       - name: assert containment tests ran
