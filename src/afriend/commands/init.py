@@ -140,7 +140,7 @@ def _render_roster(
     if not selected:
         raise NoFriendsError(
             "no agent CLIs found on PATH, so there is nothing to write a roster "
-            "from. Install at least two (claude, codex, agy, opencode) or run a "
+            "from. Install at least two (claude, codex, agy, opencode, pi, kimi) or run a "
             "local ollama, then try again."
         )
 

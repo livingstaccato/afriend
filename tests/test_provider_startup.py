@@ -50,6 +50,13 @@ REJECTIONS = [
         1,
         'Error: Invalid mode "afriend-startup-invalid". Valid values: text, json, rpc\n',
     ),
+    (
+        # Captured from kimi 2.5.0 (commander) on 2026-11-04.
+        "kimi",
+        1,
+        "error: option '--output-format <format>' argument 'afriend-startup-invalid' "
+        "is invalid. Allowed choices are text, stream-json.\n",
+    ),
 ]
 
 

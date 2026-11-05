@@ -4,13 +4,13 @@
 
 > Hand your spec, plan, or review to agent CLIs — `claude`, `codex`,
 > Antigravity (`agy`),
-> `opencode`, `pi` — under adversarial lenses, then merge their critiques into one
+> `opencode`, `pi`, Kimi Code (`kimi`) — under adversarial lenses, then merge their critiques into one
 > ranked findings report.
 
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 [![Dependencies](https://img.shields.io/badge/runtime%20deps-none-brightgreen)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-2984-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-3011-brightgreen)](tests/)
 
 It automates a workflow you may already do by hand: run a review, paste the
 findings into a different model, ask whether they hold up, carry the argument
@@ -63,7 +63,7 @@ require two independent non-host friends. The runner itself is **stdlib-only**
 Linux and macOS get OS-level filesystem confinement for free (`bwrap` /
 `sandbox-exec` — see [How it works](#-how-it-works)). Windows has no
 equivalent mechanism, so a friend that doesn't confine itself (`codex`,
-`agy`, `opencode`, `pi`) needs an explicit `--allow-unsandboxed-friend` there — the same
+`agy`, `opencode`, `pi`, `kimi`) needs an explicit `--allow-unsandboxed-friend` there — the same
 fallback a Linux host without `bwrap` installed already uses. `claude`
 confines its own writes and needs no flag. Process-tree cleanup on Windows
 uses a [Job Object](https://learn.microsoft.com/windows/win32/procthread/job-objects)
@@ -578,6 +578,7 @@ is derived from your roster and actually enforced.
 | `agy` | ✅ ships |
 | `opencode` | ✅ ships — no read-only mode; no separate effort override |
 | `pi` | ✅ ships — write allowlist measured to hold, reads behind the OS sandbox like codex/agy; under OS confinement, its state grants include `auth.json`/`models.json` and the managed install/runtime directories, but exclude `settings.json` |
+| `kimi` | ✅ ships — Kimi Code CLI; a staged reviewer profile's tool allowlist was measured to block writes, reads stay behind the OS sandbox like codex/agy/pi; `external_tools=uncontrolled` (AGENTS.md and hooks have no per-run off switch); prompt travels in argv, so very large prompts warn about E2BIG |
 | `ollama` | ✅ ships — local models over HTTP, no schema/read-only to enforce; needs an explicit model |
 
 Antigravity's controlled reviewer is staged into the run's isolated workspace;
@@ -591,6 +592,33 @@ best-effort limitation: Antigravity is policy-blocked by default, while
 
 Antigravity is the shipped Google harness, identified as `agy` in CLI and
 provider configuration.
+
+Kimi Code is the shipped Moonshot harness, identified as `kimi`. Install the
+CLI (`npm install -g @moonshot-ai/kimi-code`, Node 22.19+, or Moonshot's
+`curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash`), then log in
+with `kimi` → `/login`, or point it at any OpenAI-compatible endpoint in
+`~/.kimi-code/config.toml`:
+
+```toml
+default_model = "kimi-k3-1-pro"
+
+[providers.verda]
+type = "openai"
+base_url = "https://inference.verda.com/v1"
+api_key = "..."            # or: api_key_env = "VERDA_API_KEY" (then --pass-env VERDA_API_KEY)
+
+[models."kimi-k3-1-pro"]
+provider = "verda"
+model = "kimi-k3-1-pro"
+max_context_size = 262144
+```
+
+`--friend kimi:LENS:MODEL` takes a model **alias** from that file, not the
+provider's wire id. Like Antigravity and OpenCode it is policy-blocked until
+`--allow-external-tools=kimi`. A confined kimi friend gets `~/.kimi-code`
+read-write (kimi 2.5.0 has no ephemeral-session flag), and afriend never
+runs `kimi provider list --json`, because that command prints provider API
+keys in plain text.
 
 ### Exit codes
 

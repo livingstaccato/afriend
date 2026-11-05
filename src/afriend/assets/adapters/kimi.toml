@@ -1,0 +1,175 @@
+name = "kimi"
+binary = "kimi"
+# Kimi Code CLI (`@moonshot-ai/kimi-code`; the Python `kimi-cli` it replaced
+# is archived). Measured against kimi 2.5.0 on 2026-11-04, against both
+# Moonshot's own login and an OpenAI-compatible provider (Verda's
+# inference endpoint serving kimi-k3 and kimi-k3-1-pro).
+#
+# `--prompt` runs exactly one non-interactive turn; `--output-format
+# stream-json` turns its stdout into one JSON object per line. kimi refuses
+# `--output-format` outside prompt mode ("Output format is only supported in
+# prompt mode."), so the two always travel together.
+base_argv = ["--output-format", "stream-json"]
+# flag-value, and NOT stdin, because kimi 2.5.0 has no stdin prompt path:
+# piping a prompt with no `--prompt` starts the interactive shell, and
+# `--prompt -` is the literal one-character prompt "-". The bundle's prompt
+# mode reads `opts.prompt` and nothing else.
+#
+# This is the one shipped adapter left with the exposure issue #4 documented
+# for claude: a single argv element is capped near 128KB on Linux. dispatch
+# already warns when a composed prompt approaches that cap for any
+# non-stdin adapter (dispatch.PROMPT_ARGV_WARN_BYTES), and the run records it.
+prompt_mode = "flag-value"
+prompt_flag = "--prompt"
+# `--model` takes a model ALIAS -- a key under `[models.<alias>]` in
+# ~/.kimi-code/config.toml -- not the provider's wire id. A run naming an
+# alias that is not configured fails before any model call with
+#   error: failed to run prompt: Model "nonexistent" is not configured in config.toml.
+model_flag = "--model"
+internal_timeout_flag = ""
+# Prompt mode is kimi's "Never Ask" policy: the bundle sets the main agent's
+# permission mode to `auto` for every `--prompt` run and rejects `--yolo`,
+# `--auto` and `--plan` beside it, so there is no read-only permission mode
+# to ask for. What does restrict it is the agent file's `tools:` allowlist,
+# which kimi applies to built-in AND MCP tools alike (an MCP tool is active
+# only when an allowlist entry pattern-matches its name; ours names none).
+#
+# Measured against kimi 2.5.0 with kimi-k3-1-pro:
+#   Write probe   with no agent file, asked to create canary.txt it called
+#                 Write and the file appeared. With the agent file below it
+#                 answered NO_WRITE_TOOL and created nothing -- the
+#                 allowlist holds for writes, and Bash is absent with it.
+#   Read probe    with the agent file, asked for the absolute path
+#                 /etc/hostname, it called Read and returned the contents --
+#                 the allowlist restricts WRITES only.
+#
+# So the codex/agy/pi split: readonly by its own argv, not self-confining,
+# and OS-confined with a read-only working directory below.
+readonly = true
+self_confines = false
+readonly_argv = ["--agent-file", ".afriend-kimi/afriend-reviewer.md"]
+# No invocation-local effort control. kimi 2.5.0 reads thinking effort from
+# config.toml's `[thinking]` table or a per-model `default_effort`, and its
+# KIMI_MODEL_THINKING_EFFORT override applies only to Moonshot's own provider
+# type, so an effort level afriend emitted could not be honoured for an
+# OpenAI-compatible provider. Presets leave the operator's configuration
+# alone and report no effort levels, as for opencode.
+effort_kind = "none"
+# Deliberately empty. kimi 2.5.0 has no model-listing command: `kimi
+# provider list` prints providers and counts, not aliases, and `kimi provider
+# list --json` -- the only form that names the aliases -- prints every
+# provider's API KEY in plain text beside them. afriend stores what a model
+# listing prints, so asking would copy credentials into run output. Saying
+# "no inventory" is better than that, as codex already does.
+models_argv = []
+structured_output = true
+# Authority evidence from installed kimi 2.5.0 on 2026-11-04: the agent file
+# keeps MCP tools and the Skill tool out of the model's reach, but kimi still
+# loads AGENTS.md instructions (project `AGENTS.md`/`.kimi-code/AGENTS.md`,
+# `~/.kimi-code/AGENTS.md`, `~/.agents/AGENTS.md`) and runs configured
+# `[[hooks]]` commands, and `kimi --help` exposes no invocation-local flag
+# that disables either. MCP servers are not off either, only hidden: with
+# the reviewer profile in place, a canary server in the user `mcp.json`
+# (`sh -c "touch <canary>"`) was still LAUNCHED by a print-mode run, though
+# the model never saw its tools. kimi reads MCP servers from
+# `~/.kimi-code/mcp.json`, the project's `.kimi-code/mcp.json`, and the repo
+# root's `.mcp.json`, and installs plugins (`/plugins`). That is not a denial
+# afriend can prove, so this adapter stays fail-closed exactly as agy and
+# opencode do.
+external_tools = "uncontrolled"
+deny_external_tools_argv = []
+external_tool_sources = ["AGENTS.md instructions", "hooks", "MCP servers", "plugins", "skills"]
+
+# The reviewer profile is staged into the friend's workspace, digest-pinned,
+# and named by `--agent-file` in readonly_argv. Its `tools:` list is what the
+# write probe above measured; `subagents: []` keeps the Agent tool's
+# delegation empty even if a future kimi exposes it by default.
+[[workspace_assets]]
+source = "harnesses/kimi/afriend-reviewer.md"
+target = ".afriend-kimi/afriend-reviewer.md"
+sha256 = "e9d055f79be6a0632b4d9dd27482b05fab20e5bf57795294c479894df53284be"
+
+# stream-json, captured from kimi 2.5.0 print-mode runs:
+#   {"role":"meta","type":"system.version","version":"2.5.0"}
+#   {"role":"assistant","tool_calls":[{"type":"function","id":"Read_0",...}]}
+#   {"role":"tool","tool_call_id":"Read_0","content":"..."}
+#   {"role":"assistant","content":"<the answer>"}
+#   {"role":"meta","type":"session.resume_hint","session_id":"...",...}
+#
+# Lines are keyed by `role`, not `type`. Thinking is never written to the
+# stream, so `content` is the answer text alone. A tool-calling step can
+# carry prose in `content` beside `tool_calls`; extraction is latest-first,
+# so the final assistant message outranks that progress text.
+#
+# No terminal_event: the one event that ends the stream (resume_hint) shares
+# role "meta" with the version line that STARTS it, and kimi exits on its
+# own once the turn ends -- there is no hang for a terminal event to cut.
+#
+# No error_rules either: a failed turn writes nothing to the stream. kimi
+# exits 1 and states the reason on stderr (see [auth] below).
+[envelope]
+kind = "ndjson"
+match_field = "role"
+
+[[envelope.rules]]
+type = "assistant"
+field = "content"
+
+# §14 auth markers, both captured live from kimi 2.5.0:
+#
+#   Credentials present but rejected (a stale key against Verda's real
+#   endpoint): exit 1, stdout holds only the version line, and stderr is
+#     error: failed to run prompt: provider.auth_error: credential rejected
+#
+#   No credentials at all (KIMI_CODE_HOME pointed at an empty directory):
+#   exit 1, and stderr is
+#     error: failed to run prompt: No model configured. Run `kimi` and use
+#     /login to sign in, then retry; or set default_model in config.toml.
+#
+# NOT markers: exit 1 alone (an unknown model alias, a parse error and a
+# provider outage all exit 1 too), and "is not configured in config.toml",
+# which is a misspelled --model rather than a missing credential.
+#
+# No QUOTA marker: no exhaustion was provoked, and a guessed marker is worse
+# than none. An exhausted kimi friend classifies UNKNOWN.
+[auth]
+stderr_contains = ["provider.auth_error", "No model configured. Run `kimi` and use /login"]
+remediation = "authenticate kimi (interactive `kimi`, then /login; or a [providers.<name>] api_key in ~/.kimi-code/config.toml); a key read through api_key_env must be passed to a confined friend with --pass-env"
+
+# §12.2: kimi's allowlist confines WRITES only (the read probe above), so it
+# runs under OS confinement with a read-only working directory.
+#
+# Granted whole, read AND write, like ~/.codex and ~/.gemini: kimi 2.5.0 has
+# no ephemeral-session flag, and a single print-mode turn writes
+# session_index.jsonl, sessions/, file-history/, locks/, logs/, cache/,
+# telemetry/, projects.json and device_id under it, while reading its
+# credentials from config.toml in the same directory. A narrower grant would
+# have to track that list across releases, and a missed path does not fail
+# loudly. The cost is the one adapters.py warns of: config.toml decides what
+# kimi runs on its NEXT launch (hooks, MCP servers), and it is inside this
+# grant. KIMI_CODE_HOME is deliberately not passed below, so a confined
+# friend always resolves exactly the directory granted here.
+[sandbox]
+os_confine = true
+readonly_workdir = true
+read = ["~/.kimi-code"]
+write = ["~/.kimi-code"]
+
+[env]
+# kimi's documented outbound-request contract: HTTP_PROXY/HTTPS_PROXY/
+# ALL_PROXY, with NO_PROXY beside them for the same reason pi passes it.
+# KIMI_DISABLE_TELEMETRY and KIMI_CODE_NO_AUTO_UPDATE are the operator's own
+# opt-outs; withholding them would make a confined friend phone home or
+# check for updates when the operator's shell says not to.
+#
+# Credentials come from config.toml, not the environment: kimi reads no
+# provider key from the shell except through a config's `api_key_env`, and
+# an operator using that names the variable with --pass-env, per run.
+pass = [
+  "HTTP_PROXY",
+  "HTTPS_PROXY",
+  "ALL_PROXY",
+  "NO_PROXY",
+  "KIMI_DISABLE_TELEMETRY",
+  "KIMI_CODE_NO_AUTO_UPDATE",
+]

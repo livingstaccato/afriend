@@ -16,7 +16,9 @@ artifact when it is a signal about the flag matrix.
 Its installed CLI rejects the old additive `--variant` flag; presets leave
 its configured model/variant unchanged and record that no effort levels are
 available. Pi's `--thinking` can warn and continue on an invalid level, so
-its effort remains unverified rather than native.
+its effort remains unverified rather than native. Kimi Code has no
+per-invocation effort flag at all (thinking effort lives in its config.toml),
+so, like OpenCode, it reports no effort levels.
 """
 
 from .adapters import Adapter

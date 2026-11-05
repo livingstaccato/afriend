@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+**Kimi Code joins the friend roster.** The new `kimi` adapter drives Kimi Code
+CLI 2.5.0 (`@moonshot-ai/kimi-code`) in prompt mode and reads its
+`stream-json` output. A digest-pinned reviewer profile is staged into the
+friend's workspace and passed with `--agent-file`; its `Read`/`Grep`/`Glob`
+allowlist was measured to block writes but not reads, so kimi runs under OS
+confinement with a read-only working directory and `~/.kimi-code` granted for
+its credentials and session state. External tools stay `uncontrolled`
+(AGENTS.md and hooks have no per-invocation off switch), so a kimi friend
+needs `--allow-external-tools=kimi`. Auth failures are classified from the
+CLI's own stderr. kimi has no stdin prompt path, so its prompt travels in argv
+and large prompts carry the E2BIG warning; it has no effort flag, and afriend
+deliberately never runs `kimi provider list --json`, which prints API keys.
+Verified live against Verda's OpenAI-compatible endpoint with `kimi-k3` and
+`kimi-k3-1-pro`, in report and crossexam modes.
+
+**npm-installed CLIs whose `bin/` links into the package now run confined.**
+The sandbox grants the npm package root an executable script resolves inside
+(the innermost `node_modules/[@scope/]<package>` with a `package.json`), so a
+CLI's own dependencies are readable without widening the grant past that one
+package.
+
 ## 0.13.0
 
 **Pi joins the friend roster.** The new `pi` adapter sends review prompts over

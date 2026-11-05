@@ -121,6 +121,7 @@ def isolated_environment(root: Path) -> dict[str, str]:
         "CODEX_HOME": root / "codex",
         "PI_CODING_AGENT_DIR": root / "pi",
         "OPENCODE_CONFIG_DIR": root / "opencode",
+        "KIMI_CODE_HOME": root / "kimi",
     }
     for key, path in locations.items():
         path.mkdir(parents=True, exist_ok=True)
@@ -130,13 +131,17 @@ def isolated_environment(root: Path) -> dict[str, str]:
         NO_COLOR="1",
         DISABLE_AUTOUPDATER="1",
         CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="1",
+        KIMI_DISABLE_TELEMETRY="1",
+        KIMI_CODE_NO_AUTO_UPDATE="1",
     )
     return env
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--provider", required=True, choices=("claude", "codex", "opencode", "pi"))
+    parser.add_argument(
+        "--provider", required=True, choices=("claude", "codex", "kimi", "opencode", "pi")
+    )
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--require-windows", action="store_true")
     args = parser.parse_args(argv)
@@ -165,7 +170,10 @@ def main(argv: list[str] | None = None) -> int:
         )
         spec = FriendSpec("startup", args.provider, "ops", None, None, "doc", 30)
         policy = (
-            ExternalToolPolicy.ALLOW if args.provider == "opencode" else ExternalToolPolicy.DENY
+            # Both cannot prove external tools denied; their adapters refuse DENY.
+            ExternalToolPolicy.ALLOW
+            if args.provider in {"opencode", "kimi"}
+            else ExternalToolPolicy.DENY
         )
         canonical, stdin_text, _ = build_argv(adapter, spec, prompt, schema_path(work), policy)
         cases = {
@@ -241,6 +249,14 @@ PROVIDERS = {
             r"^error: invalid value 'afriend-startup-invalid' for '--sandbox <SANDBOX_MODE>'\n"
             r"[ \t]+\[possible values: read-only, workspace-write, danger-full-access\]"
             r"(?:\n\nFor more information, try '--help'\.)?$"
+        ),
+    },
+    "kimi": {
+        "package": "@moonshot-ai/kimi-code",
+        "invalid_option": "--output-format",
+        "rejection_regex": (
+            r"^error: option '--output-format <format>' argument 'afriend-startup-invalid' "
+            r"is invalid\. Allowed choices are text, stream-json\.$"
         ),
     },
     "opencode": {

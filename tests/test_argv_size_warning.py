@@ -56,8 +56,15 @@ def test_a_prompt_at_the_threshold_is_not_warned_about(tmp_path, mode, extra):
     assert argv_size_warning("argv-cli-ops-0", adapter, "x" * PROMPT_ARGV_WARN_BYTES) is None
 
 
-@pytest.mark.parametrize("name", sorted(load_adapters(ADAPTER_DIR)))
-def test_no_shipped_adapter_can_trip_the_warning(name):
+# Shipped adapters whose CLI has no stdin prompt path at all. kimi 2.5.0 is
+# the one: piping a prompt without `--prompt` opens the interactive shell, so
+# the prompt has to ride in argv (see kimi.toml). Named here so that a new
+# argv adapter is a decision someone writes down, not a silent regression.
+ARGV_PROMPT_ADAPTERS = {"kimi"}
+
+
+@pytest.mark.parametrize("name", sorted(set(load_adapters(ADAPTER_DIR)) - ARGV_PROMPT_ADAPTERS))
+def test_no_stdin_adapter_can_trip_the_warning(name):
     """Each of these reads its prompt from stdin, so the size of the prompt
     is not an argv question for any of them. This is the property the e2e
     version of this test used to demonstrate from the other side."""
@@ -65,6 +72,17 @@ def test_no_shipped_adapter_can_trip_the_warning(name):
 
     assert adapter.prompt_mode == "stdin"
     assert argv_size_warning(f"{name}-ops-0", adapter, OVERSIZED) is None
+
+
+@pytest.mark.parametrize("name", sorted(ARGV_PROMPT_ADAPTERS))
+def test_an_argv_prompt_adapter_is_warned_about(name):
+    """The exception list is checked from the other side too: an adapter on
+    it really does place the prompt in argv, so an oversized prompt warns."""
+    adapter = load_adapters(ADAPTER_DIR)[name]
+
+    assert adapter.prompt_mode != "stdin"
+    note = argv_size_warning(f"{name}-ops-0", adapter, OVERSIZED)
+    assert note is not None and "E2BIG" in note
 
 
 def test_a_fake_friend_is_never_warned_about(tmp_path):
