@@ -586,8 +586,12 @@ def build_argv(
     # so a hostile repository checkout could ship its own same-named
     # executable at its root and have it run as the friend instead of the
     # real one -- before any confinement decision is made.
-    resolved_binary = execresolve.safe_which(adapter.binary) if adapter.binary else None
-    argv = [resolved_binary or adapter.binary, *adapter.base_argv]
+    # `friend_launcher`, not the bare path: on Windows a Node-script CLI's npm
+    # shim becomes `[node, script]`, and an argv prompt never meets cmd.exe.
+    launcher = execresolve.friend_launcher(
+        adapter.name, adapter.binary, prompt_in_argv=adapter.prompt_mode != "stdin"
+    )
+    argv = [*(launcher or [adapter.binary]), *adapter.base_argv]
     authority = enforce(adapter, external_tool_policy)
 
     # A friend never needs to write, in EITHER scope: it reads the artifact

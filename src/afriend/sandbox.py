@@ -481,6 +481,25 @@ def _is_install_root(root: Path) -> bool:
     return any((root / sibling).is_dir() for sibling in _INSTALL_SIBLINGS)
 
 
+def _node_package_root(executable: Path) -> Path | None:
+    """The npm package directory an executable script lives inside, if any.
+
+    The innermost ancestor sitting directly in a `node_modules/` (or in an
+    `@scope/` inside one) that carries a `package.json`. Bounded by
+    construction: the grant is always one package below a `node_modules`
+    directory, so it can never widen to the home directory or a shared XDG
+    root the way the `bin/` heuristic has to guard against.
+    """
+    for parent in executable.parents:
+        container = parent.parent
+        if container.name.startswith("@"):
+            container = container.parent
+        if container.name != "node_modules":
+            continue
+        return parent if (parent / "package.json").is_file() else None
+    return None
+
+
 def policy_for(
     workdir: Path,
     binary: str | None,
@@ -549,6 +568,15 @@ def policy_for(
                     and _is_install_root(root)
                 ):
                     reads.append(root)
+            # An npm global install links `bin/<cli>` straight to a script
+            # INSIDE its package (kimi: `.../@moonshot-ai/kimi-code/dist/
+            # main.mjs`), so neither directory above is `bin/` and the
+            # package's own `node_modules/` stays out of reach. Found the
+            # first time kimi ran confined: it died in 0s on
+            # ERR_MODULE_NOT_FOUND for a dependency one directory up.
+            package_root = _node_package_root(Path(found).resolve())
+            if package_root is not None and package_root not in reads:
+                reads.append(package_root)
     for raw in adapter_read:
         _add_declared(reads, raw)
     # Runner-constructed paths are kept separate from adapter-declared ones so

@@ -271,7 +271,7 @@ def resolve(
     if not available:
         raise NoFriendsError(
             "no usable friends found. Install a second agent CLI "
-            "(codex, agy, opencode) or pass --include-self."
+            "(codex, agy, opencode, pi, kimi) or pass --include-self."
         )
     if not lenses:
         # available is non-empty here, so lenses[index % len(lenses)] below

@@ -121,6 +121,7 @@ def test_current_first_party_metadata_uses_the_canonical_repository() -> None:
         REPO / "plugins/.claude-plugin/marketplace.json",
         REPO / "plugins/afriend/.claude-plugin/plugin.json",
         REPO / "plugins/afriend/.codex-plugin/plugin.json",
+        REPO / "plugins/afriend/.kimi-plugin/plugin.json",
         REPO / "src/afriend/assets/entrypoints/review/SKILL.md",
     ]
     for path in current_files:

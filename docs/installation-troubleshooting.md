@@ -63,8 +63,8 @@ updated independently.
 
 ## Windows notes
 
-CI's four **Windows startup** jobs install the real Claude, Codex, OpenCode,
-and Pi npm CLIs and execute them through afriend's resolver and process runner.
+CI's five **Windows startup** jobs install the real Claude, Codex, Kimi Code,
+OpenCode, and Pi npm CLIs and execute them through afriend's resolver and process runner.
 Each checks version startup, advertised canonical option names, help startup,
 and a deliberately invalid enum value in the full canonical invocation, with
 a required nonzero exit and diagnostic. Checking option names separately is
@@ -75,14 +75,15 @@ calls or authenticated review tests. AGY and Ollama are outside this matrix.
 
 The default selector is `latest` on every run. Set repository Actions variables
 `AF_STARTUP_CLAUDE_VERSION`, `AF_STARTUP_CODEX_VERSION`,
-`AF_STARTUP_OPENCODE_VERSION`, or `AF_STARTUP_PI_VERSION` only when an explicit
+`AF_STARTUP_KIMI_VERSION`, `AF_STARTUP_OPENCODE_VERSION`, or
+`AF_STARTUP_PI_VERSION` only when an explicit
 version/range override is wanted. Remove an override to follow latest again.
 Artifacts named `windows-startup-<provider>` record the requested selector,
 installed npm versions, Node version, resolved executable, argv, stdout, stderr,
 exit status, timing and cleanup results. Installs and failed probes also upload
 their diagnostics; the startup jobs have no skip or continue-on-error path.
 
-- **`codex`, `agy`, `opencode`, and `pi` need `--allow-unsandboxed-friend`.**
+- **`codex`, `agy`, `opencode`, `pi`, and `kimi` need `--allow-unsandboxed-friend`.**
   Neither `bwrap` nor `sandbox-exec` exists on Windows. Once provider and
   external-tool policy permit a provider, `afriend doctor` can report it as
   `ready` while explaining that OS confinement is unavailable and a run

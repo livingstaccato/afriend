@@ -27,4 +27,5 @@ PROVIDER_DISPLAY_NAMES = {
     "claude": "Claude",
     "ollama": "Ollama",
     "pi": "Pi",
+    "kimi": "Kimi Code",
 }

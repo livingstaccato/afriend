@@ -1,0 +1,17 @@
+{
+  "name": "afriend",
+  "version": "0.13.0",
+  "description": "Cross-examine artifacts with agent CLIs; Kimi Code host self-review is advisory.",
+  "author": {
+    "name": "Tim",
+    "url": "https://github.com/livingstaccato"
+  },
+  "homepage": "https://github.com/livingstaccato/afriend",
+  "license": "MIT",
+  "keywords": [
+    "review",
+    "adversarial",
+    "multi-agent"
+  ],
+  "skills": ["./skills"]
+}

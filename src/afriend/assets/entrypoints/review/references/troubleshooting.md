@@ -144,6 +144,7 @@ the returned list.
 | `agy` | `agy models` |
 | `opencode` | `opencode models [provider]` |
 | `pi` | `pi --list-models` (provider/model table) |
+| `kimi` | no listing subcommand; `--model` takes an **alias** — a `[models.<alias>]` key in `~/.kimi-code/config.toml` (`kimi provider list` shows counts only; do not paste `kimi provider list --json` anywhere, it prints provider API keys). For an OpenAI-compatible provider, the provider's own `GET /v1/models` is the list of wire ids to alias |
 | `ollama` | `ollama list` (locally pulled models only; `ollama pull <name>` for one not yet local) |
 | `claude` | no listing subcommand found; `--model` takes a known alias (`sonnet`, `opus`, `haiku`) or a full model id — check current aliases rather than assuming one from memory |
 
@@ -234,7 +235,7 @@ in your first claim's evidence"* would simply work.
 So such a friend runs under `sandbox-exec` (present on every Mac) or `bwrap`
 (Linux, `apt install bubblewrap`), or it is refused. Only that friend is
 refused — the rest of the run continues. Windows has neither mechanism, so
-there `codex`, `agy`, `opencode`, and `pi` run only with the third way out below.
+there `codex`, `agy`, `opencode`, `pi`, and `kimi` run only with the third way out below.
 
 Three ways out, best first:
 
@@ -303,8 +304,31 @@ native CLI documents a `provider/model#variant` form, afriend's model grammar
 currently excludes `#`, so that form is not an afriend override workaround.
 
 Pi reports `effort=unverified`: an invalid `--thinking` level warns and still
-runs. The `claude`, `codex`, and `agy` adapters report `effort=native`;
-Ollama reports `effort=none`.
+runs. Kimi Code reports `effort=none`: kimi 2.5.0 has no per-invocation
+effort flag (thinking effort lives in `config.toml`'s `[thinking]` table or a
+model's `default_effort`). The `claude`, `codex`, and `agy` adapters report
+`effort=native`; Ollama reports `effort=none`.
+
+## kimi fails before the model is called
+
+`kimi-<lens>-N failed: exit 1` with nothing but a version line on stdout means
+kimi refused the turn itself; its reason is the last line of
+`round-N/<friend>.err`:
+
+| stderr says | Cause | Fix |
+|---|---|---|
+| `provider.auth_error: credential rejected` | the provider refused the key (classified as auth; the run aborts) | fix `api_key` in `~/.kimi-code/config.toml`, or `kimi` → `/login` |
+| ``No model configured. Run `kimi` and use /login`` | no login and no `default_model` (classified as auth) | log in, or add a provider and `default_model` |
+| `Model "X" is not configured in config.toml.` | `--friend kimi:LENS:X` named an alias that is not a `[models.X]` key | use an alias from `config.toml`, not the provider's wire id |
+| `ERR_MODULE_NOT_FOUND` | the sandbox could not read kimi's own package | make sure `which kimi` resolves into the npm package (`.../node_modules/@moonshot-ai/kimi-code/...`) or into `~/.kimi-code` |
+
+A key read through `api_key_env` is invisible to a confined friend until you
+pass it: `--pass-env VERDA_API_KEY` (or whichever variable your config names).
+
+kimi takes its prompt as the value of `--prompt` (it has no stdin prompt
+path), so a composed prompt over about 100 KB triggers the E2BIG warning and
+can fail with `Argument list too long` on Linux. Review a smaller artifact, or
+use a stdin adapter for that friend.
 
 ## ollama reports unreachable, or a run fails
 

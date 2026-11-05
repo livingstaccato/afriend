@@ -17,6 +17,7 @@ POSIX's `execvp` never searches the current directory for a bare name, so
 this exposure exists only because Windows is now a supported platform.
 """
 
+import json
 import os
 from pathlib import Path
 import shutil
@@ -101,6 +102,126 @@ def safe_which(name: str) -> str | None:
         if entry
     }
     return _native_npm_executable(found) if directory in path_entries else None
+
+
+# Node-script CLIs whose npm `.cmd` shim is replaced by a direct `node`
+# launch. Unlike claude/opencode these packages ship no native executable:
+# the shim runs `node <package script> %*` through cmd.exe, and cmd.exe
+# re-parses every argument. kimi has no stdin prompt path, so the untrusted
+# artifact rides in argv -- a newline in it ends the command line early, and
+# `&`, `|` or `%` in it are cmd.exe syntax. Measured on GitHub's Windows
+# runner: the startup probe's `--prompt "...\n" --help` ran the prompt
+# instead of printing help, because `--help` never arrived.
+_NODE_SCRIPT_PACKAGES = {"kimi": "@moonshot-ai/kimi-code"}
+# npm cmd-shim's complete Node-script template, case- and whitespace-
+# normalized. Matched line for line, not by suffix: a wrapper that inserts
+# Node options before the script (`--experimental-permission`, `--require`)
+# would pass a suffix check, and launching node directly would then silently
+# drop exactly the restrictions it added. Found by a kimi security review of
+# this very launcher.
+_NODE_SHIM_TEMPLATE = (
+    b"@echo off",
+    b"goto start",
+    b":find_dp0",
+    b"set dp0=%~dp0",
+    b"exit /b",
+    b":start",
+    b"setlocal",
+    b"call :find_dp0",
+    b'if exist "%dp0%\\node.exe" (',
+    b'set "_prog=%dp0%\\node.exe"',
+    b") else (",
+    b'set "_prog=node"',
+    b"set pathext=%pathext:;.js;=;%",
+    b")",
+)
+_NODE_SHIM_LAUNCH = b'endlocal & goto #_undefined_# 2>nul || title %comspec% & "%_prog%" '
+
+
+def _node_npm_launch(found: str) -> list[str] | None:
+    """`[node, script]` for a recognized npm shim of a known Node-script CLI.
+
+    The script is taken from the package's own `package.json` `bin` entry,
+    never parsed out of the batch file, and the shim must forward exactly
+    that script with `%*` and nothing else, line for line -- a custom wrapper
+    that adds arguments, node options or a profile keeps its own selection (and is then refused for
+    an argv-prompt adapter by `build_argv`). Node is the shim's own sibling
+    `node.exe` when present, which is what the shim itself would run,
+    otherwise `node` from PATH through `safe_which`.
+    """
+    shim = Path(found).resolve()
+    command = shim.stem.lower()
+    package = _NODE_SCRIPT_PACKAGES.get(command)
+    if shim.suffix.lower() not in {".cmd", ".bat"} or package is None:
+        return None
+    package_root = shim.parent / "node_modules" / package
+    try:
+        manifest = json.loads((package_root / "package.json").read_text(encoding="utf-8"))
+        bins = manifest.get("bin")
+        relative = bins.get(command) if isinstance(bins, dict) else None
+        if not isinstance(relative, str) or not relative:
+            return None
+        script = (package_root / relative).resolve()
+        if package_root.resolve() not in script.parents or not script.is_file():
+            return None
+        with shim.open("rb") as stream:
+            content = stream.read(16385).lower()
+        if len(content) > 16384:
+            return None
+    except (OSError, ValueError):
+        return None
+    target = (Path("node_modules") / package / Path(relative)).as_posix()
+    forward = b'"%dp0%\\' + target.replace("/", "\\").lower().encode("utf-8") + b'" %*'
+    lines = [b" ".join(line.split()) for line in content.splitlines() if line.strip()]
+    if lines != [*_NODE_SHIM_TEMPLATE, _NODE_SHIM_LAUNCH + forward]:
+        return None
+    sibling = shim.parent / "node.exe"
+    node = str(sibling.resolve()) if sibling.is_file() else safe_which("node")
+    if node is None:
+        return None
+    return [node, str(script)]
+
+
+def launch_prefix(name: str) -> list[str] | None:
+    """The argv prefix that runs `name`: usually `[safe_which(name)]`.
+
+    On Windows a recognized npm shim of a Node-script CLI becomes
+    `[node, script]`, so the arguments that follow reach the CLI through
+    CreateProcess alone rather than a second cmd.exe parse.
+    """
+    found = safe_which(name)
+    if found is None:
+        return None
+    if sys.platform == "win32":
+        launch = _node_npm_launch(found)
+        if launch is not None:
+            return launch
+    return [found]
+
+
+def friend_launcher(name: str, binary: str, *, prompt_in_argv: bool) -> list[str] | None:
+    """`launch_prefix(binary)`, refusing cmd.exe for an argv-prompt friend.
+
+    The prompt is the untrusted artifact. Through a batch launcher a newline
+    in it truncates the command line and `&`/`|`/`%` become cmd syntax, so a
+    friend whose prompt rides in argv is refused rather than run that way.
+    """
+    launcher = launch_prefix(binary) if binary else None
+    if (
+        launcher is not None
+        and prompt_in_argv
+        and sys.platform == "win32"
+        and Path(launcher[0]).suffix.lower() in {".cmd", ".bat"}
+    ):
+        from .errors import UsageError
+
+        raise UsageError(
+            f"{name} resolves to the batch launcher {launcher[0]}, and its prompt travels "
+            "in argv; cmd.exe would re-parse the artifact under review. Install "
+            f"{binary} from npm (afriend launches its Node script directly) or put a "
+            "native executable first on PATH."
+        )
+    return launcher
 
 
 def git_executable() -> str:

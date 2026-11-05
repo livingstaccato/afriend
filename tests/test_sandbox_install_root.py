@@ -65,3 +65,54 @@ def test_the_home_directory_is_never_an_install_root(tmp_path, monkeypatch):
     policy = sandbox.policy_for(tmp_path / "work", "tool", (), ())
 
     assert home not in policy.read_paths, [str(p) for p in policy.read_paths]
+
+
+def _npm_global(home: Path, scope: str | None, package: str) -> tuple[Path, Path, Path]:
+    """`npm install -g --prefix ~/.local` layout: `bin/<cli>` links to a
+    script inside the package, whose dependencies sit beside that script's
+    directory rather than beside any `bin/`."""
+    lib = home / ".local" / "lib" / "node_modules"
+    package_root = (lib / scope / package) if scope else (lib / package)
+    (package_root / "node_modules" / "dep").mkdir(parents=True)
+    (package_root / "package.json").write_text("{}")
+    script = _tool(package_root / "dist", "main.mjs")
+    link_dir = home / ".local" / "bin"
+    link_dir.mkdir(parents=True)
+    link = link_dir / "cli"
+    link.symlink_to(script)
+    return link, package_root, lib
+
+
+def test_an_npm_package_script_gets_its_package_root(tmp_path, monkeypatch):
+    """kimi's shape: `~/.local/bin/kimi` -> `.../@moonshot-ai/kimi-code/dist/
+    main.mjs`. Granting only `dist/` killed it on ERR_MODULE_NOT_FOUND for a
+    dependency in the package's own `node_modules/`."""
+    home = tmp_path / "home"
+    link, package_root, lib = _npm_global(home, "@moonshot-ai", "kimi-code")
+    monkeypatch.setattr(sandbox.shutil, "which", lambda _binary: str(link))
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+
+    policy = sandbox.policy_for(tmp_path / "work", "cli", (), ())
+
+    assert package_root.resolve() in policy.read_paths, [str(p) for p in policy.read_paths]
+    # One package, never the shared global node_modules or anything above it.
+    for wider in (lib, lib / "@moonshot-ai", home / ".local", home):
+        assert wider.resolve() not in policy.read_paths
+
+
+def test_an_unscoped_npm_package_script_gets_its_package_root(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    link, package_root, lib = _npm_global(home, None, "some-cli")
+    monkeypatch.setattr(sandbox.shutil, "which", lambda _binary: str(link))
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+
+    policy = sandbox.policy_for(tmp_path / "work", "cli", (), ())
+
+    assert package_root.resolve() in policy.read_paths
+    assert lib.resolve() not in policy.read_paths
+
+
+def test_a_node_modules_directory_without_a_package_json_is_not_granted(tmp_path):
+    """No manifest, no package: the rule must not guess a root."""
+    script = _tool(tmp_path / "node_modules" / "loose" / "dist", "main.mjs")
+    assert sandbox._node_package_root(script.resolve()) is None

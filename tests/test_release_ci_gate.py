@@ -36,6 +36,7 @@ def jobs():
         "windows",
         "Windows startup (claude)",
         "Windows startup (codex)",
+        "Windows startup (kimi)",
         "Windows startup (opencode)",
         "Windows startup (pi)",
     ]
