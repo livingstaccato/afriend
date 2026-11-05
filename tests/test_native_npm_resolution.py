@@ -156,8 +156,13 @@ def test_without_a_sibling_node_the_path_node_is_used(monkeypatch, tmp_path):
         "@echo custom launcher\r\n",
         NODE_SHIM.replace('main.mjs" %*', 'main.mjs" --yolo %*'),
         NODE_SHIM.replace('IF EXIST "%dp0%\\node.exe" (', "IF 1==1 ("),
+        # Node options BEFORE the script pass a suffix check; launching node
+        # directly would drop them (kimi security review, c-0002).
+        NODE_SHIM.replace('"%_prog%"  "%dp0%', '"%_prog%" --experimental-permission "%dp0%'),
+        NODE_SHIM.replace('SET "_prog=node"', 'SET "_prog=C:\\other\\node.exe"'),
+        NODE_SHIM.replace("SETLOCAL\r\n", "SETLOCAL\r\nSET NODE_OPTIONS=--require=policy.js\r\n"),
     ],
-    ids=["custom", "extra-arguments", "no-node-selection"],
+    ids=["custom", "extra-arguments", "no-node-selection", "node-options", "other-node", "env"],
 )
 def test_a_node_shim_that_is_not_the_npm_template_keeps_its_selection(
     monkeypatch, tmp_path, shim_text

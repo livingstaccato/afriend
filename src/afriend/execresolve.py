@@ -113,7 +113,29 @@ def safe_which(name: str) -> str | None:
 # runner: the startup probe's `--prompt "...\n" --help` ran the prompt
 # instead of printing help, because `--help` never arrived.
 _NODE_SCRIPT_PACKAGES = {"kimi": "@moonshot-ai/kimi-code"}
-_SHIM_NODE_SELECTION = b'if exist "%dp0%\\node.exe" ('
+# npm cmd-shim's complete Node-script template, case- and whitespace-
+# normalized. Matched line for line, not by suffix: a wrapper that inserts
+# Node options before the script (`--experimental-permission`, `--require`)
+# would pass a suffix check, and launching node directly would then silently
+# drop exactly the restrictions it added. Found by a kimi security review of
+# this very launcher.
+_NODE_SHIM_TEMPLATE = (
+    b"@echo off",
+    b"goto start",
+    b":find_dp0",
+    b"set dp0=%~dp0",
+    b"exit /b",
+    b":start",
+    b"setlocal",
+    b"call :find_dp0",
+    b'if exist "%dp0%\\node.exe" (',
+    b'set "_prog=%dp0%\\node.exe"',
+    b") else (",
+    b'set "_prog=node"',
+    b"set pathext=%pathext:;.js;=;%",
+    b")",
+)
+_NODE_SHIM_LAUNCH = b'endlocal & goto #_undefined_# 2>nul || title %comspec% & "%_prog%" '
 
 
 def _node_npm_launch(found: str) -> list[str] | None:
@@ -121,8 +143,8 @@ def _node_npm_launch(found: str) -> list[str] | None:
 
     The script is taken from the package's own `package.json` `bin` entry,
     never parsed out of the batch file, and the shim must forward exactly
-    that script with `%*` and nothing else -- a custom wrapper that adds
-    arguments or a profile keeps its own selection (and is then refused for
+    that script with `%*` and nothing else, line for line -- a custom wrapper
+    that adds arguments, node options or a profile keeps its own selection (and is then refused for
     an argv-prompt adapter by `build_argv`). Node is the shim's own sibling
     `node.exe` when present, which is what the shim itself would run,
     otherwise `node` from PATH through `safe_which`.
@@ -151,7 +173,7 @@ def _node_npm_launch(found: str) -> list[str] | None:
     target = (Path("node_modules") / package / Path(relative)).as_posix()
     forward = b'"%dp0%\\' + target.replace("/", "\\").lower().encode("utf-8") + b'" %*'
     lines = [b" ".join(line.split()) for line in content.splitlines() if line.strip()]
-    if not lines or _SHIM_NODE_SELECTION not in content or not lines[-1].endswith(forward):
+    if lines != [*_NODE_SHIM_TEMPLATE, _NODE_SHIM_LAUNCH + forward]:
         return None
     sibling = shim.parent / "node.exe"
     node = str(sibling.resolve()) if sibling.is_file() else safe_which("node")
