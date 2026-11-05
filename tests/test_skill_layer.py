@@ -289,3 +289,23 @@ def test_scope_lens_is_the_only_advisory_lens():
     for lens in (ASSETS / "lenses").glob("*.md"):
         meta = frontmatter(lens.read_text())
         assert meta["requires_failure_scenario"] == ("false" if lens.stem == "scope" else "true")
+
+
+def test_skill_frontmatter_values_are_strict_yaml_scalars():
+    """Kimi Code parses SKILL.md frontmatter with a strict YAML parser and
+    skipped `review` and `status` outright ("bad indentation of a mapping
+    entry") because their plain-scalar descriptions contain ": ", which YAML
+    reads as a nested mapping. Claude Code and Codex tolerate it, so nothing
+    else noticed. A value containing ": " or " #" must be quoted."""
+    for root in (ENTRYPOINTS, PLUGIN_SKILLS):
+        for name in SKILL_NAMES:
+            block = (root / name / "SKILL.md").read_text().split("---\n", 2)[1]
+            for line in block.splitlines():
+                key, _, value = line.partition(": ")
+                value = value.strip()
+                if value[:1] in {"'", '"'}:
+                    assert value[-1:] == value[:1], f"{root}/{name}: unterminated {key}"
+                    continue
+                assert ": " not in value and " #" not in value, (
+                    f"{root}/{name}/SKILL.md: unquoted {key!r} is not a valid YAML plain scalar"
+                )

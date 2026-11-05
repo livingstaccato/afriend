@@ -1,6 +1,6 @@
 ---
 name: configure
-description: Use for an explicit afriend setup or configuration request - direct selection ($afriend:configure), or a request naming afriend that asks to inspect or change guided setup, review profiles, provider defaults, model selection, or review-context policy. Do not change settings without an exact requested change, and do not use for generic configuration questions unrelated to afriend.
+description: 'Use for an explicit afriend setup or configuration request - direct selection ($afriend:configure), or a request naming afriend that asks to inspect or change guided setup, review profiles, provider defaults, model selection, or review-context policy. Do not change settings without an exact requested change, and do not use for generic configuration questions unrelated to afriend.'
 ---
 
 # afriend configure

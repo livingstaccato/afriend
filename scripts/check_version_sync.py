@@ -23,6 +23,7 @@ MANIFESTS = [
     Path("plugins/.claude-plugin/marketplace.json"),
     Path("plugins/afriend/.claude-plugin/plugin.json"),
     CODEX_MANIFEST,
+    Path("plugins/afriend/.kimi-plugin/plugin.json"),
 ]
 COMPATIBILITY_PROJECTS = (
     (
