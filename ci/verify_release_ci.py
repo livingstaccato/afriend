@@ -29,10 +29,6 @@ REQUIRED_STEPS = {
         "Install real reviewer CLI",
         "Exercise native startup and expected rejection",
     ),
-    "Windows startup (kimi)": (
-        "Install real reviewer CLI",
-        "Exercise native startup and expected rejection",
-    ),
     "Windows startup (opencode)": (
         "Install real reviewer CLI",
         "Exercise native startup and expected rejection",

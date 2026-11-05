@@ -63,20 +63,19 @@ updated independently.
 
 ## Windows notes
 
-CI's five **Windows startup** jobs install the real Claude, Codex, Kimi Code,
-OpenCode, and Pi npm CLIs and execute them through afriend's resolver and process runner.
+CI's four **Windows startup** jobs install the real Claude, Codex, OpenCode,
+and Pi npm CLIs and execute them through afriend's resolver and process runner.
 Each checks version startup, advertised canonical option names, help startup,
 and a deliberately invalid enum value in the full canonical invocation, with
 a required nonzero exit and diagnostic. Checking option names separately is
 necessary because help and invalid enum values can short-circuit a CLI parser.
 Missing binaries, crashes, timeouts, and empty diagnostics fail the job. These
 are startup/argument checks with isolated credential-free profiles, not model
-calls or authenticated review tests. AGY and Ollama are outside this matrix.
+calls or authenticated review tests. AGY, Kimi Code and Ollama are outside this matrix.
 
 The default selector is `latest` on every run. Set repository Actions variables
 `AF_STARTUP_CLAUDE_VERSION`, `AF_STARTUP_CODEX_VERSION`,
-`AF_STARTUP_KIMI_VERSION`, `AF_STARTUP_OPENCODE_VERSION`, or
-`AF_STARTUP_PI_VERSION` only when an explicit
+`AF_STARTUP_OPENCODE_VERSION`, or `AF_STARTUP_PI_VERSION` only when an explicit
 version/range override is wanted. Remove an override to follow latest again.
 Artifacts named `windows-startup-<provider>` record the requested selector,
 installed npm versions, Node version, resolved executable, argv, stdout, stderr,

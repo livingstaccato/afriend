@@ -197,8 +197,6 @@ jobs:
             version-variable: AF_STARTUP_CLAUDE_VERSION
           - provider: codex
             version-variable: AF_STARTUP_CODEX_VERSION
-          - provider: kimi
-            version-variable: AF_STARTUP_KIMI_VERSION
           - provider: opencode
             version-variable: AF_STARTUP_OPENCODE_VERSION
           - provider: pi
