@@ -158,10 +158,13 @@ def main(argv: list[str] | None = None) -> int:
         if args.require_windows and sys.platform != "win32":
             raise RuntimeError("this gate requires native Windows; cannot skip or emulate it")
         adapter = load_adapters(ADAPTER_DIR)[args.provider]
-        executable = execresolve.safe_which(adapter.binary)
-        if not executable:
+        launcher = execresolve.launch_prefix(adapter.binary)
+        if not launcher:
             raise RuntimeError(f"required real CLI is not installed: {adapter.binary}")
-        report["executable"] = executable
+        # The same prefix build_argv uses, so `--version` exercises the exact
+        # launch path a review would (node + script for a Node-script shim).
+        report["executable"] = launcher[0]
+        report["launcher"] = launcher
         work = args.out.resolve() / "work"
         work.mkdir(exist_ok=True)
         # A run stages the adapter's digest-pinned assets into the friend's
@@ -181,7 +184,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         canonical, stdin_text, _ = build_argv(adapter, spec, prompt, schema_path(work), policy)
         cases = {
-            "version": ([executable, "--version"], "success", None),
+            "version": ([*launcher, "--version"], "success", None),
             "canonical-help": ([*canonical, "--help"], "success", None),
             "invalid-value": (
                 rejection_argv(canonical, PROVIDERS[args.provider]["invalid_option"]),
