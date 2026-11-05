@@ -15,6 +15,7 @@ from afriend.authority import ExternalToolPolicy
 from afriend.claimschema import schema_path
 from afriend.paths import ADAPTER_DIR
 from afriend.spawn import run_process
+from afriend.workspaceassets import stage_workspace_assets
 
 
 class StartupFailure(RuntimeError):
@@ -163,6 +164,9 @@ def main(argv: list[str] | None = None) -> int:
         report["executable"] = executable
         work = args.out.resolve() / "work"
         work.mkdir(exist_ok=True)
+        # A run stages the adapter's digest-pinned assets into the friend's
+        # workspace before launch; kimi reads its --agent-file even for --help.
+        stage_workspace_assets(adapter.workspace_assets, work)
         env = isolated_environment(args.out.resolve() / "profile")
         prompt = work / "review.txt"
         prompt.write_text(

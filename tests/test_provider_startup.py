@@ -302,3 +302,18 @@ def test_opencode_accepts_only_its_previously_measured_help_prefix(tmp_path):
             diagnostic_regex=MODULE.PROVIDERS["opencode"]["rejection_regex"],
             diagnostic_prefix="different unmeasured help",
         )
+
+
+def test_startup_stages_workspace_assets_before_any_launch(monkeypatch, tmp_path):
+    # kimi 2.5.0 on Windows CI: `--agent-file` is read even with `--help`, so an
+    # unstaged reviewer profile failed the gate with ENOENT before parsing.
+    seen = []
+
+    def fake_launch(command, cwd, env, **kwargs):
+        seen.append((cwd / ".afriend-kimi/afriend-reviewer.md").is_file())
+        raise MODULE.StartupFailure("stop", {"argv": command})
+
+    monkeypatch.setattr(MODULE.execresolve, "safe_which", lambda name: sys.executable)
+    monkeypatch.setattr(MODULE, "check_launch", fake_launch)
+    assert MODULE.main(["--provider", "kimi", "--out", str(tmp_path)]) == 1
+    assert seen == [True]
